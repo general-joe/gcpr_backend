@@ -1,6 +1,11 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import pg from "pg";
+/** @type {import('@prisma/client').PrismaClient} */
+import dotenv from "dotenv";
+
+dotenv.config();
+
 // Create a PostgreSQL pool
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
@@ -12,7 +17,6 @@ const adapter = new PrismaPg(pool);
 // Shared Prisma client instance
 const globalForPrisma = globalThis;
 
-/** @type {import('@prisma/client').PrismaClient} */
 const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
