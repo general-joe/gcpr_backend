@@ -100,7 +100,7 @@ model User {
   serviceProvider serviceProvider?
   caregiver       CareGiver?
 
-  refreshToken        RefreshToken?
+  refreshToken        RefreshToken[]
   passwordResetTokens PasswordResetToken[]
 }
 
@@ -116,31 +116,23 @@ model OTP {
 }
 
 model RefreshToken {
-  id         String    @id @default(uuid())
-  tokenHash  String    @unique // store hash(plaintextToken)
-  userId     String    @unique
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  deviceInfo String? // optional metadata: device id, name
-  ip         String?
-  userAgent  String?
-  createdAt  DateTime  @default(now())
-  expiresAt  DateTime
-  revokedAt  DateTime?
-  replacedBy String? // tokenHash (or id) of the token that replaced this one
-  reason     String? // optional revoke reason
-
-  @@index([userId])
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
 }
 
+
 model PasswordResetToken {
-  id        String    @id @default(uuid())
-  tokenHash String    @unique
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
   userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
   expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
-  ip        String?
+  usedAt    DateTime? // optional to track if it has been used
 }
 
 model serviceProvider {
