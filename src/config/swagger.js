@@ -1,4 +1,6 @@
+
 import swaggerJsdoc from "swagger-jsdoc";
+import '../modules/auth/auth.swagger.js';
 
 const getServerUrls = () => {
 	return [
