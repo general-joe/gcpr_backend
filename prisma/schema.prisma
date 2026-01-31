@@ -13,9 +13,26 @@ datasource db {
 }
 
 // Define your database models here and run `prisma migrate dev` to create migrations,
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum Relationship {
+  PARENT
+  GUARDIAN
+  SIBLING
+  OTHER
+}
+
 enum Role {
   SERVICE_PROVIDER
   CAREGIVER
+}
+
+enum CaregiverType {
+  GROUP
+  INDIVIDUAL
 }
 
 enum LicenseStatus {
@@ -80,15 +97,49 @@ model User {
   updatedAt       DateTime         @updatedAt
   otp             OTP?
   serviceProvider serviceProvider?
-  caregiver       Caregiver?
+  caregiver       CareGiver?
+
+  refreshToken        RefreshToken?
+  passwordResetTokens PasswordResetToken[]
 }
 
 model OTP {
-  id        String   @id @default(uuid())
-  code      String
+  id         String    @id @default(uuid())
+  codeHash   String
+  userId     String    @unique
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  attempts   Int       @default(0) // increment per wrong attempt
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid())
+  tokenHash  String    @unique // store hash(plaintextToken)
+  userId     String    @unique
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceInfo String? // optional metadata: device id, name
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  replacedBy String? // tokenHash (or id) of the token that replaced this one
+  reason     String? // optional revoke reason
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  ip        String?
 }
 
 model serviceProvider {
@@ -114,22 +165,51 @@ model serviceProvider {
   updatedAt  DateTime @updatedAt
 }
 
-model Caregiver {
-  id                    String          @id @default(uuid())
-  userId                String          @unique
-  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  occupation            String
-  educationLevel        EducationLevel?
-  idType                IdType?
-  idNumber              String
+model CareGiver {
+  id     String        @id @default(uuid())
+  type   CaregiverType
+  userId String?       @unique // only set for INDIVIDUAL
+  user   User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // individual fields
+  occupation     String?
+  educationLevel EducationLevel?
+  idType         IdType?
+  idNumber       String?
+
+  // group fields
   nameOfGroup           String?
   locationOfGroup       String?
   groupContact          String?
   groupDigitalAddress   String?
   groupEmail            String?
-  managerName           String?
+  ManagerName           String?
+  managerContact        String?
   verificationDocuments String[]
+  isVerified            Boolean  @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  cpPatients cpPatient[]
+}
+
+model cpPatient {
+  id                      String       @id @default(uuid())
+  fullName                String
+  dateOfBirth             DateTime
+  age                     Int
+  gender                  Gender
+  address                 String
+  placeOfBirth            String
+  birthWeight             Float?
+  numberOfSiblings        Int?
+  caregiverId             String
+  caregiver               CareGiver    @relation(fields: [caregiverId], references: [id], onDelete: Cascade)
+  relationToCaregiver     Relationship
+  householdSize           Int
+  schoolEnrollmmentStatus Boolean      @default(false)
+  typeOfSchool            String?
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
 }
