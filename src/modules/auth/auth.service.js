@@ -1,7 +1,6 @@
 import prisma from '../../config/database.js';
 import { hash, compare  } from '../../utils/password.js';
 import UtilFunctions from '../../utils/UtilFunctions.js';
-import { validateData } from '../../middlewares/validation.js';
 import HttpStatus from '../../utils/http-status.js';
 
 class AuthService {
