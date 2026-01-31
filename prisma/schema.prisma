@@ -93,6 +93,7 @@ model User {
   phoneNumber     String
   gender          String
   role            Role
+  profileImage    String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   otp             OTP?
