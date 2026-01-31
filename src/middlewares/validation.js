@@ -1,6 +1,6 @@
 
 import { ZodError } from 'zod';
-import catchAsync from '../utils/catchAsync.js';
+import catchAsync from './catchAsync.js';
 
 /**
  * Validation middleware factory
