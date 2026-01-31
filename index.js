@@ -4,6 +4,7 @@
 import dotenv from 'dotenv'
 import app from './src/server.js'
 import cron from 'node-cron'
+import WRITE from './src/utils/logger.js'
 // import CronService from './server/services/cron/CronService.js'
 dotenv.config()
 

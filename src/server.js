@@ -27,22 +27,28 @@ dotenv.config()
 
 const app = express()
 
-// Serve Swagger docs
-app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
-app.get('/docs.json', (req, res) => res.json(swaggerSpec))
-
-app.use(router)
-
 global.WRITE = WRITE
 global.CONSTANTS = CONSTANTS
 global.MOMENT = MOMENT
 global._ = _
 global.gcprError = gcprError
 
+
+
 app.use(compression())
+app.use(express.json()); 
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser())
 app.use(express.static(path.join(__dirname, './files')))
 app.use(morgan("dev"));
+
+// Serve Swagger docs
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
+app.get('/docs.json', (req, res) => res.json(swaggerSpec))
+
+app.use(router)
+
+
 
 
 app.get('/', (req, res) => {
@@ -71,6 +77,31 @@ app.use(bodyParser.json({
     limit: '50mb',
     extended: true
 }))
+
+app.use((err, req, res, next) => {
+  // Known HTTP errors (your custom errors)
+  if (err instanceof gcprError) {
+    return res.status(err.status || 400).json({
+      status: err.status || 400,
+      message: err.message,
+    });
+  }
+
+  // Prisma errors
+  if (err?.name?.includes('Prisma')) {
+    return res.status(500).json({
+      status: 500,
+      message: 'Database error',
+    });
+  }
+
+  // Fallback (unknown errors)
+  return res.status(500).json({
+    status: 500,
+    message: err.message || 'Internal server error',
+  });
+});
+
 
 
 
