@@ -3,6 +3,7 @@ import compression from 'compression'
 import express from 'express'
 import cookieParser from 'cookie-parser'
 import bodyParser from 'body-parser'
+import morgan from 'morgan'
 import cors from 'cors'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -34,6 +35,8 @@ global.gcprError = gcprError
 app.use(compression())
 app.use(cookieParser())
 app.use(express.static(path.join(__dirname, './files')))
+app.use(morgan("dev"));
+
 
 app.get('/', (req, res) => {
     res.send({
