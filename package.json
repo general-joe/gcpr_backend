@@ -22,9 +22,11 @@
     "cors": "^2.8.6",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "got": "^14.6.6",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.17.2",
     "prisma": "^7.3.0",
+    "rand-token": "^1.0.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1"
   }
