@@ -16,13 +16,20 @@ import MOMENT from 'moment'
 import _ from 'lodash'
 import gcprError from './utils/http-error.js'
 import router from './routes/index.route.js'
+import swaggerUi from 'swagger-ui-express'
+import swaggerSpec from './config/swagger.js'
 
 // ROUTING
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 dotenv.config()
+
 const app = express()
+
+// Serve Swagger docs
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
+app.get('/docs.json', (req, res) => res.json(swaggerSpec))
 
 app.use(router)
 
