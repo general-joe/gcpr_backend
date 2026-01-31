@@ -53,11 +53,11 @@ export default {
     DOCS: {
         openapi: '3.0.0',
         info: {
-            title: 'UrbanDrop API',
-            description: 'UrbanDrop API Documentation. `x-api-key` is always needed in the headers. Bearer' +
+            title: 'GCPR API',
+            description: 'GCPR API Documentation. `x-api-key` is always needed in the headers. Bearer' +
                 ' authentication (`Authorization`) is required only for authenticated routes.',
             contact: {
-                email: 'Samuelmanueljnr@gmail.com'
+                email: 'samuelmanueljnr@gmail.com'
             },
             version: '1.0.0'
         },
