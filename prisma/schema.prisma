@@ -6,8 +6,6 @@
 
 generator client {
   provider = "prisma-client-js"
-    
- 
 }
 
 datasource db {
@@ -18,26 +16,71 @@ datasource db {
 enum Role {
   SERVICE_PROVIDER
   CAREGIVER
-  INDIVIDUAL
+}
+
+enum LicenseStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum EducationLevel {
+  BASIC
+  HIGHSCHOOL
+  TERTIARY
+}
+
+enum IdType {
+  NATIONAL_ID
+  PASSPORT
+  DRIVER_LICENSE
+  ECOWAS_ID
+}
+
+enum Profession {
+  GENERAL_PAEDIATRICIAN
+  DEVELOPMENTAL_PAEDIATRICIAN
+  PAEDIATRIC_NEUROLOGIST
+  NEURODEVELOPMENTAL_PAEDIATRICIAN
+  REHABILITATION_PAEDIATRICIAN
+  PHYSIOTHERAPIST
+  OCCUPATIONAL_THERAPIST
+  SPEECH_THERAPIST
+  CLINICAL_PSYCHOLOGIST
+  DIETITIAN
+  PHARMACIST
+}
+
+enum FacilityType {
+  TERTIARY_TEACHING_HOSPITAL
+  REGIONAL_HOSPITAL
+  SECONDARY_HEALTH_CARE
+  PRIMARY_HEALTHCARE
+  CP_HOME
+}
+
+enum ProfessionalBody {
+  AHPC
+  MDC
+  PHCG
+  PSCG
 }
 
 model User {
-  id           String   @id @default(uuid())
-  fullName     String
-  email        String   @unique
-  password     String
-  dateOfBirth  DateTime?
-  address      String
-  phoneNumber  String
-  idVerification String
-  gender       String
-  age          Int
-  role         Role
-  isVerified   Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  otp          OTP?
+  id              String           @id @default(uuid())
+  fullName        String
+  email           String           @unique
+  password        String
+  dateOfBirth     DateTime?
+  address         String?
+  digitalAddress  String?
+  phoneNumber     String
+  gender          String
+  role            Role
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  otp             OTP?
+  serviceProvider serviceProvider?
+  caregiver       Caregiver?
 }
 
 model OTP {
@@ -48,4 +91,45 @@ model OTP {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model serviceProvider {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  licenseDetails    String[]
+  licenseNumber     String?
+  licenseImage      String?
+  licenseExpiry     DateTime
+  licenseIssuedBy   String?
+  licenseIssuedDate DateTime
+  licenseType       String
+  licenseStatus     LicenseStatus @default(INACTIVE)
+  profession        Profession
+  facilityType      FacilityType
+  facilityName      String
+  facilityAddress   String
+
+  experience Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Caregiver {
+  id                    String          @id @default(uuid())
+  userId                String          @unique
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  occupation            String
+  educationLevel        EducationLevel?
+  idType                IdType?
+  idNumber              String
+  nameOfGroup           String?
+  locationOfGroup       String?
+  groupContact          String?
+  groupDigitalAddress   String?
+  groupEmail            String?
+  managerName           String?
+  verificationDocuments String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
