@@ -7,6 +7,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "migrate": "pnpm exec prisma migrate dev --name init",
+    "start": "node ./index.js",
+    "dev": "nodemon ./index.js",
     "migrate:deploy": "pnpm exec prisma migrate deploy",
     "migrate:reset": "pnpm exec prisma migrate reset",
     "generate": "pnpm exec prisma generate"
@@ -29,7 +31,9 @@
     "jsonwebtoken": "^9.0.3",
     "lodash": "^4.17.23",
     "moment": "^2.30.1",
+    "morgan": "^1.10.1",
     "node-cron": "^4.2.1",
+    "nodemon": "^3.1.11",
     "pg": "^8.17.2",
     "prisma": "^7.3.0",
     "rand-token": "^1.0.1",

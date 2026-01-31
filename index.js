@@ -19,6 +19,6 @@ const port = process.env.PORT || 3000
 
 
 export default app.listen(port, () => {
-    WRITE.info(`Server is started at : ${port} `)
+    WRITE.info(`Server is started at : http://localhost:${port} `)
 })
 
