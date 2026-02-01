@@ -16,5 +16,11 @@ class AuthController {
         UtilFunctions.outputSuccess(res, result.message);
     });
 
+    static login = catchAsync(async (req, res) => {
+        const { email, password } = req.body;
+        const user = await AuthService.loginUser(email, password);
+        UtilFunctions.outputSuccess(res, user);
+    });
+
 }
 export default AuthController;
