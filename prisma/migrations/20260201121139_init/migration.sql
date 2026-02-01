@@ -1,17 +1,11 @@
-/*
-  Warnings:
-
-  - The values [INDIVIDUAL] on the enum `Role` will be removed. If these variants are still used in the database, this will fail.
-  - You are about to drop the column `age` on the `User` table. All the data in the column will be lost.
-  - You are about to drop the column `idVerification` on the `User` table. All the data in the column will be lost.
-  - You are about to drop the column `isVerified` on the `User` table. All the data in the column will be lost.
-
-*/
 -- CreateEnum
 CREATE TYPE "Gender" AS ENUM ('MALE', 'FEMALE');
 
 -- CreateEnum
 CREATE TYPE "Relationship" AS ENUM ('PARENT', 'GUARDIAN', 'SIBLING', 'OTHER');
+
+-- CreateEnum
+CREATE TYPE "Role" AS ENUM ('SERVICE_PROVIDER', 'CAREGIVER');
 
 -- CreateEnum
 CREATE TYPE "CaregiverType" AS ENUM ('GROUP', 'INDIVIDUAL');
@@ -34,21 +28,60 @@ CREATE TYPE "FacilityType" AS ENUM ('TERTIARY_TEACHING_HOSPITAL', 'REGIONAL_HOSP
 -- CreateEnum
 CREATE TYPE "ProfessionalBody" AS ENUM ('AHPC', 'MDC', 'PHCG', 'PSCG');
 
--- AlterEnum
-BEGIN;
-CREATE TYPE "Role_new" AS ENUM ('SERVICE_PROVIDER', 'CAREGIVER');
-ALTER TABLE "User" ALTER COLUMN "role" TYPE "Role_new" USING ("role"::text::"Role_new");
-ALTER TYPE "Role" RENAME TO "Role_old";
-ALTER TYPE "Role_new" RENAME TO "Role";
-DROP TYPE "public"."Role_old";
-COMMIT;
+-- CreateTable
+CREATE TABLE "User" (
+    "id" TEXT NOT NULL,
+    "fullName" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
+    "dateOfBirth" TIMESTAMP(3),
+    "address" TEXT,
+    "digitalAddress" TEXT,
+    "phoneNumber" TEXT NOT NULL,
+    "gender" TEXT NOT NULL,
+    "role" "Role" NOT NULL,
+    "profileImage" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
--- AlterTable
-ALTER TABLE "User" DROP COLUMN "age",
-DROP COLUMN "idVerification",
-DROP COLUMN "isVerified",
-ADD COLUMN     "digitalAddress" TEXT,
-ALTER COLUMN "address" DROP NOT NULL;
+    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Otp" (
+    "id" TEXT NOT NULL,
+    "codeHash" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "attempts" INTEGER NOT NULL DEFAULT 0,
+    "consumedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Otp_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "RefreshToken" (
+    "id" TEXT NOT NULL,
+    "tokenHash" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "RefreshToken_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PasswordResetToken" (
+    "id" TEXT NOT NULL,
+    "tokenHash" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "usedAt" TIMESTAMP(3),
+
+    CONSTRAINT "PasswordResetToken_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "serviceProvider" (
@@ -120,10 +153,31 @@ CREATE TABLE "cpPatient" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Otp_userId_key" ON "Otp"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "RefreshToken_tokenHash_key" ON "RefreshToken"("tokenHash");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PasswordResetToken_tokenHash_key" ON "PasswordResetToken"("tokenHash");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "serviceProvider_userId_key" ON "serviceProvider"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "CareGiver_userId_key" ON "CareGiver"("userId");
+
+-- AddForeignKey
+ALTER TABLE "Otp" ADD CONSTRAINT "Otp_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RefreshToken" ADD CONSTRAINT "RefreshToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PasswordResetToken" ADD CONSTRAINT "PasswordResetToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "serviceProvider" ADD CONSTRAINT "serviceProvider_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

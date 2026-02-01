@@ -92,16 +92,16 @@ class UtilFunctions {
         return autoId
     }
 
-    static generateAccessToken(payload) {
-  return jwt.sign(payload, process.env.JWT, {
-    algorithm: 'HS256',
-    expiresIn: '4h',
-  });
-}
+    static async tokenizeUser (user) {
+        user.token = jwt.sign({ id: user.id }, process.env.JWT, {
+            algorithm: 'HS256',
+            expiresIn: '4h'
+        })
 
-static generateRefreshToken() {
-  return randToken.uid(256);
-}
+        if (!user.refresh_token) {
+            user.refresh_token = randToken.uid(256)
+        }
+    }
 
     static getLimitOffset (query, keep = true) {
         const limitObj = {

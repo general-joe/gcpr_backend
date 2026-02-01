@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import authController from './auth.controller.js';
 import { validate } from '../../middlewares/validation.js';
 import signUpSchema from './signUp.validator.js';
+import upload from '../../middlewares/upload.js';
 
 const authRouter = express.Router();
 
@@ -17,7 +18,6 @@ const authRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-authRouter.post('/register', validate(signUpSchema), authController.registerUser);
+authRouter.post('/register', upload.fields([{name:'profileImage'}]) , validate(signUpSchema), authController.registerUser);
 authRouter.post('/verify-otp', authRateLimiter, authController.verifyOtp);
-authRouter.post('/login', authRateLimiter, authController.login);
 export default authRouter;

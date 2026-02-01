@@ -41,7 +41,7 @@
  *         profileImage:
  *           type: string
  *           nullable: true
- *
+ *         
  *     OTPVerification:
  *       type: object
  *       required:
@@ -54,19 +54,6 @@
  *         otp:
  *           type: string
  *           description: One-time password sent to the user's email
- *
- *     LoginRequest:
- *       type: object
- *       required:
- *         - email
- *         - password
- *       properties:
- *         email:
- *           type: string
- *           format: email
- *         password:
- *           type: string
- *           format: password
  *
  * /auth/register:
  *   post:
@@ -164,50 +151,4 @@
  *                   type: string
  *               example:
  *                 message: "OTP has expired. Please request a new one."
- *
- * /auth/login:
- *   post:
- *     summary: Login user
- *     tags:
- *       - Auth
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/LoginRequest'
- *     responses:
- *       200:
- *         description: Login successful
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 accessToken:
- *                   type: string
- *                 refreshToken:
- *                   type: string
- *                 user:
- *                   $ref: '#/components/schemas/User'
- *             example:
- *               accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
- *               refreshToken: "aVeryLongRefreshToken"
- *               user:
- *                 fullName: "Dr.Edmund Sackey"
- *                 email: "synxdevghana@gmail.com"
- *                 phoneNumber: "0241234567"
- *                 gender: "MALE"
- *                 role: "SERVICE_PROVIDER"
- *       401:
- *         description: Invalid credentials
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *               example:
- *                 message: "Invalid credentials"
  */

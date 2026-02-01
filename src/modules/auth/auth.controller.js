@@ -3,24 +3,22 @@ import AuthService from "./auth.service.js";
 import catchAsync from "../../middlewares/catchAsync.js";
 
 class AuthController {
-    static registerUser = catchAsync(async (req, res) => {
-        const userData = req.body;
-        console.log(req.body, userData)
-        const newUser = await AuthService.registerUser(userData);
-        UtilFunctions.outputSuccess(res, 'Check email for otp');
-    });
+  static registerUser = catchAsync(async (req, res) => {
+    console.log(req.body, req.files);
+    if (!_.has(req.files, "profileImage")) {
+      return UtilFunctions.outputError(res, "No selfie image specified");
+    }
 
-    static verifyOtp = catchAsync(async (req, res) => {
-        const { email, otp } = req.body;
-        const result = await AuthService.verifyOtp(email, otp);
-        UtilFunctions.outputSuccess(res, result.message);
-    });
+    const userData = { ...req.body, ...{ id: UtilFunctions.genId() } };
+    console.log(req.body, userData);
+    const newUser = await AuthService.registerUser(req, userData);
+    UtilFunctions.outputSuccess(res, "Check email for otp");
+  });
 
-    static login = catchAsync(async (req, res) => {
-        const { email, password } = req.body;
-        const user = await AuthService.loginUser(email, password);
-        UtilFunctions.outputSuccess(res, user);
-    });
-
+  static verifyOtp = catchAsync(async (req, res) => {
+    const { email, otp } = req.body;
+    const result = await AuthService.verifyOtp(email, otp);
+    UtilFunctions.outputSuccess(res, result.message);
+  });
 }
 export default AuthController;

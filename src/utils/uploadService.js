@@ -1,0 +1,77 @@
+import CONSTANTS from '../utils/constants.js'
+// import AWS from 'aws-sdk'
+import fs from 'fs'
+
+// const s3 = new AWS.S3({
+//     Bucket: CONSTANTS.BUCKET,
+//     signatureVersion: 'v4'
+// })
+
+class UploadService {
+    static async saveFile (buffer, filename, folder) {
+        // if (['ci', 'local'].includes(process.env.NODE_ENV)) return
+        try {
+            
+            fs.writeFileSync(`./src/files/${folder}/${filename}`, buffer)
+            return `${process.env.BASE_URL}/${folder}/${filename}`
+        } catch (error) {
+            console.log("File upload error",error)
+            return error
+        }
+    }
+
+    // static async uploadFile (file, filename, bucket = CONSTANTS.BUCKET) {
+    //     if (['ci', 'local'].includes(process.env.NODE_ENV)) return
+    //     const data = {
+    //         Key: `${process.env.NODE_ENV}/${filename}`,
+    //         Bucket: bucket,
+    //         Body: file.buffer,
+    //         ContentType: file.mimetype
+    //     }
+    //     await s3.putObject(data).promise()
+    // }
+
+    // static async uploadFileBuffer (buffer, filename, mimetype) {
+    //     if (['ci', 'local'].includes(process.env.NODE_ENV)) return
+    //     const data = {
+    //         Key: `${process.env.NODE_ENV}/${filename}`,
+    //         Bucket: CONSTANTS.BUCKET,
+    //         Body: buffer,
+    //         ContentType: mimetype
+    //     }
+    //     await s3.putObject(data).promise()
+    // }
+
+    // static async getSignedUrl (filename, bucket = CONSTANTS.BUCKET) {
+    //     if (['ci', 'local'].includes(process.env.NODE_ENV)) return filename
+    //     return s3.getSignedUrl('getObject', {
+    //         Key: `${process.env.NODE_ENV}/${filename}`,
+    //         Bucket: bucket,
+    //         Expires: 3600 * 5
+    //     })
+    // }
+
+    // static async deleteFile (filename, bucket = CONSTANTS.BUCKET) {
+    //     return s3.deleteObject({
+    //         Key: `${process.env.NODE_ENV}/${filename}`,
+    //         Bucket: bucket
+    //     }).promise()
+    // }
+
+    // static async downloadFile (filename, bucket = CONSTANTS.BUCKET) {
+    //     return s3.getObject({
+    //         Key: `${process.env.NODE_ENV}/${filename}`,
+    //         Bucket: bucket
+    //     }).promise()
+    // }
+
+    // static async listFiles (subdirectory = '') {
+    //     const params = {
+    //         Bucket: CONSTANTS.BUCKET,
+    //         Prefix: `${process.env.NODE_ENV}/${subdirectory}`
+    //     }
+    //     return s3.listObjectsV2(params).promise()
+    // }
+}
+
+export default UploadService
