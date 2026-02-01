@@ -17,8 +17,18 @@ class AuthController {
 
   static verifyOtp = catchAsync(async (req, res) => {
     const { email, otp } = req.body;
+
     const result = await AuthService.verifyOtp(email, otp);
-    UtilFunctions.outputSuccess(res, result.message);
+
+    return UtilFunctions.outputSuccess(res, {
+      message: 'Account verified successfully',
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      user: result.user,
+    });
   });
+
+
+
 }
 export default AuthController;

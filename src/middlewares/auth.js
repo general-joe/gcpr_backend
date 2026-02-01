@@ -8,20 +8,12 @@ import ResponseCodes from "../utils/responseCodes.js";
 export function Auth(rq, rs, next) {
   const token = rq.headers.authorization;
   const client = rq.headers["x-client"] || "web";
-  const key = rq.headers["x-api-key"];
+
   if (!token) {
     rs.locals.user = { id: null, role: "guest", client, is_guest: true };
     return next();
   }
-  if (key !== process.env.API_KEY) {
-    return UtilFunctions.outputError(
-      rs,
-      "Authorization token and API key are required for authentication",
-      {},
-      ResponseCodes.UNAUTHORIZED,
-      HttpStatus.UNAUTHORIZED,
-    );
-  }
+  
   WRITE.info(rq.method);
   WRITE.info(rq.baseUrl + rq.url);
   WRITE.info(rq.body);
@@ -63,18 +55,8 @@ export function Auth(rq, rs, next) {
 export function authorize(allowedRoles = []) {
   return (rq, rs, next) => {
     const authHeader = rq.headers.authorization;
-    const apiKey = rq.headers["x-api-key"];
+    
     const client = rq.headers["x-client"] || "web";
-
-    if (!apiKey || apiKey !== process.env.API_KEY) {
-      return UtilFunctions.outputError(
-        rs,
-        "Invalid API key",
-        {},
-        ResponseCodes.UNAUTHORIZED,
-        HttpStatus.UNAUTHORIZED,
-      );
-    }
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return UtilFunctions.outputError(
@@ -109,7 +91,7 @@ export function authorize(allowedRoles = []) {
         id: decoded.id,
         role: decoded.role,
         client,
-        is_guest: false,
+        is_guest: decoded.role === "guest",
       };
 
       return next();
