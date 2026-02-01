@@ -91,7 +91,7 @@ model User {
   address         String?
   digitalAddress  String?
   phoneNumber     String
-  gender          String
+  gender          Gender
   role            Role
   profileImage    String?
   createdAt       DateTime         @default(now())
@@ -99,7 +99,8 @@ model User {
   otp             Otp?
   serviceProvider serviceProvider?
   caregiver       CareGiver?
-
+  verified       Boolean          @default(false)
+  profileCompleted Boolean          @default(false)
   refreshToken        RefreshToken[]
   passwordResetTokens PasswordResetToken[]
 }

@@ -2,7 +2,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import authController from './auth.controller.js';
 import { validate } from '../../middlewares/validation.js';
-import signUpSchema from './signUp.validator.js';
+import {signUpSchema} from './signUp.validator.js';
 import upload from '../../middlewares/upload.js';
 
 const authRouter = express.Router();
