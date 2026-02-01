@@ -18,5 +18,5 @@ const authRateLimiter = rateLimit({
 });
 
 authRouter.post('/register', validate(signUpSchema), authController.registerUser);
-
+authRouter.post('/verify-otp', authRateLimiter, authController.verifyOtp);
 export default authRouter;

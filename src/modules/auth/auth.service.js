@@ -1,31 +1,102 @@
 import prisma from '../../config/database.js';
-import { hash, compare  } from '../../utils/password.js';
+import { hash, compare } from '../../utils/password.js';
 import UtilFunctions from '../../utils/UtilFunctions.js';
 import HttpStatus from '../../utils/http-status.js';
+import { sendEmail } from '../../utils/emailSmtp.js';
 
 class AuthService {
-    static async registerUser(userData) {
-        const checkUserAvailabilty = await prisma.user.findUnique({
-            where: {
-                email: userData.email,
-            },
-        });
+ static async registerUser(userData) {
+  const existingUser = await prisma.user.findUnique({
+    where: { email: userData.email },
+  });
 
-        if (checkUserAvailabilty) {
-            throw new gcprError(HttpStatus.CONFLICT, 'User with this email already exists');
-        }
-        const hashedPassword = await hash(userData.password);
-        const newUser = await prisma.user.create({
-            data: {
-                ...userData,
-                password: hashedPassword,
-                dateOfBirth: userData.dateOfBirth
-            ? new Date(userData.dateOfBirth)
-            : undefined,
-            },
-        });
-        return UtilFunctions._clearNulls(newUser);
-    }
+  if (existingUser) {
+    throw new gcprError(
+      HttpStatus.CONFLICT,
+      'User with this email already exists'
+    );
+  }
+
+  const hashedPassword = await hash(userData.password);
+
+  // Create user
+  const newUser = await prisma.user.create({
+    data: {
+      ...userData,
+      password: hashedPassword,
+      dateOfBirth: userData.dateOfBirth
+        ? new Date(userData.dateOfBirth)
+        : undefined,
+    },
+  });
+
+  // Generate OTP
+  const otpCode = UtilFunctions.genOTP();
+  const codeHash = await hash(otpCode);
+  const expiresAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000); // 2 days
+
+  // Insert OTP
+  const otpRecord = await prisma.otp.create({
+    data: {
+      codeHash,
+      expiresAt,
+      userId: newUser.id,
+    },
+  });
+
+  console.log('OTP record created:', otpRecord); // ✅ Verify it exists
+
+  // Send OTP via email
+  await sendEmail(newUser.email, 'otp', { otp: otpCode });
+
+  return {
+    message: 'Check your email for OTP verification',
+  };
+}
+
+  static async verifyOtp(email, otp) {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: { otp: true }, 
+  });
+
+  if (!user || !user.otp) {
+    throw new gcprError(HttpStatus.NOT_FOUND, 'User or OTP not found');
+  }
+
+  // Compare the hashed OTP
+  const validOtp = await compare(otp, user.otp.codeHash);
+  if (!validOtp) {
+    // Optional: increment attempts
+    await prisma.otp.update({
+      where: { id: user.otp.id },
+      data: { attempts: { increment: 1 } },
+    });
+    throw new gcprError(HttpStatus.UNAUTHORIZED, 'Invalid OTP');
+  }
+
+  // Check expiration
+  if (user.otp.expiresAt < new Date()) {
+    throw new gcprError(HttpStatus.GONE, 'OTP has expired');
+  }
+
+  // Delete OTP after successful verification
+  await prisma.otp.delete({
+    where: { id: user.otp.id },
+  });
+
+  // Send success email
+  const emailResult = await sendEmail(user.email, 'success', {
+    message: `${user.fullName}, your account has been successfully verified!`,
+  });
+
+
+
+  return {
+    message: 'OTP verified successfully',
+  };
+}
+
 }
 
 export default AuthService;

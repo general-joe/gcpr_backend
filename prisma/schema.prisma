@@ -96,7 +96,7 @@ model User {
   profileImage    String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
-  otp             OTP?
+  otp             Otp?
   serviceProvider serviceProvider?
   caregiver       CareGiver?
 
@@ -104,7 +104,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
 }
 
-model OTP {
+model Otp {
   id         String    @id @default(uuid())
   codeHash   String
   userId     String    @unique
