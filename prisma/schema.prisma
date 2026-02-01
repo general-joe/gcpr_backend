@@ -99,8 +99,7 @@ model User {
   otp             Otp?
   serviceProvider serviceProvider?
   caregiver       CareGiver?
-  verified       Boolean          @default(false)
-  profileCompleted Boolean          @default(false)
+
   refreshToken        RefreshToken[]
   passwordResetTokens PasswordResetToken[]
 }
