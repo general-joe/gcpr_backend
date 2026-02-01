@@ -6,7 +6,7 @@ node_modules
 logs
 /src/generated/prisma
 # files
-# src/files
+src/files
 
 
 .pnpm-store/
