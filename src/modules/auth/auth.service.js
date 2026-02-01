@@ -97,6 +97,49 @@ class AuthService {
   };
 }
 
+ static async loginUser(email, password) {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: {
+      caregiver: true,
+      serviceProvider: true,
+    },
+  });
+
+  if (!user) {
+    throw new gcprError(HttpStatus.NOT_FOUND, 'User not found');
+  }
+
+  const validPassword = await compare(password, user.password);
+  if (!validPassword) {
+    throw new gcprError(HttpStatus.UNAUTHORIZED, 'Invalid credentials');
+  }
+
+  // Access token
+  const accessToken = UtilFunctions.generateAccessToken({
+    id: user.id,
+    email: user.email,
+    role: user.role,
+  });
+
+  // Refresh token
+  const refreshToken = UtilFunctions.generateRefreshToken();
+
+  // Store hashed refresh token
+  await prisma.refreshToken.create({
+    data: {
+      tokenHash: await hash(refreshToken, 10),
+      userId: user.id,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7), // 7 days
+    },
+  });
+
+  return {
+    accessToken,
+    refreshToken,
+    user,
+  };
+}
 }
 
 export default AuthService;
