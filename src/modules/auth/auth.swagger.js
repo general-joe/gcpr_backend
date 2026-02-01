@@ -12,7 +12,6 @@
  *         - gender
  *         - role
  *       properties:
- *        
  *         fullName:
  *           type: string
  *         email:
@@ -42,7 +41,19 @@
  *         profileImage:
  *           type: string
  *           nullable: true
- *        
+ *         
+ *     OTPVerification:
+ *       type: object
+ *       required:
+ *         - email
+ *         - otp
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *         otp:
+ *           type: string
+ *           description: One-time password sent to the user's email
  *
  * /auth/register:
  *   post:
@@ -67,6 +78,14 @@
  *                   $ref: '#/components/schemas/User'
  *                 message:
  *                   type: string
+ *               example:
+ *                 user:
+ *                   fullName: "Dr.Edmund Sackey"
+ *                   email: "synxdevghana@gmail.com"
+ *                   phoneNumber: "0241234567"
+ *                   gender: "MALE"
+ *                   role: "SERVICE_PROVIDER"
+ *                 message: "Registration successful! OTP sent to your email."
  *       400:
  *         description: Validation error
  *         content:
@@ -76,4 +95,60 @@
  *               properties:
  *                 message:
  *                   type: string
+ *               example:
+ *                 message: "Email already exists."
+ *
+ * /auth/verify-otp:
+ *   post:
+ *     summary: Verify OTP for user registration or password reset
+ *     tags:
+ *       - Auth
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/OTPVerification'
+ *     responses:
+ *       200:
+ *         description: OTP verified successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *               example:
+ *                 message: "OTP verified successfully! Your account is now active."
+ *                 user:
+ *                   fullName: "Dr.Edmund Sackey"
+ *                   email: "synxdevghana@gmail.com"
+ *                   phoneNumber: "0241234567"
+ *                   gender: "MALE"
+ *                   role: "SERVICE_PROVIDER"
+ *       400:
+ *         description: Invalid OTP
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *               example:
+ *                 message: "Invalid OTP entered."
+ *       410:
+ *         description: OTP expired
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *               example:
+ *                 message: "OTP has expired. Please request a new one."
  */
