@@ -8,6 +8,7 @@ export default {
   BUS_DOC_BUCKET: "business-docs",
   VERIFY_BUCKET: "verifications",
   PROFILE_BUCKET: "profiles",
+  LICENSES_BUCKET: "licenses",
 
   MSG: {
     NO_PASS:

@@ -147,7 +147,7 @@ model serviceProvider {
   licenseExpiry     DateTime
   licenseIssuedBy   String?
   licenseIssuedDate DateTime
-  licenseType       String
+  licenseType       ProfessionalBody
   licenseStatus     LicenseStatus @default(INACTIVE)
   profession        Profession
   facilityType      FacilityType

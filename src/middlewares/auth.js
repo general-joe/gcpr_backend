@@ -76,7 +76,7 @@ export function authorize(allowedRoles = []) {
       if (!decoded?.id || !decoded?.role) {
         throw new Error("Invalid token payload");
       }
-
+     console.log("Decoded role:", decoded.role);
       if (!allowedRoles.includes(decoded.role)) {
         return UtilFunctions.outputError(
           rs,
