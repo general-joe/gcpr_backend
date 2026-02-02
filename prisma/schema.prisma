@@ -141,7 +141,6 @@ model serviceProvider {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  licenseDetails    String[]
   licenseNumber     String?
   licenseImage      String?
   licenseExpiry     DateTime
@@ -153,7 +152,7 @@ model serviceProvider {
   facilityType      FacilityType
   facilityName      String
   facilityAddress   String
-
+  licensePin        String
   experience Int
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

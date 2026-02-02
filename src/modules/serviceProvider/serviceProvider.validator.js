@@ -4,8 +4,7 @@ import { z } from "zod";
  * SERVICE PROVIDER PROFILE
  */
 export const serviceProviderProfileSchema = z.object({
-  licenseDetails: z.array(z.string()).min(1, "License details required"),
-
+  licensePin: z.string().min(8).max(8, "License pin is required"),
   licenseNumber: z.string().min(1, "License number is required"),
   licenseImage: z.string().optional(),
 

@@ -5,7 +5,6 @@ import constants from "../../utils/constants.js";
 
 export class ServiceProviderService {
   static async completeProfile(rq, serviceProviderData) {
-
     if (!_.isEmpty(rq.files)) {
       if (_.has(rq.files, "licenseImage")) {
         const fileName = `${serviceProviderData.userId}.jpg`;
@@ -15,7 +14,6 @@ export class ServiceProviderService {
           fileName,
           constants.LICENSES_BUCKET,
         );
-
       }
     }
     const completeProfile = await prisma.serviceProvider.create({
@@ -26,6 +24,16 @@ export class ServiceProviderService {
         licenseIssuedDate: new Date(rq.body.licenseIssuedDate),
       },
     });
+
+    const updateUserProfileCompleteField = await prisma.user.update({
+      where: {
+        id: serviceProviderData.userId,
+      },
+      data: {
+        profileCompleted: true,
+      },
+    });
+
     return completeProfile;
   }
 }
