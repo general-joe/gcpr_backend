@@ -28,7 +28,15 @@ class AuthController {
     });
   });
 
-
-
+  static login = catchAsync(async (req, res) => {
+    const { email, password } = req.body;
+    const result = await AuthService.loginUser(email, password);
+    UtilFunctions.outputSuccess(res, {
+      message: 'Login successful',
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      user: result.user,
+    });
+  });
 }
 export default AuthController;
