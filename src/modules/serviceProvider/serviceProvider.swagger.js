@@ -5,7 +5,7 @@
  *     ServiceProviderProfile:
  *       type: object
  *       required:
- *         - licenseDetails
+ *         - licensePin
  *         - licenseNumber
  *         - licenseExpiry
  *         - licenseIssuedDate
@@ -16,15 +16,10 @@
  *         - facilityAddress
  *         - experience
  *       properties:
- *         licenseDetails:
- *           type: array
- *           items:
- *             type: string
- *           minItems: 1
- *
  *         licenseNumber:
  *           type: string
- *
+ *         licensePin:
+ *           type: string
  *         licenseImage:
  *           type: string
  *           nullable: true
