@@ -46,6 +46,7 @@ class AuthService {
 
   // Generate OTP
   const otpCode = UtilFunctions.genOTP();
+  console.log('Generated OTP:', otpCode); // ✅ Verify OTP generation
   const codeHash = await hash(otpCode);
   const expiresAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000); // 2 days
 

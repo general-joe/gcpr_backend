@@ -5,7 +5,6 @@ node_modules
 
 logs
 /src/generated/prisma
-
 src/files
 
 
