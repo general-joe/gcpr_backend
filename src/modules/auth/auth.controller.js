@@ -12,7 +12,8 @@ class AuthController {
     const userData = { ...req.body, ...{ id: UtilFunctions.genId() } };
     console.log(req.body, userData);
     const newUser = await AuthService.registerUser(req, userData);
-    UtilFunctions.outputSuccess(res, "Check email for otp");
+     
+    UtilFunctions.outputSuccess(res, {message:"Check email for otp",otp:newUser});
   });
 
   static verifyOtp = catchAsync(async (req, res) => {

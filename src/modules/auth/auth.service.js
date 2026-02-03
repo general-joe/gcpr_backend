@@ -64,9 +64,7 @@ class AuthService {
   // Send OTP via email
   await sendEmail(newUser.email, 'otp', { otp: otpCode });
 
-  return {
-    message: 'Check your email for OTP verification',
-  };
+  return otpCode
 }
 
   static async verifyOtp(email, otp) {
