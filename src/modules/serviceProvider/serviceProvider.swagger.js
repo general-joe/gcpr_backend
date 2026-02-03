@@ -15,6 +15,7 @@
  *         - facilityName
  *         - facilityAddress
  *         - experience
+ *         - licenseImage
  *       properties:
  *         licenseNumber:
  *           type: string
@@ -22,7 +23,7 @@
  *           type: string
  *         licenseImage:
  *           type: string
- *           nullable: true
+ *           format: binary
  *
  *         licenseIssuedBy:
  *           type: string
@@ -30,11 +31,11 @@
  *
  *         licenseExpiry:
  *           type: string
- *           format: date-time
+ *           format: date
  *
  *         licenseIssuedDate:
  *           type: string
- *           format: date-time
+ *           format: date
  *
  *         licenseType:
  *           type: string
@@ -74,6 +75,7 @@
  *           type: integer
  *           minimum: 0
  */
+
 /**
  * @openapi
  * /service-provider/complete-profile:
@@ -81,10 +83,12 @@
  *     summary: Complete service provider profile
  *     tags:
  *       - Service Providers
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             $ref: '#/components/schemas/ServiceProviderProfile'
  *     responses:
@@ -92,10 +96,13 @@
  *         description: Service provider profile created successfully
  *         content:
  *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ServiceProviderProfile'
+ *             example:
+ *               status: SUCCESS
+ *               message: Service provider profile completed
  *       '400':
  *         description: Validation error
+ *       '401':
+ *         description: Unauthorized
  *       '500':
  *         description: Internal server error
  */
