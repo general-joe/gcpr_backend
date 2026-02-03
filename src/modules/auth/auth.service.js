@@ -95,21 +95,24 @@ class AuthService {
     throw new gcprError(HttpStatus.GONE, 'OTP has expired');
   }
 
-  // Update user as verified
   await prisma.user.update({
-    where: { id: user.id },
-    data: { verified: true },
-  });
+  where: { id: user.id },
+  data: { verified: true },
+});
 
-  // Delete OTP after successful verification
-  await prisma.otp.delete({
-    where: { id: user.otp.id },
-  });
+await prisma.otp.delete({
+  where: { id: user.otp.id },
+});
+
+const updatedUser = await prisma.user.findUnique({
+  where: { id: user.id },
+});
+
 
   const accessToken = UtilFunctions.generateAccessToken({
-    id: user.id,
-    email: user.email,
-    role: user.role,
+    id: updatedUser.id,
+    email: updatedUser.email,
+    role: updatedUser.role,
   });
 
 const refreshToken = UtilFunctions.generateRefreshToken();
@@ -131,12 +134,45 @@ const refreshToken = UtilFunctions.generateRefreshToken();
   return {
     accessToken,
     refreshToken,
-    user
+    user: updatedUser
   };
 }
 
- 
+static async loginUser(email, password) {
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
 
+  if (!user) {
+    throw new gcprError(HttpStatus.NOT_FOUND, 'User not found');
+  }
+
+  const validPassword = await compare(password, user.password);
+  if (!validPassword) {
+    throw new gcprError(HttpStatus.UNAUTHORIZED, 'Invalid credentials');
+  }
+
+  const accessToken = UtilFunctions.generateAccessToken({
+    id: user.id,
+    email: user.email,
+    role: user.role,
+  });
+  
+  const refreshToken = UtilFunctions.generateRefreshToken();
+  await prisma.refreshToken.create({
+    data: {
+      tokenHash: await hash(refreshToken, 10),
+      userId: user.id,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7), // 7 days
+    },
+  });
+
+  return {
+    accessToken,
+    refreshToken,
+    user
+  };
+}
 }
 
 export default AuthService;
