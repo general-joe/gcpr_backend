@@ -16,21 +16,38 @@ const getServerUrls = () => {
 };
 
 const swaggerOptions = {
-	definition: {
-		openapi: "3.0.0",
-		info: {
-			title: "GCPR API",
-			version: "1.0.0",
-			description: "GCPR - API documentation",
-		},
-		servers: getServerUrls(),
-	},
-	apis: [
-		"./src/routes/*.js",
-		"./src/modules/*/routes.js",
-		"./src/modules/*/*.route.js",
-		"./src/modules/**/*.swagger.js",
-	],
+  definition: {
+    openapi: "3.0.0",
+    info: {
+      title: "GCPR API",
+      version: "1.0.0",
+      description: "GCPR - API documentation",
+    },
+    servers: getServerUrls(),
+
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
+      },
+    },
+
+    security: [
+      {
+        bearerAuth: [],
+      },
+    ],
+  },
+
+  apis: [
+    "./src/routes/*.js",
+    "./src/modules/*/routes.js",
+    "./src/modules/*/*.route.js",
+    "./src/modules/**/*.swagger.js",
+  ],
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
