@@ -25,9 +25,6 @@
  *           nullable: true
  *         verified:
  *           type: boolean
- *         otpChannel:
- *           type: string
- *           enum: [sms, email]
  *
  *     RegisterRequest:
  *       type: object
@@ -39,6 +36,7 @@
  *         - gender
  *         - role
  *         - otpChannel
+ *         - profileImage
  *       properties:
  *         fullName:
  *           type: string
@@ -48,6 +46,7 @@
  *         password:
  *           type: string
  *           format: password
+ *           minLength: 6
  *         phoneNumber:
  *           type: string
  *         gender:
@@ -69,6 +68,7 @@
  *         profileImage:
  *           type: string
  *           format: binary
+ *           description: Selfie/profile image (required)
  *         otpChannel:
  *           type: string
  *           enum: [sms, email]
@@ -112,6 +112,9 @@
  * /auth/register:
  *   post:
  *     summary: Register a new user
+ *     description: >
+ *       Registers a new user and sends an OTP via the selected channel (SMS or Email).
+ *       Profile image (selfie) is required.
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -123,7 +126,7 @@
  *       201:
  *         description: Registration successful, OTP sent
  *       409:
- *         description: Email already exists
+ *         description: User with this email or phone number already exists
  *
  * /auth/verify-otp:
  *   post:

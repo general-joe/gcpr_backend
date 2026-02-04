@@ -84,8 +84,8 @@ class AuthService {
       default:
         break;
     }
+    return { otpChannel: otpMode };
 
-    // Send OTP via email
   }
 
   static async verifyOtp(email, otp) {

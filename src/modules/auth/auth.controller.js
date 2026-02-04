@@ -1,19 +1,25 @@
 import UtilFunctions from "../../utils/UtilFunctions.js";
 import AuthService from "./auth.service.js";
 import catchAsync from "../../middlewares/catchAsync.js";
-
+import constants from "../../utils/constants.js";
 class AuthController {
-  static registerUser = catchAsync(async (req, res) => {
-    console.log(req.body, req.files);
-    if (!_.has(req.files, "profileImage")) {
-      return UtilFunctions.outputError(res, "No selfie image specified");
-    }
+ static registerUser = catchAsync(async (req, res) => {
+    const userData = {
+      ...req.body,
+      id: UtilFunctions.genId(),
+    };
 
-    const userData = { ...req.body, ...{ id: UtilFunctions.genId() } };
-    console.log(req.body, userData);
-    const newUser = await AuthService.registerUser(req, userData);
-     
-    UtilFunctions.outputSuccess(res, {message:"Check email for otp",otp:newUser});
+    const result = await AuthService.registerUser(req, userData);
+
+    const message =
+      result.otpChannel === constants.OTP_MODES.SMS
+        ? "Registration successful. An OTP has been sent to your phone number."
+        : "Registration successful. An OTP has been sent to your email address.";
+
+    return UtilFunctions.outputSuccess(res, {
+      message,
+      otpChannel: result.otpChannel,
+    });
   });
 
   static verifyOtp = catchAsync(async (req, res) => {
