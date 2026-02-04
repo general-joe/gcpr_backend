@@ -14,6 +14,7 @@ export const signUpSchema = z.object({
   gender: z.enum(['MALE', 'FEMALE'], 'Gender must be MALE or FEMALE'),
   role: z.enum(['SERVICE_PROVIDER', 'CAREGIVER']),
   profileImage: z.string().optional(),
+  otpChannel:z.enum(['sms','email'])
 });
 
 

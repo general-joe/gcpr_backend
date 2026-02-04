@@ -25,6 +25,9 @@
  *           nullable: true
  *         verified:
  *           type: boolean
+ *         otpChannel:
+ *           type: string
+ *           enum: [sms, email]
  *
  *     RegisterRequest:
  *       type: object
@@ -35,7 +38,7 @@
  *         - phoneNumber
  *         - gender
  *         - role
- *         - profileImage
+ *         - otpChannel
  *       properties:
  *         fullName:
  *           type: string
@@ -66,6 +69,9 @@
  *         profileImage:
  *           type: string
  *           format: binary
+ *         otpChannel:
+ *           type: string
+ *           enum: [sms, email]
  *
  *     OTPVerification:
  *       type: object
@@ -116,14 +122,6 @@
  *     responses:
  *       201:
  *         description: Registration successful, OTP sent
- *         content:
- *           application/json:
- *             example:
- *               status: SUCCESS
- *               data: 
- *                  message: "Check email for otp"
- *                  otp: "230012"
- *               message: "Completed successfully"
  *       409:
  *         description: Email already exists
  *
