@@ -166,4 +166,6 @@ export default {
     SORT_CODE: /^[0-9]{6}$/,
     ACCOUNT_NUMBER: /^[0-9]{8}$/,
   },
+
+
 };

@@ -90,7 +90,7 @@ model User {
   dateOfBirth     DateTime?
   address         String?
   digitalAddress  String?
-  phoneNumber     String
+  phoneNumber     String           @unique
   gender          Gender
   role            Role
   profileImage    String?
