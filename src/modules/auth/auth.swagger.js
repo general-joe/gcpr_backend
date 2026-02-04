@@ -1,6 +1,12 @@
 /**
  * @openapi
  * components:
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ *
  *   schemas:
  *     User:
  *       type: object
@@ -97,6 +103,29 @@
  *         password:
  *           type: string
  *
+ *     ForgotPasswordRequest:
+ *       type: object
+ *       required:
+ *         - email
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *
+ *     ResetPasswordRequest:
+ *       type: object
+ *       required:
+ *         - token
+ *         - newPassword
+ *       properties:
+ *         token:
+ *           type: string
+ *           description: Password reset token
+ *         newPassword:
+ *           type: string
+ *           format: password
+ *           minLength: 6
+ *
  *     AuthResponse:
  *       type: object
  *       properties:
@@ -169,4 +198,38 @@
  *               $ref: '#/components/schemas/AuthResponse'
  *       401:
  *         description: Invalid credentials
+ *
+ * /auth/forgot-password:
+ *   post:
+ *     summary: Request password reset
+ *     description: Sends a password reset link or token to the user's email
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ForgotPasswordRequest'
+ *     responses:
+ *       200:
+ *         description: Password reset instructions sent
+ *       404:
+ *         description: User not found
+ *
+ * /auth/reset-password:
+ *   post:
+ *     summary: Reset password
+ *     description: Resets the user's password using a valid reset token
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ResetPasswordRequest'
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ *       400:
+ *         description: Invalid or expired reset token
  */
