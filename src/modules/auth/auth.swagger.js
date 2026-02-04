@@ -120,7 +120,10 @@
  *           application/json:
  *             example:
  *               status: SUCCESS
- *               message: Check email for otp
+ *               data: 
+ *                  message: "Check email for otp"
+ *                  otp: "230012"
+ *               message: "Completed successfully"
  *       409:
  *         description: Email already exists
  *

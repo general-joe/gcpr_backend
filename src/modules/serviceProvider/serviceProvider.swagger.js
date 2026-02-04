@@ -99,6 +99,24 @@
  *             example:
  *               status: SUCCESS
  *               message: Service provider profile completed
+ *               data:
+ *                 id: b335fb7d-4c2d-4e17-9187-4cd3963cd477
+ *                 userId: 02ELa6GTAXdfg7ESEsjF
+ *                 licenseNumber: "12341234"
+ *                 licenseImage: "http://localhost:3000/licenses/02ELa6GTAXdfg7ESEsjF.jpg"
+ *                 licenseExpiry: "2030-04-11T00:00:00.000Z"
+ *                 licenseIssuedBy: "gov"
+ *                 licenseIssuedDate: "2005-03-09T00:00:00.000Z"
+ *                 licenseType: "MDC"
+ *                 licenseStatus: "INACTIVE"
+ *                 profession: "GENERAL_PAEDIATRICIAN"
+ *                 facilityType: "REGIONAL_HOSPITAL"
+ *                 facilityName: "kukus"
+ *                 facilityAddress: "kumasi"
+ *                 licensePin: "54212303"
+ *                 experience: 2
+ *                 createdAt: "2026-02-02T20:42:31.223Z"
+ *                 updatedAt: "2026-02-02T20:42:31.223Z"
  *       '400':
  *         description: Validation error
  *       '401':
