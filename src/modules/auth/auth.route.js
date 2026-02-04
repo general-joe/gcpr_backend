@@ -21,4 +21,20 @@ const authRateLimiter = rateLimit({
 authRouter.post('/register', upload.fields([{name:'profileImage'}]) , validate(signUpSchema), authController.registerUser);
 authRouter.post('/verify-otp', authRateLimiter, authController.verifyOtp);
 authRouter.post('/login', authRateLimiter, authController.login);
+
+authRouter.post(
+  '/forgot-password',
+  authRateLimiter,
+  authController.forgotPassword
+);
+
+authRouter.post(
+  '/reset-password',
+  authRateLimiter,
+  authController.resetPassword
+);
+
+
+
+
 export default authRouter;

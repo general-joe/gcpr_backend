@@ -173,6 +173,75 @@ static async loginUser(email, password) {
     user
   };
 }
+
+static async fogotPassword(email) {
+  // Implementation for forgot password
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
+  if (!user) {
+    throw new gcprError(HttpStatus.NOT_FOUND, 'User not found');
+  }
+
+  const otpCode = UtilFunctions.genOTP();
+  const codeHash = await hash(otpCode);
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+  //remove existing otp if any
+  await prisma.otp.deleteMany({
+    where: { userId: user.id },
+  });
+
+  await prisma.otp.create({
+    data: {
+      codeHash,
+      expiresAt,
+      userId: user.id,
+    },
+  });
+
+  await sendEmail(user.email, 'reset-password', { otp: otpCode });
+
+  return { message: 'Password reset OTP sent to email' };
+
+
+}
+
+static async resetPassword(email, otp, newPassword) {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: { otp: true },
+  });
+
+  if (!user || !user.otp) {
+    throw new gcprError(HttpStatus.NOT_FOUND, 'OTP not found');
+  }
+
+  const validOtp = await compare(otp, user.otp.codeHash);
+  if (!validOtp) {
+    throw new gcprError(HttpStatus.UNAUTHORIZED, 'Invalid OTP');
+  }
+
+  if (user.otp.expiresAt < new Date()) {
+    throw new gcprError(HttpStatus.GONE, 'OTP expired');
+  }
+
+  const hashedPassword = await hash(newPassword);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { password: hashedPassword },
+  });
+
+  await prisma.otp.delete({
+    where: { id: user.otp.id },
+  });
+
+  return { message: 'Password reset successful' };
+}
+
+
+
+
 }
 
 export default AuthService;
