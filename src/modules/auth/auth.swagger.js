@@ -37,13 +37,11 @@
  *       type: object
  *       required:
  *         - fullName
- *         - email
  *         - password
  *         - phoneNumber
  *         - gender
  *         - role
  *         - otpChannel
- *         - profileImage
  *       properties:
  *         fullName:
  *           type: string
