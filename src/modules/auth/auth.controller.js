@@ -2,8 +2,9 @@ import UtilFunctions from "../../utils/UtilFunctions.js";
 import AuthService from "./auth.service.js";
 import catchAsync from "../../middlewares/catchAsync.js";
 import constants from "../../utils/constants.js";
+
 class AuthController {
- static registerUser = catchAsync(async (req, res) => {
+  static registerUser = catchAsync(async (req, res) => {
     const userData = {
       ...req.body,
       id: UtilFunctions.genId(),
@@ -23,45 +24,42 @@ class AuthController {
   });
 
   static verifyOtp = catchAsync(async (req, res) => {
-    const { email, otp } = req.body;
+    const { identifier, otp } = req.body;
 
-    const result = await AuthService.verifyOtp(email, otp);
+    const result = await AuthService.verifyOtp(identifier, otp);
 
     return UtilFunctions.outputSuccess(res, {
-      message: 'Account verified successfully',
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
-      user: result.user,
+      message: "Account verified successfully",
+      ...result,
     });
   });
 
   static login = catchAsync(async (req, res) => {
-    const { email, password } = req.body;
-    const result = await AuthService.loginUser(email, password);
-    UtilFunctions.outputSuccess(res, {
-      message: 'Login successful',
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
-      user: result.user,
+    const { identifier, password } = req.body;
+
+    const result = await AuthService.loginUser(identifier, password);
+
+    return UtilFunctions.outputSuccess(res, {
+      message: "Login successful",
+      ...result,
     });
   });
 
   static forgotPassword = catchAsync(async (req, res) => {
-  const { email } = req.body;
+    const { identifier } = req.body;
 
-  await AuthService.forgotPassword(email);
+    await AuthService.forgotPassword(identifier);
 
-  return UtilFunctions.outputSuccess(res, 'OTP sent to email');
+    return UtilFunctions.outputSuccess(res, "OTP sent");
   });
-
 
   static resetPassword = catchAsync(async (req, res) => {
-  const { email, otp, newPassword } = req.body;
+    const { identifier, otp, newPassword } = req.body;
 
-  await AuthService.resetPassword(email, otp, newPassword);
+    await AuthService.resetPassword(identifier, otp, newPassword);
 
-  return UtilFunctions.outputSuccess(res, 'Password reset successful');
+    return UtilFunctions.outputSuccess(res, "Password reset successful");
   });
-
 }
+
 export default AuthController;
