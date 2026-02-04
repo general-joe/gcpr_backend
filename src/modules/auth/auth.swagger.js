@@ -18,6 +18,7 @@
  *         email:
  *           type: string
  *           format: email
+ *           nullable: true
  *         phoneNumber:
  *           type: string
  *         gender:
@@ -82,45 +83,49 @@
  *     OTPVerification:
  *       type: object
  *       required:
- *         - email
+ *         - identifier
  *         - otp
  *       properties:
- *         email:
+ *         identifier:
  *           type: string
- *           format: email
+ *           description: Email address or phone number
  *         otp:
  *           type: string
  *
  *     LoginRequest:
  *       type: object
  *       required:
- *         - email
+ *         - identifier
  *         - password
  *       properties:
- *         email:
+ *         identifier:
  *           type: string
- *           format: email
+ *           description: Email address or phone number
  *         password:
  *           type: string
+ *           format: password
  *
  *     ForgotPasswordRequest:
  *       type: object
  *       required:
- *         - email
+ *         - identifier
  *       properties:
- *         email:
+ *         identifier:
  *           type: string
- *           format: email
+ *           description: Email address or phone number
  *
  *     ResetPasswordRequest:
  *       type: object
  *       required:
- *         - token
+ *         - identifier
+ *         - otp
  *         - newPassword
  *       properties:
- *         token:
+ *         identifier:
  *           type: string
- *           description: Password reset token
+ *           description: Email address or phone number
+ *         otp:
+ *           type: string
  *         newPassword:
  *           type: string
  *           format: password
@@ -202,7 +207,7 @@
  * /auth/forgot-password:
  *   post:
  *     summary: Request password reset
- *     description: Sends a password reset link or token to the user's email
+ *     description: Sends a password reset OTP to the user's email or phone number
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -212,14 +217,14 @@
  *             $ref: '#/components/schemas/ForgotPasswordRequest'
  *     responses:
  *       200:
- *         description: Password reset instructions sent
+ *         description: Password reset OTP sent
  *       404:
  *         description: User not found
  *
  * /auth/reset-password:
  *   post:
  *     summary: Reset password
- *     description: Resets the user's password using a valid reset token
+ *     description: Resets the user's password using a valid OTP
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -231,5 +236,5 @@
  *       200:
  *         description: Password reset successful
  *       400:
- *         description: Invalid or expired reset token
+ *         description: Invalid or expired OTP
  */
