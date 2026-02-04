@@ -156,28 +156,7 @@ class AuthService {
     };
   }
 
-  const accessToken = UtilFunctions.generateAccessToken({
-    id: user.id,
-    email: user.email,
-    role: user.role,
-  });
   
-  const refreshToken = UtilFunctions.generateRefreshToken();
-  await prisma.refreshToken.create({
-    data: {
-      tokenHash: await hash(refreshToken, 10),
-      userId: user.id,
-      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7), // 7 days
-    },
-  });
-
-  return {
-    accessToken,
-    refreshToken,
-    user
-  };
-}
-
 static async fogotPassword(email) {
   // Implementation for forgot password
   const user = await prisma.user.findUnique({

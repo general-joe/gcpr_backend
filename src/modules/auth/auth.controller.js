@@ -52,16 +52,16 @@ class AuthController {
   await AuthService.forgotPassword(email);
 
   return UtilFunctions.outputSuccess(res, 'OTP sent to email');
-});
+  });
 
 
-static resetPassword = catchAsync(async (req, res) => {
+  static resetPassword = catchAsync(async (req, res) => {
   const { email, otp, newPassword } = req.body;
 
   await AuthService.resetPassword(email, otp, newPassword);
 
   return UtilFunctions.outputSuccess(res, 'Password reset successful');
-});
+  });
 
 }
 export default AuthController;
