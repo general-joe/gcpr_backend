@@ -30,6 +30,22 @@ class CareGiverController {
       result
     );
   });
+
+ static getCareGivers = catchAsync(async (req, res) => {
+    const { page, limit, search } = req.query;
+
+    const result = await CareGiverService.fetchCareGivers({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 10,
+      search: search || null,
+    });
+
+    UtilFunctions.outputSuccess(
+      res,
+      "Caregivers fetched successfully",
+      result
+    );
+  });
 }
 
 export default CareGiverController;
