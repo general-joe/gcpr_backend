@@ -53,6 +53,12 @@ enum IdType {
   ECOWAS_ID
 }
 
+enum schoolType {
+  PUBLIC
+  PRIVATE
+  SPECIAL_NEEDS
+}
+
 enum Profession {
   GENERAL_PAEDIATRICIAN
   DEVELOPMENTAL_PAEDIATRICIAN
@@ -202,7 +208,8 @@ model cpPatient {
   relationToCaregiver     Relationship
   householdSize           Int
   schoolEnrollmmentStatus Boolean      @default(false)
-  typeOfSchool            String?
+  typeOfSchool            schoolType?
   createdAt               DateTime     @default(now())
   updatedAt               DateTime     @updatedAt
 }
+
