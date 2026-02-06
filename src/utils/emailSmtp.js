@@ -2,13 +2,13 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { Resend } from "resend";
+import sgMail from "@sendgrid/mail";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-console.log("RESEND KEY LOADED:", !!process.env.RESEND_API_KEY);
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+console.log("SENDGRID KEY LOADED:", !!process.env.SENDGRID_API_KEY);
 
 // Recreate __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -20,7 +20,6 @@ const templateMap = {
   otp: "verification.otp.html",
   success: "success.operation.html",
 };
-
 
 /**
  * Send email using a mapped template
@@ -43,21 +42,22 @@ export async function sendEmail(to, templateName, variables) {
       variables[key]
     );
   }
+
   const subjectMap = {
-  reset: "Reset Your Password",
-  otp: "Your OTP Code",
+    reset: "Reset Your Password",
+    otp: "Your OTP Code",
     success: "Operation Successful",
-};
+  };
 
   const msg = {
-    from: "GCPR <onboarding@resend.dev>", // ✅ verified sender (dev)
+    from: "synxdevghana@gmail.com", //
     to,
     subject: subjectMap[templateName],
     html: htmlContent,
   };
 
   try {
-    return await resend.emails.send(msg);
+    return await sgMail.send(msg);
   } catch (error) {
     console.error("EMAIL SEND FAILED:", error);
     throw error;
