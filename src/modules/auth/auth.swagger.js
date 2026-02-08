@@ -1,6 +1,12 @@
 /**
  * @openapi
  * components:
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ *
  *   schemas:
  *     User:
  *       type: object
@@ -12,6 +18,7 @@
  *         email:
  *           type: string
  *           format: email
+ *           nullable: true
  *         phoneNumber:
  *           type: string
  *         gender:
@@ -30,13 +37,11 @@
  *       type: object
  *       required:
  *         - fullName
- *         - email
  *         - password
  *         - phoneNumber
  *         - gender
  *         - role
  *         - otpChannel
- *         - profileImage
  *       properties:
  *         fullName:
  *           type: string
@@ -76,26 +81,53 @@
  *     OTPVerification:
  *       type: object
  *       required:
- *         - email
+ *         - identifier
  *         - otp
  *       properties:
- *         email:
+ *         identifier:
  *           type: string
- *           format: email
+ *           description: Email address or phone number
  *         otp:
  *           type: string
  *
  *     LoginRequest:
  *       type: object
  *       required:
- *         - email
+ *         - identifier
  *         - password
  *       properties:
- *         email:
+ *         identifier:
  *           type: string
- *           format: email
+ *           description: Email address or phone number
  *         password:
  *           type: string
+ *           format: password
+ *
+ *     ForgotPasswordRequest:
+ *       type: object
+ *       required:
+ *         - identifier
+ *       properties:
+ *         identifier:
+ *           type: string
+ *           description: Email address or phone number
+ *
+ *     ResetPasswordRequest:
+ *       type: object
+ *       required:
+ *         - identifier
+ *         - otp
+ *         - newPassword
+ *       properties:
+ *         identifier:
+ *           type: string
+ *           description: Email address or phone number
+ *         otp:
+ *           type: string
+ *         newPassword:
+ *           type: string
+ *           format: password
+ *           minLength: 6
  *
  *     AuthResponse:
  *       type: object
@@ -169,4 +201,38 @@
  *               $ref: '#/components/schemas/AuthResponse'
  *       401:
  *         description: Invalid credentials
+ *
+ * /auth/forgot-password:
+ *   post:
+ *     summary: Request password reset
+ *     description: Sends a password reset OTP to the user's email or phone number
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ForgotPasswordRequest'
+ *     responses:
+ *       200:
+ *         description: Password reset OTP sent
+ *       404:
+ *         description: User not found
+ *
+ * /auth/reset-password:
+ *   post:
+ *     summary: Reset password
+ *     description: Resets the user's password using a valid OTP
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ResetPasswordRequest'
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ *       400:
+ *         description: Invalid or expired OTP
  */

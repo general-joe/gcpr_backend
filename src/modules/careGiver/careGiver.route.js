@@ -22,4 +22,11 @@ caregiverRouter.post(
   CareGiverController.completeProfile
 );
 
+caregiverRouter.get(
+  "/",
+  authorize(["SERVICE_PROVIDER"]),
+  authRateLimiter,
+  CareGiverController.getCareGivers
+);
+
 export default caregiverRouter;

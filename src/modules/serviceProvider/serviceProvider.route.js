@@ -2,9 +2,12 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import ServiceProviderController from "./serviceProvider.controller.js";
 import { validate } from "../../middlewares/validation.js";
-import { serviceProviderProfileSchema } from "./serviceProvider.validator.js";
+import {
+  serviceProviderProfileSchema,
+  serviceProviderUpdateSchema,
+} from "./serviceProvider.validator.js";
 import upload from "../../middlewares/upload.js";
-import {authorize} from "../../middlewares/auth.js"
+import { authorize } from "../../middlewares/auth.js";
 
 const serviceProviderRouter = express.Router();
 
@@ -26,8 +29,40 @@ serviceProviderRouter.post(
   upload.fields([{ name: "licenseImage" }]),
   validate(serviceProviderProfileSchema),
   authRateLimiter,
-  
   ServiceProviderController.completeProfile,
+);
+
+serviceProviderRouter.get(
+  "/",
+  authorize(["SERVICE_PROVIDER", "ADMIN"]),
+  ServiceProviderController.getAllServiceProviders,
+);
+
+serviceProviderRouter.get(
+  "/search",
+  authorize(["SERVICE_PROVIDER", "ADMIN"]),
+  ServiceProviderController.searchServiceProviders,
+);
+
+serviceProviderRouter.get(
+  "/:id",
+  authorize(["SERVICE_PROVIDER", "ADMIN"]),
+  ServiceProviderController.getServiceProviderById,
+);
+
+serviceProviderRouter.put(
+  "/:id",
+  authorize(["SERVICE_PROVIDER", "ADMIN"]),
+  upload.fields([{ name: "licenseImage" }]),
+  validate(serviceProviderUpdateSchema),
+  authRateLimiter,
+  ServiceProviderController.updateServiceProvider,
+);
+
+serviceProviderRouter.delete(
+  "/:id",
+  authorize(["SERVICE_PROVIDER", "ADMIN"]),
+  ServiceProviderController.deleteServiceProvider,
 );
 
 export default serviceProviderRouter;

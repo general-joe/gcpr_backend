@@ -9,36 +9,35 @@ import { OTPMessage, SendSMS } from "../../utils/hubtel-sms.js";
 
 class AuthService {
   static async registerUser(rq, userData) {
-    if (!_.isEmpty(rq.files)) {
-      if (_.has(rq.files, "profileImage")) {
-        const fileName = `${userData.id}.jpg`;
-        console.log(fileName);
-        userData.profileImage = await UploadService.saveFile(
-          rq.files.profileImage[0].buffer,
-          fileName,
-          constants.PROFILE_BUCKET,
-        );
-        console.log(userData.profileImage);
-      }
+    if (rq.files?.profileImage) {
+      const fileName = `${userData.id}.jpg`;
+      userData.profileImage = await UploadService.saveFile(
+        rq.files.profileImage[0].buffer,
+        fileName,
+        constants.PROFILE_BUCKET
+      );
     }
+
     const existingUser = await prisma.user.findFirst({
       where: {
-        OR: [{ email: userData.email }, { phoneNumber: userData.phoneNumber }],
+        OR: [
+          { email: userData.email },
+          { phoneNumber: userData.phoneNumber },
+        ],
       },
     });
 
     if (existingUser) {
       throw new gcprError(
         HttpStatus.CONFLICT,
-        "User with this email or phone number already exists",
+        "User with this email or phone number already exists"
       );
     }
 
     const hashedPassword = await hash(userData.password);
-    // save otp mode
-    let otpMode = userData.otpChannel;
-    // Create user
+    const otpMode = userData.otpChannel;
     delete userData.otpChannel;
+
     const newUser = await prisma.user.create({
       data: {
         ...userData,
@@ -49,14 +48,11 @@ class AuthService {
       },
     });
 
-    // Generate OTP
     const otpCode = UtilFunctions.genOTP();
-    console.log("Generated OTP:", otpCode); // ✅ Verify OTP generation
     const codeHash = await hash(otpCode);
-    const expiresAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000); // 2 days
+    const expiresAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
 
-    // Insert OTP
-    const otpRecord = await prisma.otp.create({
+    await prisma.otp.create({
       data: {
         codeHash,
         expiresAt,
@@ -64,33 +60,25 @@ class AuthService {
       },
     });
 
-    console.log("OTP record created:", otpRecord); // ✅ Verify it exists
-    console.log(otpMode);
-    // choose otp channel
-    switch (otpMode) {
-      case constants.OTP_MODES.SMS:
-        console.log("sending otp");
-        // implement hubtel sms otp
-        await SendSMS(
-          userData.phoneNumber,
-          OTPMessage({ user_name: userData.fullName, OTP: otpCode }),
-        );
-        console.log("otp sent ");
-        break;
-      case constants.OTP_MODES.EMAIL:
-        //implement email otp
-        await sendEmail(newUser.email, "otp", { otp: otpCode });
-        return otpCode;
-      default:
-        break;
+    if (otpMode === constants.OTP_MODES.SMS) {
+      await SendSMS(
+        newUser.phoneNumber,
+        OTPMessage({ user_name: newUser.fullName, OTP: otpCode })
+      );
     }
-    return { otpChannel: otpMode };
 
+    if (otpMode === constants.OTP_MODES.EMAIL) {
+      await sendEmail(newUser.email, "otp", { otp: otpCode });
+    }
+
+    return { otpChannel: otpMode };
   }
 
-  static async verifyOtp(email, otp) {
-    const user = await prisma.user.findUnique({
-      where: { email },
+  static async verifyOtp(identifier, otp) {
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [{ email: identifier }, { phoneNumber: identifier }],
+      },
       include: { otp: true },
     });
 
@@ -98,10 +86,8 @@ class AuthService {
       throw new gcprError(HttpStatus.NOT_FOUND, "User or OTP not found");
     }
 
-    // Compare the hashed OTP
     const validOtp = await compare(otp, user.otp.codeHash);
     if (!validOtp) {
-      // Optional: increment attempts
       await prisma.otp.update({
         where: { id: user.otp.id },
         data: { attempts: { increment: 1 } },
@@ -109,56 +95,118 @@ class AuthService {
       throw new gcprError(HttpStatus.UNAUTHORIZED, "Invalid OTP");
     }
 
-    // Check expiration
     if (user.otp.expiresAt < new Date()) {
       throw new gcprError(HttpStatus.GONE, "OTP has expired");
     }
 
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: { verified: true },
     });
 
-    await prisma.otp.delete({
-      where: { id: user.otp.id },
-    });
-
-    const updatedUser = await prisma.user.findUnique({
-      where: { id: user.id },
-    });
+    await prisma.otp.delete({ where: { id: user.otp.id } });
 
     const accessToken = UtilFunctions.generateAccessToken({
-      id: updatedUser.id,
-      email: updatedUser.email,
-      role: updatedUser.role,
+      id: user.id,
+      email: user.email,
+      role: user.role,
     });
 
     const refreshToken = UtilFunctions.generateRefreshToken();
 
-    // Store hashed refresh token
     await prisma.refreshToken.create({
       data: {
         tokenHash: await hash(refreshToken, 10),
         userId: user.id,
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7), // 7 days
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
 
-    // Send success email
-    const emailResult = await sendEmail(user.email, "success", {
-      message: `${user.fullName}, your account has been successfully verified, Kindly proceed with your profile creation on the app.`,
-    });
+    if (user.email) {
+      await sendEmail(user.email, "success", {
+        message: `${user.fullName}, your account has been verified.`,
+      });
+    }
 
-    return {
-      accessToken,
-      refreshToken,
-      user: updatedUser,
-    };
+    if (user.phoneNumber) {
+      await SendSMS(
+        user.phoneNumber,
+        `Hello ${user.fullName}, your account has been verified successfully.`
+      );
+    }
+
+    return { accessToken, refreshToken, user: updatedUser };
   }
 
-  static async loginUser(email, password) {
-    const user = await prisma.user.findUnique({
-      where: { email },
+  static async forgotPassword(identifier) {
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [{ email: identifier }, { phoneNumber: identifier }],
+      },
+    });
+
+    if (!user) {
+      throw new gcprError(HttpStatus.NOT_FOUND, "User not found");
+    }
+
+    const otpCode = UtilFunctions.genOTP();
+    const codeHash = await hash(otpCode);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    await prisma.otp.deleteMany({ where: { userId: user.id } });
+
+    await prisma.otp.create({
+      data: { codeHash, expiresAt, userId: user.id },
+    });
+
+    if (identifier.includes("@")) {
+      await sendEmail(user.email, "reset-password", { otp: otpCode });
+    } else {
+      await SendSMS(
+        user.phoneNumber,
+        OTPMessage({ user_name: user.fullName, OTP: otpCode })
+      );
+    }
+
+    return { message: "Password reset OTP sent" };
+  }
+
+  static async resetPassword(identifier, otp, newPassword) {
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [{ email: identifier }, { phoneNumber: identifier }],
+      },
+      include: { otp: true },
+    });
+
+    if (!user || !user.otp) {
+      throw new gcprError(HttpStatus.NOT_FOUND, "OTP not found");
+    }
+
+    const validOtp = await compare(otp, user.otp.codeHash);
+    if (!validOtp) {
+      throw new gcprError(HttpStatus.UNAUTHORIZED, "Invalid OTP");
+    }
+
+    if (user.otp.expiresAt < new Date()) {
+      throw new gcprError(HttpStatus.GONE, "OTP expired");
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: await hash(newPassword) },
+    });
+
+    await prisma.otp.delete({ where: { id: user.otp.id } });
+
+    return { message: "Password reset successful" };
+  }
+
+  static async loginUser(identifier, password) {
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [{ email: identifier }, { phoneNumber: identifier }],
+      },
     });
 
     if (!user) {
@@ -177,19 +225,22 @@ class AuthService {
     });
 
     const refreshToken = UtilFunctions.generateRefreshToken();
+
     await prisma.refreshToken.create({
       data: {
         tokenHash: await hash(refreshToken, 10),
         userId: user.id,
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7), // 7 days
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
 
-    return {
-      accessToken,
-      refreshToken,
-      user,
-    };
+    const fetchedUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: { caregiver: true, serviceProvider: true },
+
+    });
+
+    return { accessToken, refreshToken, user: fetchedUser };
   }
 }
 
