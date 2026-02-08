@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,7 +6,6 @@ datasource db {
   provider = "postgresql"
 }
 
-// Define your database models here and run `prisma migrate dev` to create migrations,
 enum Gender {
   MALE
   FEMALE
@@ -88,27 +81,45 @@ enum ProfessionalBody {
   PSCG
 }
 
+enum AssessmentStatus {
+  DRAFT
+  COMPLETED
+  REVIEWED
+}
+
+enum ReferralStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  COMPLETED
+}
+
+enum RehabTaskStatus {
+  PENDING
+  ASSIGNED
+  COMPLETED
+}
+
 model User {
-  id              String           @id @default(uuid())
-  fullName        String
-  email           String?           @unique
-  password        String
-  dateOfBirth     DateTime?
-  address         String?
-  digitalAddress  String?
-  phoneNumber     String           @unique
-  gender          Gender
-  role            Role
-  profileImage    String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  otp             Otp?
-  serviceProvider serviceProvider?
-  caregiver       CareGiver?
-  verified       Boolean          @default(false)
-  profileCompleted Boolean          @default(false)
+  id               String   @id @default(uuid())
+  fullName         String
+  email            String?  @unique
+  password         String
+  phoneNumber      String   @unique
+  gender           Gender
+  role             Role
+  profileImage     String?
+  verified         Boolean  @default(false)
+  profileCompleted Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  otp                 Otp?
   refreshToken        RefreshToken[]
   passwordResetTokens PasswordResetToken[]
+
+  serviceProvider serviceProvider?
+  caregiver       CareGiver?
 }
 
 model Otp {
@@ -117,7 +128,7 @@ model Otp {
   userId     String    @unique
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt  DateTime
-  attempts   Int       @default(0) // increment per wrong attempt
+  attempts   Int       @default(0)
   consumedAt DateTime?
   createdAt  DateTime  @default(now())
 }
@@ -131,15 +142,14 @@ model RefreshToken {
   expiresAt DateTime
 }
 
-
 model PasswordResetToken {
-  id        String   @id @default(uuid())
-  tokenHash String   @unique
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
   expiresAt DateTime
-  usedAt    DateTime? // optional to track if it has been used
+  usedAt    DateTime?
 }
 
 model serviceProvider {
@@ -159,24 +169,28 @@ model serviceProvider {
   facilityName      String
   facilityAddress   String
   licensePin        String
-  experience Int
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  experience        Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinicalAssessments       ClinicalAssessment[] @relation("ProviderAssessments")
+  clinicalReferrals         ClinicalReferral[]   @relation("ProviderReferrals")
+  rehabTasks                RehabTask[]
+  functionalClassifications FunctionalClassification[]
 }
 
 model CareGiver {
   id     String        @id @default(uuid())
   type   CaregiverType
-  userId String?       @unique // only set for INDIVIDUAL
+  userId String?       @unique
   user   User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // individual fields
   occupation     String?
   educationLevel EducationLevel?
   idType         IdType?
   idNumber       String?
 
-  // group fields
   nameOfGroup           String?
   locationOfGroup       String?
   groupContact          String?
@@ -209,7 +223,113 @@ model cpPatient {
   householdSize           Int
   schoolEnrollmmentStatus Boolean      @default(false)
   typeOfSchool            schoolType?
-  createdAt               DateTime     @default(now())
-  updatedAt               DateTime     @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinicalAssessments       ClinicalAssessment[]
+  clinicalReferrals         ClinicalReferral[]
+  rehabTasks                RehabTask[]
+  functionalClassifications FunctionalClassification[]
 }
 
+model FunctionalClassification {
+  id        String    @id @default(uuid())
+  patientId String
+  patient   cpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  classifier String
+  level      Int
+  assessedAt DateTime
+
+  assessorId String?
+  assessor   serviceProvider? @relation(fields: [assessorId], references: [id])
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ClinicalAssessment {
+  id        String    @id @default(uuid())
+  patientId String
+  patient   cpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  providerId String
+  provider   serviceProvider @relation("ProviderAssessments", fields: [providerId], references: [id], onDelete: Cascade)
+
+  toolCode    String
+  toolVersion String
+  status      AssessmentStatus @default(DRAFT)
+  assessedAt  DateTime?
+  responses   Json
+
+  referralId String? @unique
+  referral   ClinicalReferral? @relation("ReferralAssessment", fields: [referralId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reports ClinicalAssessmentReport[]
+}
+
+model ClinicalAssessmentReport {
+  id           String             @id @default(uuid())
+  assessmentId String
+  assessment   ClinicalAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  summary         String?
+  scores          Json
+  interpretation  String?
+  recommendations Json?
+
+  createdAt DateTime @default(now())
+}
+
+model ClinicalReferral {
+  id        String    @id @default(uuid())
+  patientId String
+  patient   cpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  fromProviderId String
+  fromProvider   serviceProvider @relation("ProviderReferrals", fields: [fromProviderId], references: [id], onDelete: Cascade)
+
+  toProfession Profession
+  reason       String
+
+  relatedAssessment ClinicalAssessment? @relation("ReferralAssessment")
+
+  status    ReferralStatus @default(PENDING)
+  createdAt DateTime       @default(now())
+
+  generatedTasks RehabTask[]
+}
+
+model RehabTask {
+  id        String    @id @default(uuid())
+  patientId String
+  patient   cpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  providerId String
+  provider   serviceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  title            String
+  instructions     String
+  instructionSteps Json?
+  frequencyPerDay  Int?
+  frequencyNote    String?
+  durationDays     Int
+  startDate        DateTime?
+  endDate          DateTime?
+  video            Json?
+
+  status      RehabTaskStatus @default(PENDING)
+  completedAt DateTime?
+
+  referralId String?
+  referral   ClinicalReferral? @relation(fields: [referralId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
