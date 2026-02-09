@@ -14,6 +14,76 @@ export const SendSMS = async (To, Content) => {
   }
 };
 
+// Create Basic Auth header for OTP API
+const getOTPAuthHeader = () => {
+  const credentials = `${process.env.HUBTEL_CLIENTID}:${process.env.HUBTEL_SECRET}`;
+  const encodedCredentials = Buffer.from(credentials).toString("base64");
+  return {
+    Authorization: `Basic ${encodedCredentials}`,
+    "Content-Type": "application/json",
+  };
+};
+
+export const SendOTP = async (To) => {
+  try {
+    const data = {
+      senderId: process.env.HUBTEL_SENDER,
+      phoneNumber: To,
+      countryCode: "GH",
+    };
+    const headers = getOTPAuthHeader();
+    const res = await axios.post(`https://api-otp.hubtel.com/otp/send`, data, {
+      headers,
+    });
+    return res.data;
+  } catch (error) {
+    console.log(error.message);
+    throw new Error(`Failed to send OTP: ${error.message}`);
+  }
+};
+
+export const VerifyOTP = async (requestId, prefix, code) => {
+  try {
+    const data = {
+      requestId,
+      prefix,
+      code,
+    };
+    const headers = getOTPAuthHeader();
+    const res = await axios.post(
+      `https://api-otp.hubtel.com/otp/verify`,
+      data,
+      {
+        headers,
+      },
+    );
+    return res.status === 200;
+  } catch (error) {
+    console.log(error.message);
+    throw new Error(`Failed to verify OTP: ${error.message}`);
+  }
+};
+
+export const ResendOTP = async (requestId) => {
+  try {
+    const data = {
+      requestId,
+    };
+    const headers = getOTPAuthHeader();
+    const res = await axios.post(
+      `https://api-otp.hubtel.com/otp/resend`,
+      data,
+      {
+        headers,
+      },
+    );
+    return res.data;
+  } catch (error) {
+    console.log(error.message);
+    throw new Error(`Failed to resend OTP: ${error.message}`);
+  }
+};
+
 // exports.ProcessedMessage = ({ sender_name, invoice_no, recipient_name, pickup_location }) => {
 //     const res = `Hello ${sender_name} your package with reference ${invoice_no} to ${recipient_name} at ${pickup_location} has been processed. You will be notified upon delivery, thank you.`;
 //     return res;
