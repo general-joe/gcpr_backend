@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Otp" ALTER COLUMN "codeHash" DROP NOT NULL,
+ALTER COLUMN "expiresAt" DROP NOT NULL;

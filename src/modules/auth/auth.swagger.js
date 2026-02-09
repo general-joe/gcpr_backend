@@ -182,6 +182,25 @@
  *       410:
  *         description: OTP expired
  *
+ * /auth/resend-otp:
+ *   post:
+ *     summary: Resend OTP
+ *     description: Resends a new OTP to the user's registered email or phone number
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ForgotPasswordRequest'
+ *     responses:
+ *       200:
+ *         description: OTP resent successfully
+ *       404:
+ *         description: User or OTP session not found
+ *       400:
+ *         description: Failed to resend OTP or invalid configuration
+ *
  * /auth/login:
  *   post:
  *     summary: Login user

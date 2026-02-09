@@ -49,6 +49,7 @@ export const VerifyOTP = async (requestId, prefix, code) => {
       prefix,
       code,
     };
+    console.log(data)
     const headers = getOTPAuthHeader();
     const res = await axios.post(
       `https://api-otp.hubtel.com/otp/verify`,

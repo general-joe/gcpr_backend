@@ -53,6 +53,7 @@ class AuthService {
 
     if (otpMode === constants.OTP_MODES.SMS) {
       const otpResponse = await SendOTP(newUser.phoneNumber);
+      console.log();
       await prisma.otp.create({
         data: {
           requestId: otpResponse.data.requestId,
@@ -78,7 +79,6 @@ class AuthService {
 
       await sendEmail(newUser.email, "otp", { otp: otpCode });
     }
-    console.log(otpCode);
 
     return { otpChannel: otpMode };
   }
@@ -91,7 +91,7 @@ class AuthService {
       include: { otp: true },
     });
 
-    if (!user || !user.otp) {
+    if (!user) {
       throw new gcprError(HttpStatus.NOT_FOUND, "User or OTP not found");
     }
 
@@ -101,19 +101,9 @@ class AuthService {
 
     // Handle SMS OTP verification (Hubtel)
     if (user.otp.requestId && user.otp.prefix) {
-      try {
-        const isValid = await VerifyOTP(
-          user.otp.requestId,
-          user.otp.prefix,
-          otp,
-        );
-        if (!isValid) {
-          throw new Error("Invalid OTP from Hubtel");
-        }
-      } catch (error) {
-        throw new gcprError(HttpStatus.UNAUTHORIZED, "Invalid OTP");
-      }
+      const isValid = await VerifyOTP(user.otp.requestId, user.otp.prefix, otp);
     }
+
     // Handle EMAIL OTP verification (Database)
     else if (user.otp.codeHash) {
       const validOtp = await compare(otp, user.otp.codeHash);
@@ -269,6 +259,64 @@ class AuthService {
     });
 
     return { accessToken, refreshToken, user: fetchedUser };
+  }
+
+  static async resendOtp(identifier) {
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [{ email: identifier }, { phoneNumber: identifier }],
+      },
+      include: { otp: true },
+    });
+
+    if (!user) {
+      throw new gcprError(HttpStatus.NOT_FOUND, "User not found");
+    }
+
+    if (!user.otp) {
+      throw new gcprError(HttpStatus.NOT_FOUND, "No active OTP session found");
+    }
+
+    // Handle SMS OTP resend (Hubtel)
+    if (user.otp.requestId) {
+      try {
+        const otpResponse = await ResendOTP(user.otp.requestId);
+
+        await prisma.otp.update({
+          where: { id: user.otp.id },
+          data: {
+            prefix: otpResponse.data.prefix,
+            expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+            attempts: 0,
+          },
+        });
+
+        return { message: "OTP resent to your phone number" };
+      } catch (error) {
+        throw new gcprError(HttpStatus.BAD_REQUEST, "Failed to resend SMS OTP");
+      }
+    }
+    // Handle EMAIL OTP resend
+    else if (user.otp.codeHash) {
+      const otpCode = UtilFunctions.genOTP();
+      const codeHash = await hash(otpCode);
+      const expiresAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+
+      await prisma.otp.update({
+        where: { id: user.otp.id },
+        data: {
+          codeHash,
+          expiresAt,
+          attempts: 0,
+        },
+      });
+
+      await sendEmail(user.email, "otp", { otp: otpCode });
+
+      return { message: "OTP resent to your email address" };
+    } else {
+      throw new gcprError(HttpStatus.BAD_REQUEST, "Invalid OTP configuration");
+    }
   }
 }
 
