@@ -70,6 +70,7 @@ class AuthService {
     if (otpMode === constants.OTP_MODES.EMAIL) {
       await sendEmail(newUser.email, "otp", { otp: otpCode });
     }
+    console.log(otpCode);
 
     return { otpChannel: otpMode };
   }
