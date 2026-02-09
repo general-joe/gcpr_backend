@@ -133,11 +133,13 @@ model User {
 
 model Otp {
   id         String    @id @default(uuid())
-  codeHash   String
+  codeHash   String?
   userId     String    @unique
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt  DateTime
+  expiresAt  DateTime?          
   attempts   Int       @default(0)
+  requestId  String?
+  prefix     String?
   consumedAt DateTime?
   createdAt  DateTime  @default(now())
 }
@@ -172,7 +174,7 @@ model serviceProvider {
   licenseIssuedBy   String?
   licenseIssuedDate DateTime
   licenseType       ProfessionalBody
-  licenseStatus     LicenseStatus @default(INACTIVE)
+  licenseStatus     LicenseStatus    @default(INACTIVE)
   profession        Profession
   facilityType      FacilityType
   facilityName      String
@@ -183,8 +185,8 @@ model serviceProvider {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  clinicalAssessments       ClinicalAssessment[] @relation("ProviderAssessments")
-  clinicalReferrals         ClinicalReferral[]   @relation("ProviderReferrals")
+  clinicalAssessments       ClinicalAssessment[]       @relation("ProviderAssessments")
+  clinicalReferrals         ClinicalReferral[]         @relation("ProviderReferrals")
   rehabTasks                RehabTask[]
   functionalClassifications FunctionalClassification[]
 
@@ -278,7 +280,7 @@ model ClinicalAssessment {
   assessedAt  DateTime?
   responses   Json
 
-  referralId String? @unique
+  referralId String?           @unique
   referral   ClinicalReferral? @relation("ReferralAssessment", fields: [referralId], references: [id])
 
   createdAt DateTime @default(now())

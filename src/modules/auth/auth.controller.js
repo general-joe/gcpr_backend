@@ -60,6 +60,14 @@ class AuthController {
 
     return UtilFunctions.outputSuccess(res, "Password reset successful");
   });
+
+  static resendOtp = catchAsync(async (req, res) => {
+    const { identifier } = req.body;
+
+    const result = await AuthService.resendOtp(identifier);
+
+    return UtilFunctions.outputSuccess(res, result.message);
+  });
 }
 
 export default AuthController;
