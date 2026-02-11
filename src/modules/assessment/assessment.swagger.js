@@ -76,3 +76,53 @@
  *       500:
  *         description: Internal server error
  */
+
+/**
+ * @swagger
+ * /assessment/{assessmentId}/report:
+ *   get:
+ *     summary: Get latest clinical report for an assessment
+ *     tags: [Assessment]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: assessmentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Clinical assessment report retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Assessment/report not found
+ */
+
+/**
+ * @swagger
+ * /assessment/patient/{patientId}/reports:
+ *   get:
+ *     summary: Get assessment history and latest reports for a patient
+ *     tags: [Assessment]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: patientId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Patient assessment reports retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
