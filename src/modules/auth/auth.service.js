@@ -13,6 +13,8 @@ import {
   ResendOTP,
 } from "../../utils/hubtel-sms.js";
 
+const extractOtpPayload = (otpResponse) => otpResponse?.data ?? otpResponse ?? {};
+
 class AuthService {
   static async registerUser(rq, userData) {
     if (rq.files?.profileImage) {
@@ -53,11 +55,12 @@ class AuthService {
 
     if (otpMode === constants.OTP_MODES.SMS) {
       const otpResponse = await SendOTP(newUser.phoneNumber);
-      console.log();
+      const otpData = extractOtpPayload(otpResponse);
+
       await prisma.otp.create({
         data: {
-          requestId: otpResponse.data.requestId,
-          prefix: otpResponse.data.prefix,
+          requestId: otpData.requestId,
+          prefix: otpData.prefix,
           expiresAt: new Date(Date.now() + 15 * 60 * 1000),
           userId: newUser.id,
         },
@@ -281,11 +284,22 @@ class AuthService {
     if (user.otp.requestId) {
       try {
         const otpResponse = await ResendOTP(user.otp.requestId);
+        const otpData = extractOtpPayload(otpResponse);
+        const nextPrefix = otpData.prefix || user.otp.prefix;
+        const nextRequestId = otpData.requestId || user.otp.requestId;
+
+        if (!nextPrefix || !nextRequestId) {
+          throw new gcprError(
+            HttpStatus.BAD_REQUEST,
+            "Unable to refresh OTP session. Please request a new OTP.",
+          );
+        }
 
         await prisma.otp.update({
           where: { id: user.otp.id },
           data: {
-            prefix: otpResponse.data.prefix,
+            requestId: nextRequestId,
+            prefix: nextPrefix,
             expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             attempts: 0,
           },
@@ -293,7 +307,25 @@ class AuthService {
 
         return { message: "OTP resent to your phone number" };
       } catch (error) {
-        throw new gcprError(HttpStatus.BAD_REQUEST, "Failed to resend SMS OTP");
+        if (error instanceof gcprError) throw error;
+
+        const errorMessage = error?.message || "Failed to resend SMS OTP";
+        const isQuotaError =
+          errorMessage.includes("maximum admitted 5 per 1m") ||
+          errorMessage.includes("\"code\":\"2001\"") ||
+          errorMessage.includes("quota exceeded");
+
+        if (isQuotaError) {
+          throw new gcprError(
+            HttpStatus.TOO_MANY_REQUESTS,
+            "Too many OTP resend requests. Please wait 1 minute and try again.",
+          );
+        }
+
+        throw new gcprError(
+          HttpStatus.BAD_REQUEST,
+          errorMessage,
+        );
       }
     }
     // Handle EMAIL OTP resend
