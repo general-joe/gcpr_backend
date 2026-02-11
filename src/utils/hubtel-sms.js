@@ -2,6 +2,16 @@ import axios from "axios";
 import dotenv from "dotenv";
 dotenv.config();
 
+const getAxiosErrorMessage = (error) => {
+  if (error?.response?.data) {
+    return typeof error.response.data === "string"
+      ? error.response.data
+      : JSON.stringify(error.response.data);
+  }
+
+  return error?.message || "Unknown Hubtel error";
+};
+
 export const SendSMS = async (To, Content) => {
   try {
     const res = await axios.get(
@@ -37,8 +47,9 @@ export const SendOTP = async (To) => {
     });
     return res.data;
   } catch (error) {
-    console.log(error.message);
-    throw new Error(`Failed to send OTP: ${error.message}`);
+    const details = getAxiosErrorMessage(error);
+    console.log(details);
+    throw new Error(`Failed to send OTP: ${details}`);
   }
 };
 
@@ -49,7 +60,7 @@ export const VerifyOTP = async (requestId, prefix, code) => {
       prefix,
       code,
     };
-    console.log(data)
+    console.log(data);
     const headers = getOTPAuthHeader();
     const res = await axios.post(
       `https://api-otp.hubtel.com/otp/verify`,
@@ -60,8 +71,9 @@ export const VerifyOTP = async (requestId, prefix, code) => {
     );
     return res.status === 200;
   } catch (error) {
-    console.log(error.message);
-    throw new Error(`Failed to verify OTP: ${error.message}`);
+    const details = getAxiosErrorMessage(error);
+    console.log(details);
+    throw new Error(`Failed to verify OTP: ${details}`);
   }
 };
 
@@ -80,8 +92,9 @@ export const ResendOTP = async (requestId) => {
     );
     return res.data;
   } catch (error) {
-    console.log(error.message);
-    throw new Error(`Failed to resend OTP: ${error.message}`);
+    const details = getAxiosErrorMessage(error);
+    console.log(details);
+    throw new Error(`Failed to resend OTP: ${details}`);
   }
 };
 
