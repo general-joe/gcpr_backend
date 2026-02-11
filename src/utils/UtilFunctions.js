@@ -108,7 +108,7 @@ class UtilFunctions {
     );
   }
 
-  static genOTP(length = 6) {
+  static genOTP(length = 4) {
     const chars = "0123456789";
     let autoId = "";
     for (let i = 0; i < length; i++) {
