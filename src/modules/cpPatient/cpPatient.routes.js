@@ -20,5 +20,11 @@ cpPatientRouter.post(
   CpPatientController.createPatient
 );
 
+cpPatientRouter.get(
+  "/",
+  authorize(["CAREGIVER"]),
+  authRateLimiter,
+  CpPatientController.getPatients
+);
 
 export default cpPatientRouter;
