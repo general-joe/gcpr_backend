@@ -94,7 +94,7 @@ class AuthService {
       include: { otp: true },
     });
 
-    if (!user) {
+    if (!user || !user.otp) {
       throw new gcprError(HttpStatus.NOT_FOUND, "User or OTP not found");
     }
 

@@ -1,4 +1,5 @@
 import prisma from "../../config/database.js";
+import HttpStatus from "../../utils/http-status.js";
 
 class CpPatientService {
   static async createPatient(data) {
@@ -35,7 +36,33 @@ class CpPatientService {
 
     return patient;
   }
-}
 
+  static async fetchPatients(userId) {
+    if (!userId) {
+      throw new gcprError(HttpStatus.UNAUTHORIZED, "Unauthorized request");
+    }
+
+    const caregiver = await prisma.careGiver.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!caregiver) {
+      throw new gcprError(
+        HttpStatus.NOT_FOUND,
+        "Caregiver profile not found for this user"
+      );
+    }
+
+    const patients = await prisma.cpPatient.findMany({
+      where: { 
+        caregiverId: caregiver.id 
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return patients;
+  }
+}
 
 export default CpPatientService;
