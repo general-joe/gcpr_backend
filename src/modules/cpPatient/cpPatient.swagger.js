@@ -109,3 +109,40 @@
  *       500:
  *         description: Internal server error
  */
+
+/**
+ * @swagger
+ * /cp-patient:
+ *   get:
+ *     summary: Get CP patients for the authenticated caregiver only
+ *     description: Returns only patients linked to the logged-in caregiver profile. No patients belonging to other caregivers are included.
+ *     tags: [CP Patient]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Patients fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: SUCCESS
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/CpPatient'
+ *                 message:
+ *                   type: string
+ *                   example: Patients fetched successfully
+ *       401:
+ *         description: Unauthorized (missing or invalid token)
+ *       403:
+ *         description: Forbidden (not a CAREGIVER)
+ *       404:
+ *         description: Caregiver profile not found for this user
+ *       500:
+ *         description: Internal server error
+ */
