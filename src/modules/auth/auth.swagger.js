@@ -144,6 +144,7 @@
  * /auth/register:
  *   post:
  *     summary: Register a new user
+ *     security: []
  *     description: >
  *       Registers a new user and sends an OTP via the selected channel (SMS or Email).
  *       Profile image (selfie) is required.
@@ -163,6 +164,7 @@
  * /auth/verify-otp:
  *   post:
  *     summary: Verify OTP and activate account
+ *     security: []
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -185,6 +187,7 @@
  * /auth/resend-otp:
  *   post:
  *     summary: Resend OTP
+ *     security: []
  *     description: Resends a new OTP to the user's registered email or phone number
  *     tags: [Auth]
  *     requestBody:
@@ -204,6 +207,7 @@
  * /auth/login:
  *   post:
  *     summary: Login user
+ *     security: []
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -224,6 +228,7 @@
  * /auth/forgot-password:
  *   post:
  *     summary: Request password reset
+ *     security: []
  *     description: Sends a password reset OTP to the user's email or phone number
  *     tags: [Auth]
  *     requestBody:
@@ -241,6 +246,7 @@
  * /auth/reset-password:
  *   post:
  *     summary: Reset password
+ *     security: []
  *     description: Resets the user's password using a valid OTP
  *     tags: [Auth]
  *     requestBody:
