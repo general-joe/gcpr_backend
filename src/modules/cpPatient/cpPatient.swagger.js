@@ -18,7 +18,6 @@
  *               - gender
  *               - address
  *               - placeOfBirth
- *               - caregiverId
  *               - relationToCaregiver
  *               - householdSize
  *             properties:
@@ -44,9 +43,6 @@
  *               numberOfSiblings:
  *                 type: number
  *                 example: 2
- *               caregiverId:
- *                 type: string
- *                 example: 8f2c1c0b-4f9d-4a3c-9e7a-3d8b2f1c9eaa
  *               relationToCaregiver:
  *                 type: string
  *                 enum: [PARENT, GUARDIAN, SIBLING, OTHER]
@@ -59,6 +55,7 @@
  *               typeOfSchool:
  *                 type: string
  *                 enum: [PUBLIC, PRIVATE, SPECIAL_NEEDS]
+ *             description: Caregiver is inferred from the authenticated user's token; do not send caregiverId.
  *
  *     responses:
  *       201:

@@ -2,9 +2,13 @@ import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
 
 class CpPatientService {
-  static async createPatient(data) {
+  static async createPatient(data, userId) {
     if (!data) {
       throw new Error("Request body is missing");
+    }
+
+    if (!userId) {
+      throw new gcprError(HttpStatus.UNAUTHORIZED, "Unauthorized request");
     }
 
     const dateOfBirth = new Date(data.dateOfBirth);
@@ -16,6 +20,18 @@ class CpPatientService {
     const age =
       new Date().getFullYear() - dateOfBirth.getFullYear();
 
+    const caregiver = await prisma.careGiver.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!caregiver) {
+      throw new gcprError(
+        HttpStatus.NOT_FOUND,
+        "Caregiver profile not found for this user"
+      );
+    }
+
     const patient = await prisma.cpPatient.create({
       data: {
         fullName: data.fullName,
@@ -26,7 +42,7 @@ class CpPatientService {
         placeOfBirth: data.placeOfBirth,
         birthWeight: data.birthWeight,
         numberOfSiblings: data.numberOfSiblings,
-        caregiverId: data.caregiverId,
+        caregiverId: caregiver.id,
         relationToCaregiver: data.relationToCaregiver,
         householdSize: data.householdSize,
         schoolEnrollmmentStatus: data.schoolEnrollmmentStatus ?? false,
