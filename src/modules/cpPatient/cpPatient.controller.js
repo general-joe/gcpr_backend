@@ -5,7 +5,8 @@ import CpPatientService from "./cpPatient.service.js";
 class CpPatientController {
   static createPatient = catchAsync(async (req, res) => {
     const data = req.body;
-    const result = await CpPatientService.createPatient(data);
+    const userId = res.locals.user?.id;
+    const result = await CpPatientService.createPatient(data, userId);
     UtilFunctions.outputSuccess(res, result, "CP patient created successfully");
   });
 

@@ -8,7 +8,6 @@ export const cpPatientSchema = z.object({
   placeOfBirth: z.string().min(1, "Place of birth is required"),
   birthWeight: z.number().optional(),
   numberOfSiblings: z.number().optional(),
-  caregiverId: z.string().min(1, "Caregiver ID is required"),
   relationToCaregiver: z.enum(["PARENT", "GUARDIAN", "SIBLING", "OTHER"]),
   householdSize: z.number().min(1, "Household size is required"),
   schoolEnrollmmentStatus: z.boolean().optional(),
