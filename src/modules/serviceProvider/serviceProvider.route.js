@@ -34,19 +34,19 @@ serviceProviderRouter.post(
 
 serviceProviderRouter.get(
   "/",
-  authorize(["SERVICE_PROVIDER", "ADMIN"]),
+  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
   ServiceProviderController.getAllServiceProviders,
 );
 
 serviceProviderRouter.get(
   "/search",
-  authorize(["SERVICE_PROVIDER", "ADMIN"]),
+  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
   ServiceProviderController.searchServiceProviders,
 );
 
 serviceProviderRouter.get(
   "/:id",
-  authorize(["SERVICE_PROVIDER", "ADMIN"]),
+  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
   ServiceProviderController.getServiceProviderById,
 );
 
