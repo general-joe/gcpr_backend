@@ -14,18 +14,11 @@ export function Auth(rq, rs, next) {
     return next();
   }
   
-  WRITE.info(rq.method);
-  WRITE.info(rq.baseUrl + rq.url);
-  WRITE.info(rq.body);
-  WRITE.info("---");
-
   try {
     const decoded = jwt.verify(
       token.toString().substring(6).trim(),
       process.env.JWT,
     );
-    WRITE.info(`User id ${decoded.id}`);
-
     const role = decoded.role || "guest";
     const is_guest = role === "guest";
 
@@ -76,7 +69,6 @@ export function authorize(allowedRoles = []) {
       if (!decoded?.id || !decoded?.role) {
         throw new Error("Invalid token payload");
       }
-     console.log("Decoded role:", decoded.role);
       if (!allowedRoles.includes(decoded.role)) {
         return UtilFunctions.outputError(
           rs,

@@ -26,8 +26,8 @@ class CareGiverController {
 
     UtilFunctions.outputSuccess(
       res,
-      "Caregiver profile completed successfully",
-      result
+      result,
+      "Caregiver profile completed successfully"
     );
   });
 
@@ -42,8 +42,8 @@ class CareGiverController {
 
     UtilFunctions.outputSuccess(
       res,
-      "Caregivers fetched successfully",
-      result
+      result,
+      "Caregivers fetched successfully"
     );
   });
 }

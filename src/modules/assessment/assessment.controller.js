@@ -5,37 +5,77 @@ import AssessmentService from "./assessment.service.js";
 class AssessmentController {
   static submitAssessment = catchAsync(async (req, res) => {
     const user = res.locals.user;
-    const payload = req.body;
+    const payload = req.validatedData ?? req.body;
 
     const result = await AssessmentService.submitAssessment(user, payload);
 
     UtilFunctions.outputSuccess(
       res,
-      "Assessment submitted successfully",
-      result
+      result,
+      "Assessment submitted successfully"
     );
   });
 
   static getAssessmentReport = catchAsync(async (req, res) => {
+    const user = res.locals.user;
     const { assessmentId } = req.params;
-    const result = await AssessmentService.getAssessmentReport(assessmentId);
+    const result = await AssessmentService.getAssessmentReport(user, assessmentId);
 
     UtilFunctions.outputSuccess(
       res,
-      "Clinical assessment report retrieved successfully",
-      result
+      result,
+      "Clinical assessment report retrieved successfully"
     );
   });
 
   static getAssessmentReportsByPatient = catchAsync(async (req, res) => {
+    const user = res.locals.user;
     const { patientId } = req.params;
-    const result = await AssessmentService.getAssessmentReportsByPatient(patientId);
+    const result = await AssessmentService.getAssessmentReportsByPatient(user, patientId);
 
     UtilFunctions.outputSuccess(
       res,
-      "Patient assessment reports retrieved successfully",
-      result
+      result,
+      "Patient assessment reports retrieved successfully"
     );
+  });
+
+  static getIncomingReferrals = catchAsync(async (req, res) => {
+    const user = res.locals.user;
+    const result = await AssessmentService.getIncomingReferrals(user);
+    UtilFunctions.outputSuccess(res, result, "Incoming referrals retrieved successfully");
+  });
+
+  static getOutgoingReferrals = catchAsync(async (req, res) => {
+    const user = res.locals.user;
+    const result = await AssessmentService.getOutgoingReferrals(user);
+    UtilFunctions.outputSuccess(res, result, "Outgoing referrals retrieved successfully");
+  });
+
+  static updateReferralStatus = catchAsync(async (req, res) => {
+    const user = res.locals.user;
+    const { referralId } = req.params;
+    const { status } = req.validatedData ?? req.body;
+    const result = await AssessmentService.updateReferralStatus(user, referralId, status);
+    UtilFunctions.outputSuccess(res, result, "Referral status updated successfully");
+  });
+
+  static createRehabTaskFromReferral = catchAsync(async (req, res) => {
+    const user = res.locals.user;
+    const { referralId } = req.params;
+    const payload = req.validatedData ?? req.body;
+    const result = await AssessmentService.createRehabTaskFromReferral(
+      user,
+      referralId,
+      payload
+    );
+    UtilFunctions.outputSuccess(res, result, "Rehab task assigned successfully");
+  });
+
+  static getMyAssignedTasks = catchAsync(async (req, res) => {
+    const user = res.locals.user;
+    const result = await AssessmentService.getMyAssignedTasks(user);
+    UtilFunctions.outputSuccess(res, result, "Assigned rehab tasks retrieved successfully");
   });
 }
 

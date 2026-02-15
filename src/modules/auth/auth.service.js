@@ -26,22 +26,48 @@ class AuthService {
       );
     }
 
+    const normalizedEmail =
+      typeof userData.email === "string" && userData.email.trim().length > 0
+        ? userData.email.trim().toLowerCase()
+        : null;
+    const normalizedPhone =
+      typeof userData.phoneNumber === "string" && userData.phoneNumber.trim().length > 0
+        ? userData.phoneNumber.trim()
+        : null;
+
+    const identifierConditions = [];
+    if (normalizedEmail) identifierConditions.push({ email: normalizedEmail });
+    if (normalizedPhone) identifierConditions.push({ phoneNumber: normalizedPhone });
+
+    if (!identifierConditions.length) {
+      throw new gcprError(
+        HttpStatus.BAD_REQUEST,
+        "Email or phone number is required"
+      );
+    }
+
     const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [{ email: userData.email }, { phoneNumber: userData.phoneNumber }],
-      },
+      where: { OR: identifierConditions },
+      select: { id: true, email: true, phoneNumber: true }
     });
 
     if (existingUser) {
+      const conflictField =
+        normalizedEmail && existingUser.email === normalizedEmail
+          ? "email"
+          : "phone number";
       throw new gcprError(
         HttpStatus.CONFLICT,
-        "User with this email or phone number already exists",
+        `User with this ${conflictField} already exists`,
       );
     }
 
     const hashedPassword = await hash(userData.password);
     const otpMode = userData.otpChannel;
     delete userData.otpChannel;
+
+    userData.email = normalizedEmail;
+    userData.phoneNumber = normalizedPhone;
 
     const newUser = await prisma.user.create({
       data: {

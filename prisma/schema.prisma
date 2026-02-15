@@ -108,21 +108,21 @@ enum appointmentStatus {
 }
 
 model User {
-  id               String   @id @default(uuid())
-  fullName         String
-  email            String?  @unique
-  password         String
-  phoneNumber      String   @unique
-  gender           Gender
-  role             Role
-  profileImage     String?
-  verified         Boolean  @default(false)
-  profileCompleted Boolean  @default(false)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  address          String?
-  digitalAddress    String?
-  dateOfBirth      DateTime
+  id                  String               @id @default(uuid())
+  fullName            String
+  email               String?              @unique
+  password            String
+  phoneNumber         String               @unique
+  gender              Gender
+  role                Role
+  profileImage        String?
+  verified            Boolean              @default(false)
+  profileCompleted    Boolean              @default(false)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  address             String?
+  digitalAddress      String?
+  dateOfBirth         DateTime
   otp                 Otp?
   refreshToken        RefreshToken[]
   passwordResetTokens PasswordResetToken[]
@@ -136,7 +136,7 @@ model Otp {
   codeHash   String?
   userId     String    @unique
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt  DateTime?          
+  expiresAt  DateTime?
   attempts   Int       @default(0)
   requestId  String?
   prefix     String?
@@ -187,6 +187,7 @@ model serviceProvider {
 
   clinicalAssessments       ClinicalAssessment[]       @relation("ProviderAssessments")
   clinicalReferrals         ClinicalReferral[]         @relation("ProviderReferrals")
+  incomingReferrals         ClinicalReferral[]         @relation("ReferralRecipients")
   rehabTasks                RehabTask[]
   functionalClassifications FunctionalClassification[]
 
@@ -308,7 +309,9 @@ model ClinicalReferral {
   patient   cpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   fromProviderId String
-  fromProvider   serviceProvider @relation("ProviderReferrals", fields: [fromProviderId], references: [id], onDelete: Cascade)
+  fromProvider   serviceProvider  @relation("ProviderReferrals", fields: [fromProviderId], references: [id], onDelete: Cascade)
+  toProviderId   String?
+  toProvider     serviceProvider? @relation("ReferralRecipients", fields: [toProviderId], references: [id], onDelete: SetNull)
 
   toProfession Profession
   reason       String
@@ -319,6 +322,8 @@ model ClinicalReferral {
   createdAt DateTime       @default(now())
 
   generatedTasks RehabTask[]
+
+  @@index([toProviderId])
 }
 
 model RehabTask {
@@ -349,7 +354,6 @@ model RehabTask {
   updatedAt DateTime @updatedAt
 }
 
-
 model Appointment {
   id        String    @id @default(uuid())
   patientId String
@@ -364,4 +368,28 @@ model Appointment {
   status    appointmentStatus @default(PENDING)
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
+}
+
+model AssessmentTool {
+  id          String   @id @default(uuid())
+  toolCode    String   @unique
+  toolName    String
+  version     String
+  description String?
+  schema      Json?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  professions AssessmentToolProfession[]
+}
+
+model AssessmentToolProfession {
+  id         String         @id @default(uuid())
+  toolId     String
+  tool       AssessmentTool @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  profession Profession
+  createdAt  DateTime       @default(now())
+
+  @@unique([toolId, profession])
 }

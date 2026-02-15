@@ -52,7 +52,7 @@ serviceProviderRouter.get(
 
 serviceProviderRouter.put(
   "/:id",
-  authorize(["SERVICE_PROVIDER", "ADMIN"]),
+  authorize(["SERVICE_PROVIDER"]),
   upload.fields([{ name: "licenseImage" }]),
   validate(serviceProviderUpdateSchema),
   authRateLimiter,
@@ -61,7 +61,7 @@ serviceProviderRouter.put(
 
 serviceProviderRouter.delete(
   "/:id",
-  authorize(["SERVICE_PROVIDER", "ADMIN"]),
+  authorize(["SERVICE_PROVIDER"]),
   ServiceProviderController.deleteServiceProvider,
 );
 

@@ -156,7 +156,7 @@
  *           schema:
  *             $ref: '#/components/schemas/RegisterRequest'
  *     responses:
- *       201:
+ *       200:
  *         description: Registration successful, OTP sent
  *       409:
  *         description: User with this email or phone number already exists
