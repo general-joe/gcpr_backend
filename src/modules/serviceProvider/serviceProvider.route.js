@@ -34,25 +34,25 @@ serviceProviderRouter.post(
 
 serviceProviderRouter.get(
   "/",
-  authorize(["SERVICE_PROVIDER", "ADMIN"]),
+  authorize(["SERVICE_PROVIDER"]),
   ServiceProviderController.getAllServiceProviders,
 );
 
 serviceProviderRouter.get(
   "/search",
-  authorize(["SERVICE_PROVIDER", "ADMIN"]),
+  authorize(["SERVICE_PROVIDER"]),
   ServiceProviderController.searchServiceProviders,
 );
 
 serviceProviderRouter.get(
   "/:id",
-  authorize(["SERVICE_PROVIDER", "ADMIN"]),
+  authorize(["SERVICE_PROVIDER"]),
   ServiceProviderController.getServiceProviderById,
 );
 
 serviceProviderRouter.put(
   "/:id",
-  authorize(["SERVICE_PROVIDER", "ADMIN"]),
+  authorize(["SERVICE_PROVIDER"]),
   upload.fields([{ name: "licenseImage" }]),
   validate(serviceProviderUpdateSchema),
   authRateLimiter,
@@ -61,7 +61,7 @@ serviceProviderRouter.put(
 
 serviceProviderRouter.delete(
   "/:id",
-  authorize(["SERVICE_PROVIDER", "ADMIN"]),
+  authorize(["SERVICE_PROVIDER"]),
   ServiceProviderController.deleteServiceProvider,
 );
 

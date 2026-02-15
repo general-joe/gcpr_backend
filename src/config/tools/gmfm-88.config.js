@@ -52,6 +52,10 @@ export default {
   },
   "metadata": {
     "applicableCondition": "CEREBRAL_PALSY",
+    "professions": [
+      "PHYSIOTHERAPIST",
+      "OCCUPATIONAL_THERAPIST"
+    ],
     "testConditionsRequired": [
       "No shoes",
       "No orthoses",

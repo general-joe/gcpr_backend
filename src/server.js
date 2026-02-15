@@ -2,11 +2,8 @@ import dotenv from 'dotenv'
 import compression from 'compression'
 import express from 'express'
 import cookieParser from 'cookie-parser'
-import bodyParser from 'body-parser'
 import morgan from 'morgan'
 import cors from 'cors'
-import path from 'path'
-import { fileURLToPath } from 'url'
 
 // Global Variables
 import WRITE from './utils/logger.js'
@@ -18,11 +15,10 @@ import gcprError from './utils/http-error.js'
 import router from './routes/index.route.js'
 import swaggerUi from 'swagger-ui-express'
 import swaggerSpec from './config/swagger.js'
+import filesRouter from './modules/files/files.route.js'
 
 // ROUTING
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
 dotenv.config()
 
 const app = express()
@@ -36,16 +32,22 @@ global.gcprError = gcprError
 
 
 app.use(compression())
-app.use(express.json()); 
-app.use(express.urlencoded({ extended: true }));
+app.use(cors({
+    origin: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTION',
+    credentials: true,
+    exposedHeaders: ['x-auth-token']
+}))
+app.use(express.json({ limit: '50mb' }))
+app.use(express.urlencoded({ limit: '50mb', extended: true }))
 app.use(cookieParser())
-app.use(express.static(path.join(__dirname, './files')))
 app.use(morgan("dev"));
 
 // Serve Swagger docs
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
 app.get('/docs.json', (req, res) => res.json(swaggerSpec))
 
+app.use(filesRouter)
 app.use(router)
 
 
@@ -60,23 +62,6 @@ app.get('/', (req, res) => {
         version: 1.0
     })
 })
-
-app.use(bodyParser.urlencoded({
-    limit: '50mb',
-    extended: true
-}))
-
-app.use(cors({
-    origin: true,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTION',
-    credentials: true,
-    exposedHeaders: ['x-auth-token']
-}))
-
-app.use(bodyParser.json({
-    limit: '50mb',
-    extended: true
-}))
 
 app.use((err, req, res, next) => {
   // Known HTTP errors (your custom errors)
