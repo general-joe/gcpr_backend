@@ -53,6 +53,8 @@ export default {
   ],
   "metadata": {
     "estimatedDurationMinutes": 30,
-    "profession": "SPEECH_THERAPIST"
+    "professions": [
+      "SPEECH_THERAPIST"
+    ]
   }
 }

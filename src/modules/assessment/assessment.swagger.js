@@ -2,86 +2,87 @@
  * @swagger
  * /assessment/submit:
  *   post:
- *     summary: Submit a clinical assessment
+ *     summary: Submit a clinical assessment and optionally create referral (physiotherapist only)
  *     tags: [Assessment]
  *     security:
  *       - bearerAuth: []
- *
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - patientId
- *               - toolCode
- *               - responses
+ *             required: [patientId, toolCode, responses]
  *             properties:
  *               patientId:
  *                 type: string
  *                 format: uuid
- *                 example: "8f2c1c0b-4f9d-4a3c-9e7a-3d8b2f1c9eaa"
- *
  *               toolCode:
  *                 type: string
  *                 example: GMFM_88
- *
  *               toolVersion:
  *                 type: string
  *                 example: "1.0.0"
- *
  *               status:
  *                 type: string
  *                 enum: [DRAFT, COMPLETED]
- *                 example: COMPLETED
- *
  *               responses:
  *                 type: object
- *                 description: Tool-specific response payload
- *                 example:
- *                   A1: 3
- *                   A2: 2
- *                   B18: 1
- *                   C40: NT
- *
+ *                 additionalProperties: true
+ *               referral:
+ *                 type: object
+ *                 description: Optional. Allowed only when submitting provider is PHYSIOTHERAPIST and assessment status is COMPLETED.
+ *                 required: [toProfession, toProviderId, reason]
+ *                 properties:
+ *                   toProfession:
+ *                     type: string
+ *                     enum:
+ *                       - GENERAL_PAEDIATRICIAN
+ *                       - DEVELOPMENTAL_PAEDIATRICIAN
+ *                       - PAEDIATRIC_NEUROLOGIST
+ *                       - NEURODEVELOPMENTAL_PAEDIATRICIAN
+ *                       - REHABILITATION_PAEDIATRICIAN
+ *                       - PHYSIOTHERAPIST
+ *                       - OCCUPATIONAL_THERAPIST
+ *                       - SPEECH_THERAPIST
+ *                       - CLINICAL_PSYCHOLOGIST
+ *                       - DIETITIAN
+ *                       - PHARMACIST
+ *                   toProviderId:
+ *                     type: string
+ *                     format: uuid
+ *                   reason:
+ *                     type: string
+ *                     example: "Needs occupational therapy for fine motor and ADL intervention"
+ *           example:
+ *             patientId: "8f2c1c0b-4f9d-4a3c-9e7a-3d8b2f1c9eaa"
+ *             toolCode: "GMFM_88"
+ *             status: "COMPLETED"
+ *             responses:
+ *               A1: 3
+ *               A2: 2
+ *               B18: 1
+ *               C40: NT
+ *             referral:
+ *               toProfession: "OCCUPATIONAL_THERAPIST"
+ *               toProviderId: "54f8abf1-85e4-4cf6-b8ca-bc16e8a6f8d1"
+ *               reason: "Requires OT intervention for upper limb function"
  *     responses:
  *       200:
  *         description: Assessment submitted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: Assessment submitted successfully
- *                 data:
- *                   type: object
- *                   properties:
- *                     assessment:
- *                       type: object
- *                     report:
- *                       type: object
- *
- *       400:
- *         description: Validation error
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (not a service provider)
- *       500:
- *         description: Internal server error
+ *         description: Forbidden (profession or access restriction)
+ *       422:
+ *         description: Validation or business-rule error
  */
 
 /**
  * @swagger
  * /assessment/{assessmentId}/report:
  *   get:
- *     summary: Get latest clinical report for an assessment
+ *     summary: Get latest clinical report for an assessment (authorized care team only)
  *     tags: [Assessment]
  *     security:
  *       - bearerAuth: []
@@ -95,10 +96,8 @@
  *     responses:
  *       200:
  *         description: Clinical assessment report retrieved successfully
- *       401:
- *         description: Unauthorized
  *       403:
- *         description: Forbidden
+ *         description: Access denied
  *       404:
  *         description: Assessment/report not found
  */
@@ -107,7 +106,7 @@
  * @swagger
  * /assessment/patient/{patientId}/reports:
  *   get:
- *     summary: Get assessment history and latest reports for a patient
+ *     summary: Get assessment history for a patient (authorized care team only)
  *     tags: [Assessment]
  *     security:
  *       - bearerAuth: []
@@ -121,8 +120,142 @@
  *     responses:
  *       200:
  *         description: Patient assessment reports retrieved successfully
- *       401:
- *         description: Unauthorized
+ *       403:
+ *         description: Access denied
+ */
+
+/**
+ * @swagger
+ * /assessment/referrals/incoming:
+ *   get:
+ *     summary: Get incoming referrals for logged-in provider
+ *     tags: [Assessment]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Incoming referrals retrieved successfully
+ */
+
+/**
+ * @swagger
+ * /assessment/referrals/outgoing:
+ *   get:
+ *     summary: Get outgoing referrals created by logged-in provider
+ *     tags: [Assessment]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Outgoing referrals retrieved successfully
+ */
+
+/**
+ * @swagger
+ * /assessment/referrals/{referralId}/status:
+ *   patch:
+ *     summary: Accept/decline/complete a referral (target provider only)
+ *     tags: [Assessment]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: referralId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [status]
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [ACCEPTED, DECLINED, COMPLETED]
+ *           example:
+ *             status: ACCEPTED
+ *     responses:
+ *       200:
+ *         description: Referral status updated successfully
  *       403:
  *         description: Forbidden
+ */
+
+/**
+ * @swagger
+ * /assessment/referrals/{referralId}/tasks:
+ *   post:
+ *     summary: Assign rehab task to referred patient (target provider, accepted referral)
+ *     tags: [Assessment]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: referralId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [title, instructions, durationDays]
+ *             properties:
+ *               title:
+ *                 type: string
+ *               instructions:
+ *                 type: string
+ *               instructionSteps:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               frequencyPerDay:
+ *                 type: integer
+ *               frequencyNote:
+ *                 type: string
+ *               durationDays:
+ *                 type: integer
+ *               startDate:
+ *                 type: string
+ *                 format: date-time
+ *               endDate:
+ *                 type: string
+ *                 format: date-time
+ *               video:
+ *                 type: object
+ *                 additionalProperties: true
+ *           example:
+ *             title: "Daily trunk balance training"
+ *             instructions: "Perform seated trunk reaches with caregiver support"
+ *             instructionSteps:
+ *               - "Sit on firm chair with hips/knees at 90 degrees"
+ *               - "Reach for toy placed slightly outside base of support"
+ *             frequencyPerDay: 2
+ *             frequencyNote: "Morning and evening"
+ *             durationDays: 21
+ *     responses:
+ *       200:
+ *         description: Rehab task assigned successfully
+ *       422:
+ *         description: Referral not accepted or invalid payload
+ */
+
+/**
+ * @swagger
+ * /assessment/tasks/my:
+ *   get:
+ *     summary: Get rehab tasks assigned to logged-in provider
+ *     tags: [Assessment]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Assigned rehab tasks retrieved successfully
  */

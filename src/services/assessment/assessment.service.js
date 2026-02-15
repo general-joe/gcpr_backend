@@ -1,4 +1,11 @@
-import { gmfm88Config, sltCpBaselineConfig } from "../../config/tools/index.js";
+import {
+  gmfm88Config,
+  sltCpBaselineConfig,
+  paediatricPhysiotherapyAssessmentConfig,
+  homeRehabPharmacyConfig,
+  cpProgramIntakeConfig,
+  otCpClinicalAssessmentConfig
+} from "../../config/tools/index.js";
 import { SCORERS } from "./scorers/index.js";
 
 const TOOL_ALIASES = {
@@ -12,20 +19,43 @@ const TOOL_ALIASES = {
   "SLT-CP-BASELINE": "SLT_CP_BASELINE",
   slt_cp_baseline: "SLT_CP_BASELINE",
   "slt-cp-baseline": "SLT_CP_BASELINE",
-  sltCpBaseline: "SLT_CP_BASELINE"
+  sltCpBaseline: "SLT_CP_BASELINE",
+  PAEDIATRIC_PHYSIOTHERAPY_ASSESSMENT: "PAEDIATRIC_PHYSIOTHERAPY_ASSESSMENT",
+  paediatric_physiotherapy_assessment: "PAEDIATRIC_PHYSIOTHERAPY_ASSESSMENT",
+  "paediatric-physiotherapy-assessment": "PAEDIATRIC_PHYSIOTHERAPY_ASSESSMENT",
+  OT_CP_CLINICAL_ASSESSMENT: "OT_CP_CLINICAL_ASSESSMENT",
+  ot_cp_clinical_assessment: "OT_CP_CLINICAL_ASSESSMENT",
+  "ot-cp-clinical-assessment": "OT_CP_CLINICAL_ASSESSMENT",
+  CP_PROGRAM_INTAKE: "CP_PROGRAM_INTAKE",
+  cp_program_intake: "CP_PROGRAM_INTAKE",
+  "cp-program-intake": "CP_PROGRAM_INTAKE",
+  HOME_REHAB_PHARMACY_PRESCRIPTION: "HOME_REHAB_PHARMACY_PRESCRIPTION",
+  home_rehab_pharmacy_prescription: "HOME_REHAB_PHARMACY_PRESCRIPTION",
+  "home-rehab-pharmacy-prescription": "HOME_REHAB_PHARMACY_PRESCRIPTION"
 };
 
 const TOOL_CONFIGS = {
   GMFM_88: gmfm88Config,
-  SLT_CP_BASELINE: sltCpBaselineConfig
+  SLT_CP_BASELINE: sltCpBaselineConfig,
+  PAEDIATRIC_PHYSIOTHERAPY_ASSESSMENT: paediatricPhysiotherapyAssessmentConfig,
+  OT_CP_CLINICAL_ASSESSMENT: otCpClinicalAssessmentConfig,
+  CP_PROGRAM_INTAKE: cpProgramIntakeConfig,
+  HOME_REHAB_PHARMACY_PRESCRIPTION: homeRehabPharmacyConfig
 };
 
 const normalizeToolCode = (toolCode) =>
   TOOL_ALIASES[toolCode] ?? toolCode;
 
-export const processAssessment = ({ toolCode, responses }) => {
+export const getToolConfigByCode = (toolCode) => {
   const normalizedToolCode = normalizeToolCode(toolCode);
-  const config = TOOL_CONFIGS[normalizedToolCode];
+  return {
+    normalizedToolCode,
+    config: TOOL_CONFIGS[normalizedToolCode] ?? null
+  };
+};
+
+export const processAssessment = ({ toolCode, responses }) => {
+  const { normalizedToolCode, config } = getToolConfigByCode(toolCode);
   if (!config) {
     throw new Error(
       `Unknown assessment tool: ${toolCode}. Supported tools: ${Object.keys(TOOL_CONFIGS).join(", ")}`

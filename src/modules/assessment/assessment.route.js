@@ -4,7 +4,11 @@ import { authorize } from "../../middlewares/auth.js";
 import { validate } from "../../middlewares/validation.js";
 
 import AssessmentController from "./assessment.controller.js";
-import { submitAssessmentSchema } from "./assessment.validator.js";
+import {
+  submitAssessmentSchema,
+  updateReferralStatusSchema,
+  createRehabTaskSchema
+} from "./assessment.validator.js";
 
 const assessmentRouter = express.Router();
 
@@ -23,14 +27,46 @@ assessmentRouter.post(
 
 assessmentRouter.get(
   "/:assessmentId/report",
-  authorize(["SERVICE_PROVIDER", "ADMIN"]),
+  authorize(["SERVICE_PROVIDER"]),
   AssessmentController.getAssessmentReport
 );
 
 assessmentRouter.get(
   "/patient/:patientId/reports",
-  authorize(["SERVICE_PROVIDER", "ADMIN"]),
+  authorize(["SERVICE_PROVIDER"]),
   AssessmentController.getAssessmentReportsByPatient
+);
+
+assessmentRouter.get(
+  "/referrals/incoming",
+  authorize(["SERVICE_PROVIDER"]),
+  AssessmentController.getIncomingReferrals
+);
+
+assessmentRouter.get(
+  "/referrals/outgoing",
+  authorize(["SERVICE_PROVIDER"]),
+  AssessmentController.getOutgoingReferrals
+);
+
+assessmentRouter.patch(
+  "/referrals/:referralId/status",
+  authorize(["SERVICE_PROVIDER"]),
+  validate(updateReferralStatusSchema),
+  AssessmentController.updateReferralStatus
+);
+
+assessmentRouter.post(
+  "/referrals/:referralId/tasks",
+  authorize(["SERVICE_PROVIDER"]),
+  validate(createRehabTaskSchema),
+  AssessmentController.createRehabTaskFromReferral
+);
+
+assessmentRouter.get(
+  "/tasks/my",
+  authorize(["SERVICE_PROVIDER"]),
+  AssessmentController.getMyAssignedTasks
 );
 
 export default assessmentRouter;

@@ -18,8 +18,8 @@ export default class ServiceProviderController {
     );
     UtilFunctions.outputSuccess(
       res,
-      "Service provider profile completed",
       completeProfile,
+      "Service provider profile completed",
     );
   });
 
@@ -33,8 +33,8 @@ export default class ServiceProviderController {
     );
     UtilFunctions.outputSuccess(
       res,
-      "Service providers retrieved successfully",
       result,
+      "Service providers retrieved successfully",
     );
   });
 
@@ -44,13 +44,19 @@ export default class ServiceProviderController {
       await ServiceProviderService.getServiceProviderById(id);
 
     if (!serviceProvider) {
-      return UtilFunctions.outputError(res, "Service provider not found", 404);
+      return UtilFunctions.outputError(
+        res,
+        "Service provider not found",
+        {},
+        "NOT_FOUND",
+        404
+      );
     }
 
     UtilFunctions.outputSuccess(
       res,
-      "Service provider retrieved successfully",
       serviceProvider,
+      "Service provider retrieved successfully",
     );
   });
 
@@ -77,18 +83,38 @@ export default class ServiceProviderController {
     );
     UtilFunctions.outputSuccess(
       res,
-      "Search results retrieved successfully",
       result,
+      "Search results retrieved successfully",
     );
   });
 
   static updateServiceProvider = catchAsync(async (req, res) => {
+    const requesterId = res.locals.user.id;
     const { id } = req.params;
+
+    const requester = await ServiceProviderService.getServiceProviderByUserId(
+      requesterId
+    );
+    if (!requester || requester.id !== id) {
+      return UtilFunctions.outputError(
+        res,
+        "You can only update your own service provider profile",
+        {},
+        "FORBIDDEN",
+        403
+      );
+    }
 
     const existingProvider =
       await ServiceProviderService.getServiceProviderById(id);
     if (!existingProvider) {
-      return UtilFunctions.outputError(res, "Service provider not found", 404);
+      return UtilFunctions.outputError(
+        res,
+        "Service provider not found",
+        {},
+        "NOT_FOUND",
+        404
+      );
     }
 
     const updatedServiceProvider =
@@ -99,21 +125,41 @@ export default class ServiceProviderController {
       );
     UtilFunctions.outputSuccess(
       res,
-      "Service provider updated successfully",
       updatedServiceProvider,
+      "Service provider updated successfully",
     );
   });
 
   static deleteServiceProvider = catchAsync(async (req, res) => {
+    const requesterId = res.locals.user.id;
     const { id } = req.params;
+
+    const requester = await ServiceProviderService.getServiceProviderByUserId(
+      requesterId
+    );
+    if (!requester || requester.id !== id) {
+      return UtilFunctions.outputError(
+        res,
+        "You can only delete your own service provider profile",
+        {},
+        "FORBIDDEN",
+        403
+      );
+    }
 
     const existingProvider =
       await ServiceProviderService.getServiceProviderById(id);
     if (!existingProvider) {
-      return UtilFunctions.outputError(res, "Service provider not found", 404);
+      return UtilFunctions.outputError(
+        res,
+        "Service provider not found",
+        {},
+        "NOT_FOUND",
+        404
+      );
     }
 
     await ServiceProviderService.deleteServiceProvider(id);
-    UtilFunctions.outputSuccess(res, "Service provider deleted successfully");
+    UtilFunctions.outputSuccess(res, {}, "Service provider deleted successfully");
   });
 }
