@@ -17,14 +17,21 @@ cpPatientRouter.post(
   authorize(["CAREGIVER"]),
   validate(cpPatientSchema),
   authRateLimiter,
-  CpPatientController.createPatient
+  CpPatientController.createPatient,
 );
 
 cpPatientRouter.get(
   "/",
   authorize(["CAREGIVER"]),
   authRateLimiter,
-  CpPatientController.getPatients
+  CpPatientController.getPatients,
+);
+
+cpPatientRouter.get(
+  "/:patientId/assigned-tasks",
+  authorize(["CAREGIVER"]),
+  authRateLimiter,
+  CpPatientController.getAssignedTasks,
 );
 
 export default cpPatientRouter;

@@ -16,6 +16,18 @@ class CpPatientController {
 
     UtilFunctions.outputSuccess(res, patients, "Patients fetched successfully");
   });
+
+  static getAssignedTasks = catchAsync(async (req, res) => {
+    const userId = res.locals.user?.id;
+    const { patientId } = req.params;
+    const tasks = await CpPatientService.getAssignedTasks(userId, patientId);
+
+    UtilFunctions.outputSuccess(
+      res,
+      tasks,
+      "Assigned tasks retrieved successfully",
+    );
+  });
 }
 
 export default CpPatientController;
