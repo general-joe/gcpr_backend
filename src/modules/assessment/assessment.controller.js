@@ -3,6 +3,29 @@ import UtilFunctions from "../../utils/UtilFunctions.js";
 import AssessmentService from "./assessment.service.js";
 
 class AssessmentController {
+  static getAvailableTools = catchAsync(async (req, res) => {
+    const user = res.locals.user;
+    const result = await AssessmentService.getAvailableTools(user);
+
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "Assessment tools retrieved successfully"
+    );
+  });
+
+  static getAssessmentFormByToolCode = catchAsync(async (req, res) => {
+    const user = res.locals.user;
+    const { toolCode } = req.params;
+    const result = await AssessmentService.getAssessmentFormByToolCode(user, toolCode);
+
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "Assessment form schema retrieved successfully"
+    );
+  });
+
   static submitAssessment = catchAsync(async (req, res) => {
     const user = res.locals.user;
     const payload = req.validatedData ?? req.body;
