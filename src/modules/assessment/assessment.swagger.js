@@ -1,5 +1,40 @@
 /**
  * @swagger
+ * /assessment/tools:
+ *   get:
+ *     summary: Get assessment tools with code and professions allowed to use each tool
+ *     tags: [Assessment]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Assessment tools retrieved successfully
+ */
+
+/**
+ * @swagger
+ * /assessment/tools/{toolCode}/form:
+ *   get:
+ *     summary: Get normalized form schema for a tool code
+ *     tags: [Assessment]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: toolCode
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: GMFM_88
+ *     responses:
+ *       200:
+ *         description: Assessment form schema retrieved successfully
+ *       404:
+ *         description: Tool not found
+ */
+
+/**
+ * @swagger
  * /assessment/submit:
  *   post:
  *     summary: Submit a clinical assessment and optionally create referral (physiotherapist only)
