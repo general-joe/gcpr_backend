@@ -1,5 +1,13 @@
 import prisma from "../../config/database.js";
 import {
+  gmfm88Config,
+  sltCpBaselineConfig,
+  paediatricPhysiotherapyAssessmentConfig,
+  homeRehabPharmacyConfig,
+  cpProgramIntakeConfig,
+  otCpClinicalAssessmentConfig
+} from "../../config/tools/index.js";
+import {
   processAssessment,
   getToolConfigByCode
 } from "../../services/assessment/assessment.service.js";
@@ -32,6 +40,85 @@ const TOOL_ALIASES = {
 };
 
 const normalizeToolCode = (toolCode) => TOOL_ALIASES[toolCode] ?? toolCode;
+const ALL_TOOL_CONFIGS = [
+  gmfm88Config,
+  sltCpBaselineConfig,
+  paediatricPhysiotherapyAssessmentConfig,
+  otCpClinicalAssessmentConfig,
+  cpProgramIntakeConfig,
+  homeRehabPharmacyConfig
+];
+
+const ITEM_TYPE_TO_FORMAT = {
+  TEXT: "string",
+  NUMBER: "number",
+  BOOLEAN: "boolean",
+  DATE: "date",
+  SELECT: "string"
+};
+
+const toTitleFromId = (value) =>
+  String(value)
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+
+const sectionLetter = (index) => {
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  return letters[index] ?? `S${index + 1}`;
+};
+
+const buildGMFMFields = (toolConfig) => {
+  const dimensions = Array.isArray(toolConfig?.dimensions) ? toolConfig.dimensions : [];
+  return dimensions.map((dimension) => {
+    const [start, end] = dimension.itemRange;
+    const fields = [];
+
+    for (let itemNumber = start; itemNumber <= end; itemNumber += 1) {
+      fields.push({
+        fieldCode: `${dimension.code}${itemNumber}`,
+        question: `GMFM Item ${dimension.code}${itemNumber}`,
+        expectedAnswerFormat: "number_or_NT",
+        allowedValues: [0, 1, 2, 3, "NT"]
+      });
+    }
+
+    return {
+      sectionCode: dimension.code,
+      sectionName: dimension.name,
+      fields
+    };
+  });
+};
+
+const buildSectionFields = (toolConfig) => {
+  const sections = Array.isArray(toolConfig?.sections) ? toolConfig.sections : [];
+  return sections.map((section, sectionIndex) => ({
+    sectionCode: section.code,
+    sectionName: section.name,
+    fields: (section.items ?? []).map((item, itemIndex) => ({
+      fieldCode: `${sectionLetter(sectionIndex)}${itemIndex + 1}`,
+      fieldKey: item.id,
+      question: toTitleFromId(item.id),
+      expectedAnswerFormat: ITEM_TYPE_TO_FORMAT[item.type] ?? "string",
+      options: item.options ?? null
+    }))
+  }));
+};
+
+const buildFormSchema = (toolConfig) => {
+  if (Array.isArray(toolConfig?.dimensions) && toolConfig.dimensions.length > 0) {
+    return buildGMFMFields(toolConfig);
+  }
+
+  if (Array.isArray(toolConfig?.sections) && toolConfig.sections.length > 0) {
+    return buildSectionFields(toolConfig);
+  }
+
+  return [];
+};
 
 const getAllowedProfessions = (toolConfig) => {
   const professions = toolConfig?.metadata?.professions;
@@ -107,6 +194,44 @@ const validateGMFMResponses = (responses) => {
 };
 
 class AssessmentService {
+  static async getAvailableTools(user) {
+    const serviceProvider = await AssessmentService.requireServiceProvider(user.id);
+
+    const tools = ALL_TOOL_CONFIGS.map((toolConfig) => ({
+      toolName: toolConfig.toolName,
+      toolCode: toolConfig.toolCode,
+      whoCanUseTool: getAllowedProfessions(toolConfig),
+      canCurrentUserUse: getAllowedProfessions(toolConfig).includes(
+        serviceProvider.profession
+      )
+    }));
+
+    return {
+      total: tools.length,
+      tools
+    };
+  }
+
+  static async getAssessmentFormByToolCode(user, toolCode) {
+    await AssessmentService.requireServiceProvider(user.id);
+    const normalizedToolCode = normalizeToolCode(toolCode);
+    const { config: toolConfig } = getToolConfigByCode(normalizedToolCode);
+
+    if (!toolConfig) {
+      throw new gcprError(
+        HttpStatus.NOT_FOUND,
+        `Assessment tool not found for code: ${toolCode}`
+      );
+    }
+
+    return {
+      toolName: toolConfig.toolName,
+      toolCode: toolConfig.toolCode,
+      version: toolConfig.version,
+      sections: buildFormSchema(toolConfig)
+    };
+  }
+
   static async canProviderAccessPatient(providerId, patientId) {
     const [ownAssessmentsCount, referralCount, taskCount] = await Promise.all([
       prisma.clinicalAssessment.count({

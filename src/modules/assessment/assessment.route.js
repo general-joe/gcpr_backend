@@ -17,6 +17,18 @@ const limiter = rateLimit({
   max: 50
 });
 
+assessmentRouter.get(
+  "/tools",
+  authorize(["SERVICE_PROVIDER"]),
+  AssessmentController.getAvailableTools
+);
+
+assessmentRouter.get(
+  "/tools/:toolCode/form",
+  authorize(["SERVICE_PROVIDER"]),
+  AssessmentController.getAssessmentFormByToolCode
+);
+
 assessmentRouter.post(
   "/submit",
   authorize(["SERVICE_PROVIDER"]),
