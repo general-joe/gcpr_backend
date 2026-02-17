@@ -246,7 +246,23 @@
           "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const res=pm.response.json(); if(res?.data?.id) pm.environment.set('patientId', res.data.id);"] } }]
         },
         {
-          "name": "C2 Submit GMFM + Referral (Provider A)",
+          "name": "C2 Get Assessment Tools (Provider A)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{providerAToken}}" }],
+            "url": "{{baseUrl}}/assessment/tools"
+          }
+        },
+        {
+          "name": "C3 Get Assessment Form by Tool Code (GMFM_88) (Provider A)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{providerAToken}}" }],
+            "url": "{{baseUrl}}/assessment/tools/GMFM_88/form"
+          }
+        },
+        {
+          "name": "C4 Submit GMFM + Referral (Provider A)",
           "request": {
             "method": "POST",
             "header": [
@@ -262,7 +278,7 @@
           "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const res=pm.response.json(); if(res?.data?.assessment?.id) pm.environment.set('assessmentId', res.data.assessment.id); if(res?.data?.referral?.id) pm.environment.set('referralId', res.data.referral.id);"] } }]
         },
         {
-          "name": "C3 Incoming Referrals (Provider B)",
+          "name": "C5 Incoming Referrals (Provider B)",
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{providerBToken}}" }],
@@ -270,7 +286,7 @@
           }
         },
         {
-          "name": "C4 Accept Referral (Provider B)",
+          "name": "C6 Accept Referral (Provider B)",
           "request": {
             "method": "PATCH",
             "header": [
@@ -282,7 +298,7 @@
           }
         },
         {
-          "name": "C5 Assign Task from Referral (Provider B)",
+          "name": "C7 Assign Task from Referral (Provider B)",
           "request": {
             "method": "POST",
             "header": [
@@ -298,7 +314,7 @@
           "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const res=pm.response.json(); if(res?.data?.id) pm.environment.set('taskId', res.data.id);"] } }]
         },
         {
-          "name": "C6 My Assigned Tasks (Provider B)",
+          "name": "C8 My Assigned Tasks (Provider B)",
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{providerBToken}}" }],
@@ -306,7 +322,7 @@
           }
         },
         {
-          "name": "C7 Patient Reports (Provider B)",
+          "name": "C9 Patient Reports (Provider B)",
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{providerBToken}}" }],

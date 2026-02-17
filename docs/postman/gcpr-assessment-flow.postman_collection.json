@@ -107,7 +107,23 @@
       ]
     },
     {
-      "name": "5. Assessment - Submit GMFM + Referral (Provider A)",
+      "name": "5. Assessment - Get Tools (Provider A)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{providerAToken}}" }],
+        "url": "{{baseUrl}}/assessment/tools"
+      }
+    },
+    {
+      "name": "6. Assessment - Get Form by Tool Code (GMFM_88) (Provider A)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{providerAToken}}" }],
+        "url": "{{baseUrl}}/assessment/tools/GMFM_88/form"
+      }
+    },
+    {
+      "name": "7. Assessment - Submit GMFM + Referral (Provider A)",
       "request": {
         "method": "POST",
         "header": [
@@ -135,7 +151,7 @@
       ]
     },
     {
-      "name": "6. Referrals - Incoming (Provider B)",
+      "name": "8. Referrals - Incoming (Provider B)",
       "request": {
         "method": "GET",
         "header": [{ "key": "Authorization", "value": "Bearer {{providerBToken}}" }],
@@ -143,7 +159,7 @@
       }
     },
     {
-      "name": "7. Referral - Accept (Provider B)",
+      "name": "9. Referral - Accept (Provider B)",
       "request": {
         "method": "PATCH",
         "header": [
@@ -158,7 +174,7 @@
       }
     },
     {
-      "name": "8. Rehab Task - Create from Referral (Provider B)",
+      "name": "10. Rehab Task - Create from Referral (Provider B)",
       "request": {
         "method": "POST",
         "header": [
@@ -185,7 +201,7 @@
       ]
     },
     {
-      "name": "9. Tasks - My Assigned (Provider B)",
+      "name": "11. Tasks - My Assigned (Provider B)",
       "request": {
         "method": "GET",
         "header": [{ "key": "Authorization", "value": "Bearer {{providerBToken}}" }],
@@ -193,7 +209,7 @@
       }
     },
     {
-      "name": "10. Assessment Report by AssessmentId (Provider B)",
+      "name": "12. Assessment Report by AssessmentId (Provider B)",
       "request": {
         "method": "GET",
         "header": [{ "key": "Authorization", "value": "Bearer {{providerBToken}}" }],
@@ -201,7 +217,7 @@
       }
     },
     {
-      "name": "11. Assessment Reports by Patient (Provider A)",
+      "name": "13. Assessment Reports by Patient (Provider A)",
       "request": {
         "method": "GET",
         "header": [{ "key": "Authorization", "value": "Bearer {{providerAToken}}" }],
@@ -209,7 +225,7 @@
       }
     },
     {
-      "name": "12. Negative Test - Non-target Provider Accept Referral (should fail 403)",
+      "name": "14. Negative Test - Non-target Provider Accept Referral (should fail 403)",
       "request": {
         "method": "PATCH",
         "header": [
