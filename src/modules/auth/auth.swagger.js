@@ -129,6 +129,19 @@
  *           format: password
  *           minLength: 6
  *
+ *     RefreshTokenRequest:
+ *       type: object
+ *       required:
+ *         - refreshToken
+ *         - userId
+ *       properties:
+ *         refreshToken:
+ *           type: string
+ *           description: Valid refresh token from login or previous token refresh
+ *         userId:
+ *           type: string
+ *           description: User ID
+ *
  *     AuthResponse:
  *       type: object
  *       properties:
@@ -260,4 +273,28 @@
  *         description: Password reset successful
  *       400:
  *         description: Invalid or expired OTP
+ *
+ * /auth/refresh-token:
+ *   post:
+ *     summary: Refresh access token
+ *     security: []
+ *     description: Generates a new access token using a valid refresh token and user ID
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RefreshTokenRequest'
+ *     responses:
+ *       200:
+ *         description: Token refreshed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       400:
+ *         description: Refresh token or user ID is required
+ *       401:
+ *         description: Invalid or expired refresh token
  */

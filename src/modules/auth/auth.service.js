@@ -13,7 +13,8 @@ import {
   ResendOTP,
 } from "../../utils/hubtel-sms.js";
 
-const extractOtpPayload = (otpResponse) => otpResponse?.data ?? otpResponse ?? {};
+const extractOtpPayload = (otpResponse) =>
+  otpResponse?.data ?? otpResponse ?? {};
 
 class AuthService {
   static async registerUser(rq, userData) {
@@ -31,24 +32,26 @@ class AuthService {
         ? userData.email.trim().toLowerCase()
         : null;
     const normalizedPhone =
-      typeof userData.phoneNumber === "string" && userData.phoneNumber.trim().length > 0
+      typeof userData.phoneNumber === "string" &&
+      userData.phoneNumber.trim().length > 0
         ? userData.phoneNumber.trim()
         : null;
 
     const identifierConditions = [];
     if (normalizedEmail) identifierConditions.push({ email: normalizedEmail });
-    if (normalizedPhone) identifierConditions.push({ phoneNumber: normalizedPhone });
+    if (normalizedPhone)
+      identifierConditions.push({ phoneNumber: normalizedPhone });
 
     if (!identifierConditions.length) {
       throw new gcprError(
         HttpStatus.BAD_REQUEST,
-        "Email or phone number is required"
+        "Email or phone number is required",
       );
     }
 
     const existingUser = await prisma.user.findFirst({
       where: { OR: identifierConditions },
-      select: { id: true, email: true, phoneNumber: true }
+      select: { id: true, email: true, phoneNumber: true },
     });
 
     if (existingUser) {
@@ -338,7 +341,7 @@ class AuthService {
         const errorMessage = error?.message || "Failed to resend SMS OTP";
         const isQuotaError =
           errorMessage.includes("maximum admitted 5 per 1m") ||
-          errorMessage.includes("\"code\":\"2001\"") ||
+          errorMessage.includes('"code":"2001"') ||
           errorMessage.includes("quota exceeded");
 
         if (isQuotaError) {
@@ -348,10 +351,7 @@ class AuthService {
           );
         }
 
-        throw new gcprError(
-          HttpStatus.BAD_REQUEST,
-          errorMessage,
-        );
+        throw new gcprError(HttpStatus.BAD_REQUEST, errorMessage);
       }
     }
     // Handle EMAIL OTP resend
@@ -375,6 +375,63 @@ class AuthService {
     } else {
       throw new gcprError(HttpStatus.BAD_REQUEST, "Invalid OTP configuration");
     }
+  }
+
+  static async refreshToken(refreshToken, userId) {
+    if (!refreshToken || !userId) {
+      throw new gcprError(
+        HttpStatus.BAD_REQUEST,
+        "Refresh token and user ID are required",
+      );
+    }
+
+    // Find the refresh token for this user
+    const storedTokens = await prisma.refreshToken.findMany({
+      where: { userId },
+      include: { user: true },
+    });
+
+    let matchedToken = null;
+    for (const token of storedTokens) {
+      const isValid = await compare(refreshToken, token.tokenHash);
+      if (isValid) {
+        matchedToken = token;
+        break;
+      }
+    }
+
+    if (!matchedToken) {
+      throw new gcprError(HttpStatus.UNAUTHORIZED, "Invalid refresh token");
+    }
+
+    if (matchedToken.expiresAt < new Date()) {
+      await prisma.refreshToken.delete({ where: { id: matchedToken.id } });
+      throw new gcprError(HttpStatus.UNAUTHORIZED, "Refresh token has expired");
+    }
+
+    const user = matchedToken.user;
+
+    const newAccessToken = UtilFunctions.generateAccessToken({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    const newRefreshToken = UtilFunctions.generateRefreshToken();
+
+    // Delete old token
+    await prisma.refreshToken.delete({ where: { id: matchedToken.id } });
+
+    // Create new token using same hashing method as login
+    await prisma.refreshToken.create({
+      data: {
+        tokenHash: await hash(newRefreshToken, 10),
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    return { accessToken: newAccessToken, refreshToken: newRefreshToken };
   }
 }
 

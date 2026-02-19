@@ -68,6 +68,17 @@ class AuthController {
 
     return UtilFunctions.outputSuccess(res, result.message);
   });
+
+  static refreshToken = catchAsync(async (req, res) => {
+    const { refreshToken, userId } = req.body;
+
+    const result = await AuthService.refreshToken(refreshToken, userId);
+
+    return UtilFunctions.outputSuccess(res, {
+      message: "Token refreshed successfully",
+      ...result,
+    });
+  });
 }
 
 export default AuthController;
