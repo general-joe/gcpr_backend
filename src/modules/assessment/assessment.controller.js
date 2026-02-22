@@ -75,6 +75,13 @@ class AssessmentController {
     UtilFunctions.outputSuccess(res, result, "Outgoing referrals retrieved successfully");
   });
 
+  static createReferral = catchAsync(async (req, res) => {
+    const user = res.locals.user;
+    const payload = req.validatedData ?? req.body;
+    const result = await AssessmentService.createReferral(user, payload);
+    UtilFunctions.outputSuccess(res, result, "Referral created successfully");
+  });
+
   static updateReferralStatus = catchAsync(async (req, res) => {
     const user = res.locals.user;
     const { referralId } = req.params;
@@ -99,6 +106,14 @@ class AssessmentController {
     const user = res.locals.user;
     const result = await AssessmentService.getMyAssignedTasks(user);
     UtilFunctions.outputSuccess(res, result, "Assigned rehab tasks retrieved successfully");
+  });
+
+  static updateTaskProgress = catchAsync(async (req, res) => {
+    const user = res.locals.user;
+    const { taskId } = req.params;
+    const { progress } = req.validatedData ?? req.body;
+    const result = await AssessmentService.updateTaskProgress(user, taskId, progress);
+    UtilFunctions.outputSuccess(res, result, "Task progress updated successfully");
   });
 }
 
