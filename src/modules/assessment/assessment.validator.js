@@ -1,24 +1,18 @@
 import { z } from "zod";
 
-const referralSchema = z
-  .object({
-    toProfession: z.enum([
-      "GENERAL_PAEDIATRICIAN",
-      "DEVELOPMENTAL_PAEDIATRICIAN",
-      "PAEDIATRIC_NEUROLOGIST",
-      "NEURODEVELOPMENTAL_PAEDIATRICIAN",
-      "REHABILITATION_PAEDIATRICIAN",
-      "PHYSIOTHERAPIST",
-      "OCCUPATIONAL_THERAPIST",
-      "SPEECH_THERAPIST",
-      "CLINICAL_PSYCHOLOGIST",
-      "DIETITIAN",
-      "PHARMACIST"
-    ]),
-    toProviderId: z.string().uuid(),
-    reason: z.string().min(10).max(1000)
-  })
-  .strict();
+const professionEnum = z.enum([
+  "GENERAL_PAEDIATRICIAN",
+  "DEVELOPMENTAL_PAEDIATRICIAN",
+  "PAEDIATRIC_NEUROLOGIST",
+  "NEURODEVELOPMENTAL_PAEDIATRICIAN",
+  "REHABILITATION_PAEDIATRICIAN",
+  "PHYSIOTHERAPIST",
+  "OCCUPATIONAL_THERAPIST",
+  "SPEECH_THERAPIST",
+  "CLINICAL_PSYCHOLOGIST",
+  "DIETITIAN",
+  "PHARMACIST"
+]);
 
 export const submitAssessmentSchema = z.object({
   patientId: z.string().uuid(),
@@ -34,10 +28,18 @@ export const submitAssessmentSchema = z.object({
     .refine(
       (val) => Object.keys(val).length > 0,
       "Responses cannot be empty"
-    ),
+    )
+}).strict();
 
-  referral: referralSchema.optional()
-});
+export const createReferralSchema = z
+  .object({
+    patientId: z.string().uuid(),
+    assessmentId: z.string().uuid().optional(),
+    toProfession: professionEnum,
+    toProviderId: z.string().uuid().optional(),
+    reason: z.string().min(10).max(1000)
+  })
+  .strict();
 
 export const updateReferralStatusSchema = z
   .object({
@@ -64,4 +66,10 @@ export const createRehabTaskSchema = z
       payload.endDate.getTime() >= payload.startDate.getTime(),
     "endDate must be greater than or equal to startDate"
   )
+  .strict();
+
+export const updateTaskProgressSchema = z
+  .object({
+    progress: z.number().int().min(0).max(100)
+  })
   .strict();

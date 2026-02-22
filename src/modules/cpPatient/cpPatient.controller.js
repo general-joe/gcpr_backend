@@ -28,6 +28,36 @@ class CpPatientController {
       "Assigned tasks retrieved successfully",
     );
   });
+
+  static markTaskStepDone = catchAsync(async (req, res) => {
+    const userId = res.locals.user?.id;
+    const { patientId, taskId } = req.params;
+    const { stepIndex } = req.validatedData ?? req.body;
+    const task = await CpPatientService.markTaskStepDone(
+      userId,
+      patientId,
+      taskId,
+      stepIndex,
+    );
+
+    UtilFunctions.outputSuccess(
+      res,
+      task,
+      "Task step marked as done successfully",
+    );
+  });
+
+  static markTaskDone = catchAsync(async (req, res) => {
+    const userId = res.locals.user?.id;
+    const { patientId, taskId } = req.params;
+    const task = await CpPatientService.markTaskDone(userId, patientId, taskId);
+
+    UtilFunctions.outputSuccess(
+      res,
+      task,
+      "Task marked as completed successfully",
+    );
+  });
 }
 
 export default CpPatientController;

@@ -2,6 +2,50 @@ import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
 
 class CpPatientService {
+  static async requireCaregiver(userId) {
+    if (!userId) {
+      throw new gcprError(HttpStatus.UNAUTHORIZED, "Unauthorized request");
+    }
+
+    const caregiver = await prisma.careGiver.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!caregiver) {
+      throw new gcprError(
+        HttpStatus.NOT_FOUND,
+        "Caregiver profile not found for this user",
+      );
+    }
+
+    return caregiver;
+  }
+
+  static async ensureCaregiverOwnsPatient(caregiverId, patientId) {
+    if (!patientId) {
+      throw new gcprError(HttpStatus.BAD_REQUEST, "Patient ID is required");
+    }
+
+    const patient = await prisma.cpPatient.findUnique({
+      where: { id: patientId },
+      select: { id: true, caregiverId: true, fullName: true },
+    });
+
+    if (!patient) {
+      throw new gcprError(HttpStatus.NOT_FOUND, "Patient not found");
+    }
+
+    if (patient.caregiverId !== caregiverId) {
+      throw new gcprError(
+        HttpStatus.FORBIDDEN,
+        "You do not have access to this patient's tasks",
+      );
+    }
+
+    return patient;
+  }
+
   static async createPatient(data, userId) {
     if (!data) {
       throw new Error("Request body is missing");
@@ -53,21 +97,7 @@ class CpPatientService {
   }
 
   static async fetchPatients(userId) {
-    if (!userId) {
-      throw new gcprError(HttpStatus.UNAUTHORIZED, "Unauthorized request");
-    }
-
-    const caregiver = await prisma.careGiver.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-
-    if (!caregiver) {
-      throw new gcprError(
-        HttpStatus.NOT_FOUND,
-        "Caregiver profile not found for this user",
-      );
-    }
+    const caregiver = await CpPatientService.requireCaregiver(userId);
 
     const patients = await prisma.cpPatient.findMany({
       where: {
@@ -80,48 +110,17 @@ class CpPatientService {
   }
 
   static async getAssignedTasks(userId, patientId) {
-    if (!userId) {
-      throw new gcprError(HttpStatus.UNAUTHORIZED, "Unauthorized request");
-    }
+    const caregiver = await CpPatientService.requireCaregiver(userId);
+    const patient = await CpPatientService.ensureCaregiverOwnsPatient(
+      caregiver.id,
+      patientId,
+    );
 
-    if (!patientId) {
-      throw new gcprError(HttpStatus.BAD_REQUEST, "Patient ID is required");
-    }
-
-    // Verify caregiver and patient relationship
-    const caregiver = await prisma.careGiver.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-
-    if (!caregiver) {
-      throw new gcprError(
-        HttpStatus.NOT_FOUND,
-        "Caregiver profile not found for this user",
-      );
-    }
-
-    const patient = await prisma.cpPatient.findUnique({
-      where: { id: patientId },
-      select: { id: true, caregiverId: true, fullName: true },
-    });
-
-    if (!patient) {
-      throw new gcprError(HttpStatus.NOT_FOUND, "Patient not found");
-    }
-
-    if (patient.caregiverId !== caregiver.id) {
-      throw new gcprError(
-        HttpStatus.FORBIDDEN,
-        "You do not have access to this patient's tasks",
-      );
-    }
-
-    // Fetch assigned tasks for the patient
+    // Include completed tasks so caregiver can track done tasks.
     const tasks = await prisma.rehabTask.findMany({
       where: {
         patientId: patientId,
-        status: "ASSIGNED",
+        status: { in: ["ASSIGNED", "COMPLETED"] },
       },
       include: {
         provider: {
@@ -149,6 +148,149 @@ class CpPatientService {
       total: tasks.length,
       tasks,
     };
+  }
+
+  static async getCaregiverTaskForPatient(caregiverId, patientId, taskId) {
+    await CpPatientService.ensureCaregiverOwnsPatient(caregiverId, patientId);
+
+    const task = await prisma.rehabTask.findFirst({
+      where: {
+        id: taskId,
+        patientId,
+      },
+      include: {
+        provider: {
+          select: {
+            id: true,
+            user: {
+              select: { fullName: true, phoneNumber: true },
+            },
+            profession: true,
+            facilityName: true,
+          },
+        },
+        referral: {
+          select: { id: true, status: true },
+        },
+      },
+    });
+
+    if (!task) {
+      throw new gcprError(HttpStatus.NOT_FOUND, "Task not found");
+    }
+
+    if (task.status === "PENDING") {
+      throw new gcprError(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        "Task is not yet assigned",
+      );
+    }
+
+    return task;
+  }
+
+  static async markTaskStepDone(userId, patientId, taskId, stepIndex) {
+    const caregiver = await CpPatientService.requireCaregiver(userId);
+    const task = await CpPatientService.getCaregiverTaskForPatient(
+      caregiver.id,
+      patientId,
+      taskId,
+    );
+
+    const steps = Array.isArray(task.instructionSteps) ? task.instructionSteps : [];
+    if (steps.length === 0) {
+      throw new gcprError(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        "This task has no instruction steps to track",
+      );
+    }
+
+    if (stepIndex >= steps.length) {
+      throw new gcprError(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        `Invalid stepIndex. Expected a value between 0 and ${steps.length - 1}`,
+      );
+    }
+
+    const doneSet = new Set(Array.isArray(task.completedStepIndexes) ? task.completedStepIndexes : []);
+    doneSet.add(stepIndex);
+
+    const completedStepIndexes = Array.from(doneSet).sort((a, b) => a - b);
+    const progress = Math.min(
+      100,
+      Math.round((completedStepIndexes.length / steps.length) * 100),
+    );
+    const isCompleted = progress >= 100;
+
+    const updatedTask = await prisma.rehabTask.update({
+      where: { id: task.id },
+      data: {
+        completedStepIndexes,
+        progress,
+        status: isCompleted ? "COMPLETED" : "ASSIGNED",
+        completedAt: isCompleted ? task.completedAt ?? new Date() : null,
+        caregiverMarkedDoneAt: isCompleted
+          ? task.caregiverMarkedDoneAt ?? new Date()
+          : null,
+      },
+      include: {
+        provider: {
+          select: {
+            id: true,
+            user: {
+              select: { fullName: true, phoneNumber: true },
+            },
+            profession: true,
+            facilityName: true,
+          },
+        },
+        referral: {
+          select: { id: true, status: true },
+        },
+      },
+    });
+
+    return updatedTask;
+  }
+
+  static async markTaskDone(userId, patientId, taskId) {
+    const caregiver = await CpPatientService.requireCaregiver(userId);
+    const task = await CpPatientService.getCaregiverTaskForPatient(
+      caregiver.id,
+      patientId,
+      taskId,
+    );
+
+    const steps = Array.isArray(task.instructionSteps) ? task.instructionSteps : [];
+    const completedStepIndexes = steps.map((_, index) => index);
+
+    const updatedTask = await prisma.rehabTask.update({
+      where: { id: task.id },
+      data: {
+        completedStepIndexes,
+        progress: 100,
+        status: "COMPLETED",
+        completedAt: task.completedAt ?? new Date(),
+        caregiverMarkedDoneAt: task.caregiverMarkedDoneAt ?? new Date(),
+      },
+      include: {
+        provider: {
+          select: {
+            id: true,
+            user: {
+              select: { fullName: true, phoneNumber: true },
+            },
+            profession: true,
+            facilityName: true,
+          },
+        },
+        referral: {
+          select: { id: true, status: true },
+        },
+      },
+    });
+
+    return updatedTask;
   }
 }
 
