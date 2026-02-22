@@ -118,6 +118,23 @@
  *                       status:
  *                         type: string
  *                         enum: [PENDING, ASSIGNED, COMPLETED]
+ *                       progress:
+ *                         type: integer
+ *                         minimum: 0
+ *                         maximum: 100
+ *                       completedStepIndexes:
+ *                         type: array
+ *                         items:
+ *                           type: integer
+ *                         description: Zero-based step indexes completed by caregiver
+ *                       completedAt:
+ *                         type: string
+ *                         format: date-time
+ *                         nullable: true
+ *                       caregiverMarkedDoneAt:
+ *                         type: string
+ *                         format: date-time
+ *                         nullable: true
  *                       provider:
  *                         type: object
  *                         properties:
@@ -142,4 +159,76 @@
  *         description: Forbidden (CAREGIVER only or no access to patient)
  *       404:
  *         description: Patient not found or caregiver profile not found
+ *
+ * /cp-patient/{patientId}/assigned-tasks/{taskId}/steps/done:
+ *   patch:
+ *     summary: Mark one instruction step as done for a patient's assigned task
+ *     tags: [CP Patient]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: patientId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [stepIndex]
+ *             properties:
+ *               stepIndex:
+ *                 type: integer
+ *                 minimum: 0
+ *                 description: Zero-based index of instruction step
+ *           example:
+ *             stepIndex: 0
+ *     responses:
+ *       200:
+ *         description: Task step marked as done successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Patient or task not found
+ *       422:
+ *         description: Task has no instruction steps or invalid step index
+ *
+ * /cp-patient/{patientId}/assigned-tasks/{taskId}/done:
+ *   patch:
+ *     summary: Mark a patient's assigned task as fully completed
+ *     tags: [CP Patient]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: patientId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Task marked as completed successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Patient or task not found
+ *       422:
+ *         description: Task is not yet assigned
  */

@@ -6,8 +6,10 @@ import { validate } from "../../middlewares/validation.js";
 import AssessmentController from "./assessment.controller.js";
 import {
   submitAssessmentSchema,
+  createReferralSchema,
   updateReferralStatusSchema,
-  createRehabTaskSchema
+  createRehabTaskSchema,
+  updateTaskProgressSchema
 } from "./assessment.validator.js";
 
 const assessmentRouter = express.Router();
@@ -61,6 +63,13 @@ assessmentRouter.get(
   AssessmentController.getOutgoingReferrals
 );
 
+assessmentRouter.post(
+  "/referrals",
+  authorize(["SERVICE_PROVIDER"]),
+  validate(createReferralSchema),
+  AssessmentController.createReferral
+);
+
 assessmentRouter.patch(
   "/referrals/:referralId/status",
   authorize(["SERVICE_PROVIDER"]),
@@ -79,6 +88,13 @@ assessmentRouter.get(
   "/tasks/my",
   authorize(["SERVICE_PROVIDER"]),
   AssessmentController.getMyAssignedTasks
+);
+
+assessmentRouter.patch(
+  "/tasks/:taskId/progress",
+  authorize(["SERVICE_PROVIDER"]),
+  validate(updateTaskProgressSchema),
+  AssessmentController.updateTaskProgress
 );
 
 export default assessmentRouter;

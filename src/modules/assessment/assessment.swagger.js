@@ -37,7 +37,7 @@
  * @swagger
  * /assessment/submit:
  *   post:
- *     summary: Submit a clinical assessment and optionally create referral (physiotherapist only)
+ *     summary: Submit a clinical assessment
  *     tags: [Assessment]
  *     security:
  *       - bearerAuth: []
@@ -64,31 +64,6 @@
  *               responses:
  *                 type: object
  *                 additionalProperties: true
- *               referral:
- *                 type: object
- *                 description: Optional. Allowed only when submitting provider is PHYSIOTHERAPIST and assessment status is COMPLETED.
- *                 required: [toProfession, toProviderId, reason]
- *                 properties:
- *                   toProfession:
- *                     type: string
- *                     enum:
- *                       - GENERAL_PAEDIATRICIAN
- *                       - DEVELOPMENTAL_PAEDIATRICIAN
- *                       - PAEDIATRIC_NEUROLOGIST
- *                       - NEURODEVELOPMENTAL_PAEDIATRICIAN
- *                       - REHABILITATION_PAEDIATRICIAN
- *                       - PHYSIOTHERAPIST
- *                       - OCCUPATIONAL_THERAPIST
- *                       - SPEECH_THERAPIST
- *                       - CLINICAL_PSYCHOLOGIST
- *                       - DIETITIAN
- *                       - PHARMACIST
- *                   toProviderId:
- *                     type: string
- *                     format: uuid
- *                   reason:
- *                     type: string
- *                     example: "Needs occupational therapy for fine motor and ADL intervention"
  *           example:
  *             patientId: "8f2c1c0b-4f9d-4a3c-9e7a-3d8b2f1c9eaa"
  *             toolCode: "GMFM_88"
@@ -98,10 +73,6 @@
  *               A2: 2
  *               B18: 1
  *               C40: NT
- *             referral:
- *               toProfession: "OCCUPATIONAL_THERAPIST"
- *               toProviderId: "54f8abf1-85e4-4cf6-b8ca-bc16e8a6f8d1"
- *               reason: "Requires OT intervention for upper limb function"
  *     responses:
  *       200:
  *         description: Assessment submitted successfully
@@ -111,6 +82,61 @@
  *         description: Forbidden (profession or access restriction)
  *       422:
  *         description: Validation or business-rule error
+ */
+
+/**
+ * @swagger
+ * /assessment/referrals:
+ *   post:
+ *     summary: Create referral independently from assessment submission (physiotherapist only)
+ *     tags: [Assessment]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [patientId, toProfession, reason]
+ *             properties:
+ *               patientId:
+ *                 type: string
+ *                 format: uuid
+ *               assessmentId:
+ *                 type: string
+ *                 format: uuid
+ *                 description: Optional assessment to attach the referral to
+ *               toProfession:
+ *                 type: string
+ *                 enum:
+ *                   - GENERAL_PAEDIATRICIAN
+ *                   - DEVELOPMENTAL_PAEDIATRICIAN
+ *                   - PAEDIATRIC_NEUROLOGIST
+ *                   - NEURODEVELOPMENTAL_PAEDIATRICIAN
+ *                   - REHABILITATION_PAEDIATRICIAN
+ *                   - PHYSIOTHERAPIST
+ *                   - OCCUPATIONAL_THERAPIST
+ *                   - SPEECH_THERAPIST
+ *                   - CLINICAL_PSYCHOLOGIST
+ *                   - DIETITIAN
+ *                   - PHARMACIST
+ *               toProviderId:
+ *                 type: string
+ *                 format: uuid
+ *                 description: Optional provider. Omit to route by profession. Can be your own provider id.
+ *               reason:
+ *                 type: string
+ *                 example: "Needs occupational therapy for fine motor and ADL intervention"
+ *           example:
+ *             patientId: "8f2c1c0b-4f9d-4a3c-9e7a-3d8b2f1c9eaa"
+ *             assessmentId: "2af4f668-3026-47d0-9c81-d40f5323f10b"
+ *             toProfession: "OCCUPATIONAL_THERAPIST"
+ *             toProviderId: "54f8abf1-85e4-4cf6-b8ca-bc16e8a6f8d1"
+ *             reason: "Requires OT intervention for upper limb function"
+ *     responses:
+ *       200:
+ *         description: Referral created successfully
  */
 
 /**
@@ -257,6 +283,11 @@
  *                 type: string
  *               durationDays:
  *                 type: integer
+ *               progress:
+ *                 type: integer
+ *                 minimum: 0
+ *                 maximum: 100
+ *                 description: Task progress percentage
  *               startDate:
  *                 type: string
  *                 format: date-time
@@ -293,4 +324,42 @@
  *     responses:
  *       200:
  *         description: Assigned rehab tasks retrieved successfully
+ */
+
+/**
+ * @swagger
+ * /assessment/tasks/{taskId}/progress:
+ *   patch:
+ *     summary: Update progress of a rehab task assigned to logged-in provider
+ *     tags: [Assessment]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [progress]
+ *             properties:
+ *               progress:
+ *                 type: integer
+ *                 minimum: 0
+ *                 maximum: 100
+ *           example:
+ *             progress: 65
+ *     responses:
+ *       200:
+ *         description: Task progress updated successfully
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Task not found
  */

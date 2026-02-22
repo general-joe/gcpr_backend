@@ -305,45 +305,6 @@ class AssessmentService {
       );
     }
 
-    if (data.referral && serviceProvider.profession !== "PHYSIOTHERAPIST") {
-      throw new gcprError(
-        HttpStatus.FORBIDDEN,
-        "Only physiotherapists can create referrals from assessment submission"
-      );
-    }
-
-    if (data.referral && (data.status ?? "COMPLETED") !== "COMPLETED") {
-      throw new gcprError(
-        HttpStatus.UNPROCESSABLE_ENTITY,
-        "Referral can only be created when assessment status is COMPLETED"
-      );
-    }
-
-    if (data.referral) {
-      const targetProvider = await prisma.serviceProvider.findUnique({
-        where: { id: data.referral.toProviderId },
-        select: { id: true, profession: true }
-      });
-
-      if (!targetProvider) {
-        throw new gcprError(HttpStatus.NOT_FOUND, "Referred provider not found");
-      }
-
-      if (targetProvider.profession !== data.referral.toProfession) {
-        throw new gcprError(
-          HttpStatus.UNPROCESSABLE_ENTITY,
-          "Selected provider profession does not match referral target profession"
-        );
-      }
-
-      if (targetProvider.id === serviceProvider.id) {
-        throw new gcprError(
-          HttpStatus.UNPROCESSABLE_ENTITY,
-          "Cannot refer a patient to the same provider"
-        );
-      }
-    }
-
     const scoring = processAssessment({
       toolCode: normalizedToolCode,
       responses: data.responses
@@ -359,19 +320,6 @@ class AssessmentService {
         };
 
     const result = await prisma.$transaction(async (tx) => {
-      let referral = null;
-      if (data.referral) {
-        referral = await tx.clinicalReferral.create({
-          data: {
-            patientId: data.patientId,
-            fromProviderId: serviceProvider.id,
-            toProviderId: data.referral.toProviderId,
-            toProfession: data.referral.toProfession,
-            reason: data.referral.reason
-          }
-        });
-      }
-
       const assessment = await tx.clinicalAssessment.create({
         data: {
           patientId: data.patientId,
@@ -380,8 +328,7 @@ class AssessmentService {
           toolVersion: data.toolVersion ?? "1.0.0",
           responses: data.responses,
           status: data.status ?? "COMPLETED",
-          assessedAt: new Date(),
-          referralId: referral?.id
+          assessedAt: new Date()
         }
       });
 
@@ -397,12 +344,109 @@ class AssessmentService {
 
       return {
         assessment,
-        report,
-        referral
+        report
       };
     });
 
     return result;
+  }
+
+  static async createReferral(user, data) {
+    const serviceProvider = await AssessmentService.requireServiceProvider(user.id);
+    await AssessmentService.ensurePatientExists(data.patientId);
+
+    if (serviceProvider.profession !== "PHYSIOTHERAPIST") {
+      throw new gcprError(
+        HttpStatus.FORBIDDEN,
+        "Only physiotherapists can create referrals"
+      );
+    }
+
+    if (data.toProviderId) {
+      const targetProvider = await prisma.serviceProvider.findUnique({
+        where: { id: data.toProviderId },
+        select: { id: true, profession: true }
+      });
+
+      if (!targetProvider) {
+        throw new gcprError(HttpStatus.NOT_FOUND, "Referred provider not found");
+      }
+
+      if (targetProvider.profession !== data.toProfession) {
+        throw new gcprError(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          "Selected provider profession does not match referral target profession"
+        );
+      }
+    }
+
+    if (data.assessmentId) {
+      const assessment = await prisma.clinicalAssessment.findUnique({
+        where: { id: data.assessmentId },
+        select: {
+          id: true,
+          patientId: true,
+          providerId: true,
+          status: true,
+          referralId: true
+        }
+      });
+
+      if (!assessment) {
+        throw new gcprError(HttpStatus.NOT_FOUND, "Assessment not found");
+      }
+
+      if (assessment.patientId !== data.patientId) {
+        throw new gcprError(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          "Assessment does not belong to the selected patient"
+        );
+      }
+
+      if (assessment.providerId !== serviceProvider.id) {
+        throw new gcprError(
+          HttpStatus.FORBIDDEN,
+          "Only the assessment owner can attach referral to this assessment"
+        );
+      }
+
+      if (assessment.status !== "COMPLETED") {
+        throw new gcprError(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          "Referral can only be linked to a COMPLETED assessment"
+        );
+      }
+
+      if (assessment.referralId) {
+        throw new gcprError(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          "A referral is already linked to this assessment"
+        );
+      }
+    }
+
+    const referral = await prisma.$transaction(async (tx) => {
+      const createdReferral = await tx.clinicalReferral.create({
+        data: {
+          patientId: data.patientId,
+          fromProviderId: serviceProvider.id,
+          toProviderId: data.toProviderId ?? null,
+          toProfession: data.toProfession,
+          reason: data.reason
+        }
+      });
+
+      if (data.assessmentId) {
+        await tx.clinicalAssessment.update({
+          where: { id: data.assessmentId },
+          data: { referralId: createdReferral.id }
+        });
+      }
+
+      return createdReferral;
+    });
+
+    return referral;
   }
 
   static async getAssessmentReport(user, assessmentId) {
@@ -635,6 +679,7 @@ class AssessmentService {
         startDate: data.startDate ? new Date(data.startDate) : null,
         endDate: data.endDate ? new Date(data.endDate) : null,
         video: data.video ?? null,
+        progress: 0,
         status: "ASSIGNED"
       },
       include: {
@@ -667,6 +712,48 @@ class AssessmentService {
       total: tasks.length,
       tasks
     };
+  }
+
+  static async updateTaskProgress(user, taskId, progress) {
+    const serviceProvider = await AssessmentService.requireServiceProvider(user.id);
+
+    const task = await prisma.rehabTask.findUnique({
+      where: { id: taskId },
+      select: { id: true, providerId: true, status: true }
+    });
+
+    if (!task) {
+      throw new gcprError(HttpStatus.NOT_FOUND, "Task not found");
+    }
+
+    if (task.providerId !== serviceProvider.id) {
+      throw new gcprError(
+        HttpStatus.FORBIDDEN,
+        "Only assigned provider can update task progress"
+      );
+    }
+
+    const nextStatus = progress >= 100 ? "COMPLETED" : "ASSIGNED";
+    const completedAt = progress >= 100 ? new Date() : null;
+
+    const updatedTask = await prisma.rehabTask.update({
+      where: { id: taskId },
+      data: {
+        progress,
+        status: nextStatus,
+        completedAt
+      },
+      include: {
+        patient: {
+          select: { id: true, fullName: true }
+        },
+        referral: {
+          select: { id: true, status: true, fromProviderId: true }
+        }
+      }
+    });
+
+    return updatedTask;
   }
 }
 
