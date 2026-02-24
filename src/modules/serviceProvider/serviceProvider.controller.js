@@ -162,4 +162,46 @@ export default class ServiceProviderController {
     await ServiceProviderService.deleteServiceProvider(id);
     UtilFunctions.outputSuccess(res, {}, "Service provider deleted successfully");
   });
+
+  static updateAvailability = catchAsync(async (req, res) => {
+    const requesterId = res.locals.user.id;
+    const { id } = req.params;
+
+    const requester = await ServiceProviderService.getServiceProviderByUserId(
+      requesterId
+    );
+    if (!requester || requester.id !== id) {
+      return UtilFunctions.outputError(
+        res,
+        "You can only update your own service provider availability",
+        {},
+        "FORBIDDEN",
+        403
+      );
+    }
+
+    const existingProvider =
+      await ServiceProviderService.getServiceProviderById(id);
+    if (!existingProvider) {
+      return UtilFunctions.outputError(
+        res,
+        "Service provider not found",
+        {},
+        "NOT_FOUND",
+        404
+      );
+    }
+
+    const availability = req.body.availability;
+    const updated = await ServiceProviderService.updateAvailability(
+      id,
+      availability,
+    );
+
+    UtilFunctions.outputSuccess(
+      res,
+      updated,
+      "Service provider availability updated successfully",
+    );
+  });
 }

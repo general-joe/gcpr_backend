@@ -6,6 +6,7 @@ import {
   serviceProviderProfileSchema,
   serviceProviderUpdateSchema,
 } from "./serviceProvider.validator.js";
+import { serviceProviderAvailabilitySchema } from "./serviceProvider.validator.js";
 import upload from "../../middlewares/upload.js";
 import { authorize } from "../../middlewares/auth.js";
 
@@ -57,6 +58,13 @@ serviceProviderRouter.put(
   validate(serviceProviderUpdateSchema),
   authRateLimiter,
   ServiceProviderController.updateServiceProvider,
+);
+
+serviceProviderRouter.put(
+  "/:id/availability",
+  authorize(["SERVICE_PROVIDER"]),
+  validate(serviceProviderAvailabilitySchema),
+  ServiceProviderController.updateAvailability,
 );
 
 serviceProviderRouter.delete(

@@ -191,7 +191,23 @@ model serviceProvider {
   rehabTasks                RehabTask[]
   functionalClassifications FunctionalClassification[]
 
-  appointments Appointment[]
+  appointments   Appointment[]
+  availabilities ProviderAvailability[]
+}
+
+model ProviderAvailability {
+  id         String          @id @default(uuid())
+  providerId String
+  provider   serviceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  dayOfWeek Int // 0 = Sunday, 1 = Monday ... 6 = Saturday
+  startTime String // stored as HH:mm
+  endTime   String // stored as HH:mm
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([providerId])
 }
 
 model CareGiver {
