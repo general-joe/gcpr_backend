@@ -131,6 +131,7 @@ export class ServiceProviderService {
         user: {
           select: SAFE_USER_SELECT
         },
+        availabilities: true,
       },
     });
 
@@ -254,6 +255,25 @@ export class ServiceProviderService {
     });
 
     return updatedServiceProvider;
+  }
+
+  static async updateAvailability(id, availability = []) {
+    // availability: [{ dayOfWeek, startTime, endTime }, ...]
+    // Replace existing availability for provider with new set
+    const createData = availability.map((slot) => ({
+      providerId: id,
+      dayOfWeek: slot.dayOfWeek,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+    }));
+
+    await prisma.$transaction([
+      prisma.providerAvailability.deleteMany({ where: { providerId: id } }),
+      prisma.providerAvailability.createMany({ data: createData }),
+    ]);
+
+    const result = await prisma.providerAvailability.findMany({ where: { providerId: id }, orderBy: { dayOfWeek: 'asc' } });
+    return result;
   }
 
   static async deleteServiceProvider(id) {

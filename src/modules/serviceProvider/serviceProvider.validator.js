@@ -88,3 +88,19 @@ export const serviceProviderUpdateSchema = z.object({
     .min(0, "Experience must be 0 or greater")
     .optional(),
 });
+
+export const serviceProviderAvailabilitySchema = z.object({
+  availability: z
+    .array(
+      z.object({
+        dayOfWeek: z.number().int().min(0).max(6),
+        startTime: z
+          .string()
+          .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:mm)"),
+        endTime: z
+          .string()
+          .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:mm)"),
+      }),
+    )
+    .min(1, "At least one availability slot is required"),
+});
