@@ -1,68 +1,4 @@
 /**
- *   ProviderAvailabilitySlot:
- *     type: object
- *     required:
- *       - dayOfWeek
- *       - startTime
- *       - endTime
- *     properties:
- *       dayOfWeek:
- *         type: integer
- *         minimum: 0
- *         maximum: 6
- *         description: 0=Sunday, 1=Monday, ..., 6=Saturday
- *       startTime:
- *         type: string
- *         pattern: '^([01]\\d|2[0-3]):([0-5]\\d)$'
- *         description: Start time in HH:mm (24h)
- *       endTime:
- *         type: string
- *         pattern: '^([01]\\d|2[0-3]):([0-5]\\d)$'
- *         description: End time in HH:mm (24h)
- *
- *   ServiceProviderAvailabilityUpdate:
- *     type: object
- *     required:
- *       - availability
- *     properties:
- *       availability:
- *         type: array
- *         items:
- *           $ref: '#/components/schemas/ProviderAvailabilitySlot'
- * /service-provider/{id}/availability:
- *   put:
- *     summary: Update service provider availability (days and working hours)
- *     tags: [Service Providers]
- *     security:
- *       - bearerAuth: []
- *     description: >
- *       Update the days and working hours (availability) for a service provider. Caller must be the owner of the profile.
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/ServiceProviderAvailabilityUpdate'
- *     responses:
- *       200:
- *         description: Service provider availability updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/ProviderAvailabilitySlot'
- *       403:
- *         description: Can only update own availability
- *       404:
- *         description: Service provider not found
  * @openapi
  * components:
  *   schemas:
@@ -297,6 +233,62 @@
  *         description: Service provider deleted successfully
  *       403:
  *         description: Can only delete own profile
+ *       404:
+ *         description: Service provider not found
+ *
+ * /service-provider/{id}/availability:
+ *   put:
+ *     summary: Update service provider availability
+ *     tags: [Service Providers]
+ *     security:
+ *       - bearerAuth: []
+ *     description: Replace the availability slots for the specified service provider.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - availability
+ *             properties:
+ *               availability:
+ *                 type: array
+ *                 minItems: 1
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - dayOfWeek
+ *                     - startTime
+ *                     - endTime
+ *                   properties:
+ *                     dayOfWeek:
+ *                       type: integer
+ *                       minimum: 0
+ *                       maximum: 6
+ *                       description: Day of week (0=Sunday, 6=Saturday)
+ *                     startTime:
+ *                       type: string
+ *                       pattern: "^([01]\\d|2[0-3]):([0-5]\\d)$"
+ *                       description: Start time in HH:mm format
+ *                     endTime:
+ *                       type: string
+ *                       pattern: "^([01]\\d|2[0-3]):([0-5]\\d)$"
+ *                       description: End time in HH:mm format
+ *     responses:
+ *       200:
+ *         description: Availability updated successfully
+ *       400:
+ *         description: Invalid input data or at least one availability slot is required
+ *       403:
+ *         description: Can only update own availability
  *       404:
  *         description: Service provider not found
  */
