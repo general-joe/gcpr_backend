@@ -13,3 +13,9 @@ export const cpPatientSchema = z.object({
   schoolEnrollmmentStatus: z.boolean().optional(),
   typeOfSchool: z.enum(["PUBLIC", "PRIVATE", "SPECIAL_NEEDS"]).optional(),
 });
+
+export const caregiverTaskStepDoneSchema = z
+  .object({
+    stepIndex: z.number().int().min(0),
+  })
+  .strict();

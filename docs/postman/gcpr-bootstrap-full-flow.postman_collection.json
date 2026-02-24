@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "GCPR Bootstrap + Full Referral Flow",
-    "description": "Fresh-environment flow: register users, verify OTP, login, complete profiles, create patient, submit assessment+referral, accept referral, assign task.",
+    "description": "Fresh-environment flow: register users, verify OTP, login, complete profiles, create patient, submit assessment, create referral, accept referral, assign task, update task progress.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -17,15 +17,51 @@
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "key": "fullName", "value": "{{providerAFullName}}", "type": "text" },
-                { "key": "email", "value": "{{providerAEmail}}", "type": "text" },
-                { "key": "password", "value": "{{providerAPassword}}", "type": "text" },
-                { "key": "phoneNumber", "value": "{{providerAPhone}}", "type": "text" },
-                { "key": "gender", "value": "MALE", "type": "text" },
-                { "key": "role", "value": "SERVICE_PROVIDER", "type": "text" },
-                { "key": "otpChannel", "value": "email", "type": "text" },
-                { "key": "dateOfBirth", "value": "1990-01-10", "type": "text" },
-                { "key": "profileImage", "type": "file", "src": "{{providerAProfileImagePath}}" }
+                {
+                  "key": "fullName",
+                  "value": "{{providerAFullName}}",
+                  "type": "text"
+                },
+                {
+                  "key": "email",
+                  "value": "{{providerAEmail}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{providerAPassword}}",
+                  "type": "text"
+                },
+                {
+                  "key": "phoneNumber",
+                  "value": "{{providerAPhone}}",
+                  "type": "text"
+                },
+                {
+                  "key": "gender",
+                  "value": "MALE",
+                  "type": "text"
+                },
+                {
+                  "key": "role",
+                  "value": "SERVICE_PROVIDER",
+                  "type": "text"
+                },
+                {
+                  "key": "otpChannel",
+                  "value": "email",
+                  "type": "text"
+                },
+                {
+                  "key": "dateOfBirth",
+                  "value": "1990-01-10",
+                  "type": "text"
+                },
+                {
+                  "key": "profileImage",
+                  "type": "file",
+                  "src": "{{providerAProfileImagePath}}"
+                }
               ]
             }
           }
@@ -34,27 +70,57 @@
           "name": "A2 Verify OTP Provider A",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{baseUrl}}/auth/verify-otp",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"identifier\": \"{{providerAEmail}}\",\n  \"otp\": \"{{providerAOtp}}\"\n}"
             }
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const res=pm.response.json(); if(res?.data?.accessToken) pm.environment.set('providerAToken', res.data.accessToken);"] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res=pm.response.json(); if(res?.data?.accessToken) pm.environment.set('providerAToken', res.data.accessToken);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "A3 Login Provider A",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{baseUrl}}/auth/login",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"identifier\": \"{{providerAEmail}}\",\n  \"password\": \"{{providerAPassword}}\"\n}"
             }
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const res=pm.response.json(); if(res?.data?.accessToken) pm.environment.set('providerAToken', res.data.accessToken); if(res?.data?.user?.serviceProvider?.id) pm.environment.set('providerAServiceProviderId', res.data.user.serviceProvider.id);"] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res=pm.response.json(); if(res?.data?.accessToken) pm.environment.set('providerAToken', res.data.accessToken); if(res?.data?.user?.serviceProvider?.id) pm.environment.set('providerAServiceProviderId', res.data.user.serviceProvider.id);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "A4 Register Provider B (OT)",
@@ -65,15 +131,51 @@
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "key": "fullName", "value": "{{providerBFullName}}", "type": "text" },
-                { "key": "email", "value": "{{providerBEmail}}", "type": "text" },
-                { "key": "password", "value": "{{providerBPassword}}", "type": "text" },
-                { "key": "phoneNumber", "value": "{{providerBPhone}}", "type": "text" },
-                { "key": "gender", "value": "FEMALE", "type": "text" },
-                { "key": "role", "value": "SERVICE_PROVIDER", "type": "text" },
-                { "key": "otpChannel", "value": "email", "type": "text" },
-                { "key": "dateOfBirth", "value": "1992-02-12", "type": "text" },
-                { "key": "profileImage", "type": "file", "src": "{{providerBProfileImagePath}}" }
+                {
+                  "key": "fullName",
+                  "value": "{{providerBFullName}}",
+                  "type": "text"
+                },
+                {
+                  "key": "email",
+                  "value": "{{providerBEmail}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{providerBPassword}}",
+                  "type": "text"
+                },
+                {
+                  "key": "phoneNumber",
+                  "value": "{{providerBPhone}}",
+                  "type": "text"
+                },
+                {
+                  "key": "gender",
+                  "value": "FEMALE",
+                  "type": "text"
+                },
+                {
+                  "key": "role",
+                  "value": "SERVICE_PROVIDER",
+                  "type": "text"
+                },
+                {
+                  "key": "otpChannel",
+                  "value": "email",
+                  "type": "text"
+                },
+                {
+                  "key": "dateOfBirth",
+                  "value": "1992-02-12",
+                  "type": "text"
+                },
+                {
+                  "key": "profileImage",
+                  "type": "file",
+                  "src": "{{providerBProfileImagePath}}"
+                }
               ]
             }
           }
@@ -82,27 +184,57 @@
           "name": "A5 Verify OTP Provider B",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{baseUrl}}/auth/verify-otp",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"identifier\": \"{{providerBEmail}}\",\n  \"otp\": \"{{providerBOtp}}\"\n}"
             }
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const res=pm.response.json(); if(res?.data?.accessToken) pm.environment.set('providerBToken', res.data.accessToken);"] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res=pm.response.json(); if(res?.data?.accessToken) pm.environment.set('providerBToken', res.data.accessToken);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "A6 Login Provider B",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{baseUrl}}/auth/login",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"identifier\": \"{{providerBEmail}}\",\n  \"password\": \"{{providerBPassword}}\"\n}"
             }
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const res=pm.response.json(); if(res?.data?.accessToken) pm.environment.set('providerBToken', res.data.accessToken); if(res?.data?.user?.serviceProvider?.id) pm.environment.set('providerBServiceProviderId', res.data.user.serviceProvider.id);"] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res=pm.response.json(); if(res?.data?.accessToken) pm.environment.set('providerBToken', res.data.accessToken); if(res?.data?.user?.serviceProvider?.id) pm.environment.set('providerBServiceProviderId', res.data.user.serviceProvider.id);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "A7 Register Caregiver",
@@ -113,15 +245,51 @@
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "key": "fullName", "value": "{{caregiverFullName}}", "type": "text" },
-                { "key": "email", "value": "{{caregiverEmail}}", "type": "text" },
-                { "key": "password", "value": "{{caregiverPassword}}", "type": "text" },
-                { "key": "phoneNumber", "value": "{{caregiverPhone}}", "type": "text" },
-                { "key": "gender", "value": "FEMALE", "type": "text" },
-                { "key": "role", "value": "CAREGIVER", "type": "text" },
-                { "key": "otpChannel", "value": "email", "type": "text" },
-                { "key": "dateOfBirth", "value": "1994-07-04", "type": "text" },
-                { "key": "profileImage", "type": "file", "src": "{{caregiverProfileImagePath}}" }
+                {
+                  "key": "fullName",
+                  "value": "{{caregiverFullName}}",
+                  "type": "text"
+                },
+                {
+                  "key": "email",
+                  "value": "{{caregiverEmail}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{caregiverPassword}}",
+                  "type": "text"
+                },
+                {
+                  "key": "phoneNumber",
+                  "value": "{{caregiverPhone}}",
+                  "type": "text"
+                },
+                {
+                  "key": "gender",
+                  "value": "FEMALE",
+                  "type": "text"
+                },
+                {
+                  "key": "role",
+                  "value": "CAREGIVER",
+                  "type": "text"
+                },
+                {
+                  "key": "otpChannel",
+                  "value": "email",
+                  "type": "text"
+                },
+                {
+                  "key": "dateOfBirth",
+                  "value": "1994-07-04",
+                  "type": "text"
+                },
+                {
+                  "key": "profileImage",
+                  "type": "file",
+                  "src": "{{caregiverProfileImagePath}}"
+                }
               ]
             }
           }
@@ -130,27 +298,57 @@
           "name": "A8 Verify OTP Caregiver",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{baseUrl}}/auth/verify-otp",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"identifier\": \"{{caregiverEmail}}\",\n  \"otp\": \"{{caregiverOtp}}\"\n}"
             }
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const res=pm.response.json(); if(res?.data?.accessToken) pm.environment.set('caregiverToken', res.data.accessToken);"] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res=pm.response.json(); if(res?.data?.accessToken) pm.environment.set('caregiverToken', res.data.accessToken);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "A9 Login Caregiver",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{baseUrl}}/auth/login",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"identifier\": \"{{caregiverEmail}}\",\n  \"password\": \"{{caregiverPassword}}\"\n}"
             }
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const res=pm.response.json(); if(res?.data?.accessToken) pm.environment.set('caregiverToken', res.data.accessToken);"] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res=pm.response.json(); if(res?.data?.accessToken) pm.environment.set('caregiverToken', res.data.accessToken);"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -161,61 +359,193 @@
           "name": "B1 Complete Provider A Profile (PHYSIOTHERAPIST)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Authorization", "value": "Bearer {{providerAToken}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAToken}}"
+              }
+            ],
             "url": "{{baseUrl}}/service-provider/complete-profile",
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "key": "licensePin", "value": "12345678", "type": "text" },
-                { "key": "licenseNumber", "value": "PHY-0001", "type": "text" },
-                { "key": "licenseIssuedBy", "value": "AHPC", "type": "text" },
-                { "key": "licenseExpiry", "value": "2030-12-31", "type": "text" },
-                { "key": "licenseIssuedDate", "value": "2020-01-01", "type": "text" },
-                { "key": "licenseType", "value": "AHPC", "type": "text" },
-                { "key": "profession", "value": "PHYSIOTHERAPIST", "type": "text" },
-                { "key": "facilityType", "value": "PRIMARY_HEALTHCARE", "type": "text" },
-                { "key": "facilityName", "value": "CP Care Physio Center", "type": "text" },
-                { "key": "facilityAddress", "value": "Accra", "type": "text" },
-                { "key": "experience", "value": "5", "type": "text" },
-                { "key": "licenseImage", "type": "file", "src": "{{providerALicenseImagePath}}" }
+                {
+                  "key": "licensePin",
+                  "value": "12345678",
+                  "type": "text"
+                },
+                {
+                  "key": "licenseNumber",
+                  "value": "PHY-0001",
+                  "type": "text"
+                },
+                {
+                  "key": "licenseIssuedBy",
+                  "value": "AHPC",
+                  "type": "text"
+                },
+                {
+                  "key": "licenseExpiry",
+                  "value": "2030-12-31",
+                  "type": "text"
+                },
+                {
+                  "key": "licenseIssuedDate",
+                  "value": "2020-01-01",
+                  "type": "text"
+                },
+                {
+                  "key": "licenseType",
+                  "value": "AHPC",
+                  "type": "text"
+                },
+                {
+                  "key": "profession",
+                  "value": "PHYSIOTHERAPIST",
+                  "type": "text"
+                },
+                {
+                  "key": "facilityType",
+                  "value": "PRIMARY_HEALTHCARE",
+                  "type": "text"
+                },
+                {
+                  "key": "facilityName",
+                  "value": "CP Care Physio Center",
+                  "type": "text"
+                },
+                {
+                  "key": "facilityAddress",
+                  "value": "Accra",
+                  "type": "text"
+                },
+                {
+                  "key": "experience",
+                  "value": "5",
+                  "type": "text"
+                },
+                {
+                  "key": "licenseImage",
+                  "type": "file",
+                  "src": "{{providerALicenseImagePath}}"
+                }
               ]
             }
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const res=pm.response.json(); if(res?.data?.id) pm.environment.set('providerAServiceProviderId', res.data.id);"] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res=pm.response.json(); if(res?.data?.id) pm.environment.set('providerAServiceProviderId', res.data.id);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "B2 Complete Provider B Profile (OCCUPATIONAL_THERAPIST)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Authorization", "value": "Bearer {{providerBToken}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerBToken}}"
+              }
+            ],
             "url": "{{baseUrl}}/service-provider/complete-profile",
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "key": "licensePin", "value": "87654321", "type": "text" },
-                { "key": "licenseNumber", "value": "OT-0001", "type": "text" },
-                { "key": "licenseIssuedBy", "value": "AHPC", "type": "text" },
-                { "key": "licenseExpiry", "value": "2030-12-31", "type": "text" },
-                { "key": "licenseIssuedDate", "value": "2020-01-01", "type": "text" },
-                { "key": "licenseType", "value": "AHPC", "type": "text" },
-                { "key": "profession", "value": "OCCUPATIONAL_THERAPIST", "type": "text" },
-                { "key": "facilityType", "value": "PRIMARY_HEALTHCARE", "type": "text" },
-                { "key": "facilityName", "value": "CP OT Center", "type": "text" },
-                { "key": "facilityAddress", "value": "Accra", "type": "text" },
-                { "key": "experience", "value": "4", "type": "text" },
-                { "key": "licenseImage", "type": "file", "src": "{{providerBLicenseImagePath}}" }
+                {
+                  "key": "licensePin",
+                  "value": "87654321",
+                  "type": "text"
+                },
+                {
+                  "key": "licenseNumber",
+                  "value": "OT-0001",
+                  "type": "text"
+                },
+                {
+                  "key": "licenseIssuedBy",
+                  "value": "AHPC",
+                  "type": "text"
+                },
+                {
+                  "key": "licenseExpiry",
+                  "value": "2030-12-31",
+                  "type": "text"
+                },
+                {
+                  "key": "licenseIssuedDate",
+                  "value": "2020-01-01",
+                  "type": "text"
+                },
+                {
+                  "key": "licenseType",
+                  "value": "AHPC",
+                  "type": "text"
+                },
+                {
+                  "key": "profession",
+                  "value": "OCCUPATIONAL_THERAPIST",
+                  "type": "text"
+                },
+                {
+                  "key": "facilityType",
+                  "value": "PRIMARY_HEALTHCARE",
+                  "type": "text"
+                },
+                {
+                  "key": "facilityName",
+                  "value": "CP OT Center",
+                  "type": "text"
+                },
+                {
+                  "key": "facilityAddress",
+                  "value": "Accra",
+                  "type": "text"
+                },
+                {
+                  "key": "experience",
+                  "value": "4",
+                  "type": "text"
+                },
+                {
+                  "key": "licenseImage",
+                  "type": "file",
+                  "src": "{{providerBLicenseImagePath}}"
+                }
               ]
             }
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const res=pm.response.json(); if(res?.data?.id) pm.environment.set('providerBServiceProviderId', res.data.id);"] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res=pm.response.json(); if(res?.data?.id) pm.environment.set('providerBServiceProviderId', res.data.id);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "B3 Complete Caregiver Profile (INDIVIDUAL)",
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{caregiverToken}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{caregiverToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "url": "{{baseUrl}}/caregiver/complete-profile",
             "body": {
@@ -227,15 +557,21 @@
       ]
     },
     {
-      "name": "C. Patient + Assessment + Referral + Task",
+      "name": "C. Patient + Assessment + Referral + Task + Progress",
       "item": [
         {
           "name": "C1 Create CP Patient",
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{caregiverToken}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{caregiverToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "url": "{{baseUrl}}/cp-patient",
             "body": {
@@ -243,13 +579,28 @@
               "raw": "{\n  \"fullName\": \"Child Test\",\n  \"dateOfBirth\": \"2020-01-20\",\n  \"gender\": \"MALE\",\n  \"address\": \"Accra\",\n  \"placeOfBirth\": \"Accra\",\n  \"birthWeight\": 2.8,\n  \"numberOfSiblings\": 1,\n  \"relationToCaregiver\": \"PARENT\",\n  \"householdSize\": 4,\n  \"schoolEnrollmmentStatus\": false\n}"
             }
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const res=pm.response.json(); if(res?.data?.id) pm.environment.set('patientId', res.data.id);"] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res=pm.response.json(); if(res?.data?.id) pm.environment.set('patientId', res.data.id);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "C2 Get Assessment Tools (Provider A)",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{providerAToken}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAToken}}"
+              }
+            ],
             "url": "{{baseUrl}}/assessment/tools"
           }
         },
@@ -257,53 +608,128 @@
           "name": "C3 Get Assessment Form by Tool Code (GMFM_88) (Provider A)",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{providerAToken}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAToken}}"
+              }
+            ],
             "url": "{{baseUrl}}/assessment/tools/GMFM_88/form"
           }
         },
         {
-          "name": "C4 Submit GMFM + Referral (Provider A)",
+          "name": "C4 Submit GMFM (Provider A)",
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{providerAToken}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "url": "{{baseUrl}}/assessment/submit",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"patientId\": \"{{patientId}}\",\n  \"toolCode\": \"GMFM_88\",\n  \"status\": \"COMPLETED\",\n  \"responses\": {\n    \"A1\": 2, \"A2\": 2, \"A3\": 2, \"A4\": 2, \"A5\": 2, \"A6\": 2, \"A7\": 2, \"A8\": 2, \"A9\": 2, \"A10\": 2, \"A11\": 2, \"A12\": 2, \"A13\": 2, \"A14\": 2, \"A15\": 2, \"A16\": 2, \"A17\": 2,\n    \"B18\": 2, \"B19\": 2, \"B20\": 2, \"B21\": 2, \"B22\": 2, \"B23\": 2, \"B24\": 2, \"B25\": 2, \"B26\": 2, \"B27\": 2, \"B28\": 2, \"B29\": 2, \"B30\": 2, \"B31\": 2, \"B32\": 2, \"B33\": 2, \"B34\": 2, \"B35\": 2, \"B36\": 2, \"B37\": 2,\n    \"C38\": 2, \"C39\": 2, \"C40\": 2, \"C41\": 2, \"C42\": 2, \"C43\": 2, \"C44\": 2, \"C45\": 2, \"C46\": 2, \"C47\": 2, \"C48\": 2, \"C49\": 2, \"C50\": 2, \"C51\": 2,\n    \"D52\": 1, \"D53\": 1, \"D54\": 1, \"D55\": 1, \"D56\": 1, \"D57\": 1, \"D58\": 1, \"D59\": 1, \"D60\": 1, \"D61\": 1, \"D62\": 1, \"D63\": 1, \"D64\": 1,\n    \"E65\": 1, \"E66\": 1, \"E67\": 1, \"E68\": 1, \"E69\": 1, \"E70\": 1, \"E71\": 1, \"E72\": 1, \"E73\": 1, \"E74\": 1, \"E75\": 1, \"E76\": 1, \"E77\": 1, \"E78\": 1, \"E79\": 1, \"E80\": 1, \"E81\": 1, \"E82\": 1, \"E83\": 1, \"E84\": 1, \"E85\": 1, \"E86\": 1, \"E87\": 1, \"E88\": 1\n  },\n  \"referral\": {\n    \"toProfession\": \"OCCUPATIONAL_THERAPIST\",\n    \"toProviderId\": \"{{providerBServiceProviderId}}\",\n    \"reason\": \"Needs OT intervention for ADL and fine motor goals\"\n  }\n}"
+              "raw": "{\n  \"patientId\": \"{{patientId}}\",\n  \"toolCode\": \"GMFM_88\",\n  \"status\": \"COMPLETED\",\n  \"responses\": {\n    \"A1\": 2,\n    \"A2\": 2,\n    \"A3\": 2,\n    \"A4\": 2,\n    \"A5\": 2,\n    \"A6\": 2,\n    \"A7\": 2,\n    \"A8\": 2,\n    \"A9\": 2,\n    \"A10\": 2,\n    \"A11\": 2,\n    \"A12\": 2,\n    \"A13\": 2,\n    \"A14\": 2,\n    \"A15\": 2,\n    \"A16\": 2,\n    \"A17\": 2,\n    \"B18\": 2,\n    \"B19\": 2,\n    \"B20\": 2,\n    \"B21\": 2,\n    \"B22\": 2,\n    \"B23\": 2,\n    \"B24\": 2,\n    \"B25\": 2,\n    \"B26\": 2,\n    \"B27\": 2,\n    \"B28\": 2,\n    \"B29\": 2,\n    \"B30\": 2,\n    \"B31\": 2,\n    \"B32\": 2,\n    \"B33\": 2,\n    \"B34\": 2,\n    \"B35\": 2,\n    \"B36\": 2,\n    \"B37\": 2,\n    \"C38\": 2,\n    \"C39\": 2,\n    \"C40\": 2,\n    \"C41\": 2,\n    \"C42\": 2,\n    \"C43\": 2,\n    \"C44\": 2,\n    \"C45\": 2,\n    \"C46\": 2,\n    \"C47\": 2,\n    \"C48\": 2,\n    \"C49\": 2,\n    \"C50\": 2,\n    \"C51\": 2,\n    \"D52\": 1,\n    \"D53\": 1,\n    \"D54\": 1,\n    \"D55\": 1,\n    \"D56\": 1,\n    \"D57\": 1,\n    \"D58\": 1,\n    \"D59\": 1,\n    \"D60\": 1,\n    \"D61\": 1,\n    \"D62\": 1,\n    \"D63\": 1,\n    \"D64\": 1,\n    \"E65\": 1,\n    \"E66\": 1,\n    \"E67\": 1,\n    \"E68\": 1,\n    \"E69\": 1,\n    \"E70\": 1,\n    \"E71\": 1,\n    \"E72\": 1,\n    \"E73\": 1,\n    \"E74\": 1,\n    \"E75\": 1,\n    \"E76\": 1,\n    \"E77\": 1,\n    \"E78\": 1,\n    \"E79\": 1,\n    \"E80\": 1,\n    \"E81\": 1,\n    \"E82\": 1,\n    \"E83\": 1,\n    \"E84\": 1,\n    \"E85\": 1,\n    \"E86\": 1,\n    \"E87\": 1,\n    \"E88\": 1\n  }\n}"
             }
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const res=pm.response.json(); if(res?.data?.assessment?.id) pm.environment.set('assessmentId', res.data.assessment.id); if(res?.data?.referral?.id) pm.environment.set('referralId', res.data.referral.id);"] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res=pm.response.json();",
+                  "if(res?.data?.assessment?.id) pm.environment.set('assessmentId', res.data.assessment.id);"
+                ]
+              }
+            }
+          ]
         },
         {
-          "name": "C5 Incoming Referrals (Provider B)",
+          "name": "C5 Create Referral (Provider A)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerAToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/assessment/referrals",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patientId\": \"{{patientId}}\",\n  \"assessmentId\": \"{{assessmentId}}\",\n  \"toProfession\": \"OCCUPATIONAL_THERAPIST\",\n  \"toProviderId\": \"{{providerBServiceProviderId}}\",\n  \"reason\": \"Needs OT intervention for ADL and fine motor goals\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res=pm.response.json();",
+                  "if(res?.data?.id) pm.environment.set('referralId', res.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "C6 Incoming Referrals (Provider B)",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{providerBToken}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerBToken}}"
+              }
+            ],
             "url": "{{baseUrl}}/assessment/referrals/incoming"
           }
         },
         {
-          "name": "C6 Accept Referral (Provider B)",
+          "name": "C7 Accept Referral (Provider B)",
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{providerBToken}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerBToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "url": "{{baseUrl}}/assessment/referrals/{{referralId}}/status",
-            "body": { "mode": "raw", "raw": "{\n  \"status\": \"ACCEPTED\"\n}" }
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACCEPTED\"\n}"
+            }
           }
         },
         {
-          "name": "C7 Assign Task from Referral (Provider B)",
+          "name": "C8 Assign Task from Referral (Provider B)",
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{providerBToken}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerBToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "url": "{{baseUrl}}/assessment/referrals/{{referralId}}/tasks",
             "body": {
@@ -311,21 +737,108 @@
               "raw": "{\n  \"title\": \"Daily seated balance\",\n  \"instructions\": \"Practice seated reaching with caregiver assist\",\n  \"instructionSteps\": [\"Sit upright\", \"Reach and return\"],\n  \"frequencyPerDay\": 2,\n  \"durationDays\": 14\n}"
             }
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const res=pm.response.json(); if(res?.data?.id) pm.environment.set('taskId', res.data.id);"] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res=pm.response.json(); if(res?.data?.id) pm.environment.set('taskId', res.data.id);"
+                ]
+              }
+            }
+          ]
         },
         {
-          "name": "C8 My Assigned Tasks (Provider B)",
+          "name": "C9 Update Task Progress (Provider B)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerBToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/assessment/tasks/{{taskId}}/progress",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"progress\": {{taskProgress}}\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res=pm.response.json();",
+                  "if(res?.data?.progress !== undefined) pm.environment.set('taskProgress', String(res.data.progress));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "C10 My Assigned Tasks (Provider B)",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{providerBToken}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerBToken}}"
+              }
+            ],
             "url": "{{baseUrl}}/assessment/tasks/my"
           }
         },
         {
-          "name": "C9 Patient Reports (Provider B)",
+          "name": "C11 Caregiver Mark Task Step Done",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{caregiverToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/cp-patient/{{patientId}}/assigned-tasks/{{taskId}}/steps/done",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stepIndex\": {{taskStepIndex}}\n}"
+            }
+          }
+        },
+        {
+          "name": "C12 Caregiver Mark Task Done",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{caregiverToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/cp-patient/{{patientId}}/assigned-tasks/{{taskId}}/done"
+          }
+        },
+        {
+          "name": "C13 Patient Reports (Provider B)",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{providerBToken}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{providerBToken}}"
+              }
+            ],
             "url": "{{baseUrl}}/assessment/patient/{{patientId}}/reports"
           }
         }
@@ -333,38 +846,133 @@
     }
   ],
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:3000" },
-    { "key": "providerAFullName", "value": "Physio A" },
-    { "key": "providerAEmail", "value": "physio.a@example.com" },
-    { "key": "providerAPhone", "value": "233240000001" },
-    { "key": "providerAPassword", "value": "Password123" },
-    { "key": "providerAOtp", "value": "" },
-    { "key": "providerAProfileImagePath", "value": "" },
-    { "key": "providerALicenseImagePath", "value": "" },
-    { "key": "providerAToken", "value": "" },
-    { "key": "providerAServiceProviderId", "value": "" },
-
-    { "key": "providerBFullName", "value": "OT B" },
-    { "key": "providerBEmail", "value": "ot.b@example.com" },
-    { "key": "providerBPhone", "value": "233240000002" },
-    { "key": "providerBPassword", "value": "Password123" },
-    { "key": "providerBOtp", "value": "" },
-    { "key": "providerBProfileImagePath", "value": "" },
-    { "key": "providerBLicenseImagePath", "value": "" },
-    { "key": "providerBToken", "value": "" },
-    { "key": "providerBServiceProviderId", "value": "" },
-
-    { "key": "caregiverFullName", "value": "Caregiver C" },
-    { "key": "caregiverEmail", "value": "caregiver.c@example.com" },
-    { "key": "caregiverPhone", "value": "233240000003" },
-    { "key": "caregiverPassword", "value": "Password123" },
-    { "key": "caregiverOtp", "value": "" },
-    { "key": "caregiverProfileImagePath", "value": "" },
-    { "key": "caregiverToken", "value": "" },
-
-    { "key": "patientId", "value": "" },
-    { "key": "assessmentId", "value": "" },
-    { "key": "referralId", "value": "" },
-    { "key": "taskId", "value": "" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "providerAFullName",
+      "value": "Physio A"
+    },
+    {
+      "key": "providerAEmail",
+      "value": "physio.a@example.com"
+    },
+    {
+      "key": "providerAPhone",
+      "value": "233240000001"
+    },
+    {
+      "key": "providerAPassword",
+      "value": "Password123"
+    },
+    {
+      "key": "providerAOtp",
+      "value": ""
+    },
+    {
+      "key": "providerAProfileImagePath",
+      "value": ""
+    },
+    {
+      "key": "providerALicenseImagePath",
+      "value": ""
+    },
+    {
+      "key": "providerAToken",
+      "value": ""
+    },
+    {
+      "key": "providerAServiceProviderId",
+      "value": ""
+    },
+    {
+      "key": "providerBFullName",
+      "value": "OT B"
+    },
+    {
+      "key": "providerBEmail",
+      "value": "ot.b@example.com"
+    },
+    {
+      "key": "providerBPhone",
+      "value": "233240000002"
+    },
+    {
+      "key": "providerBPassword",
+      "value": "Password123"
+    },
+    {
+      "key": "providerBOtp",
+      "value": ""
+    },
+    {
+      "key": "providerBProfileImagePath",
+      "value": ""
+    },
+    {
+      "key": "providerBLicenseImagePath",
+      "value": ""
+    },
+    {
+      "key": "providerBToken",
+      "value": ""
+    },
+    {
+      "key": "providerBServiceProviderId",
+      "value": ""
+    },
+    {
+      "key": "caregiverFullName",
+      "value": "Caregiver C"
+    },
+    {
+      "key": "caregiverEmail",
+      "value": "caregiver.c@example.com"
+    },
+    {
+      "key": "caregiverPhone",
+      "value": "233240000003"
+    },
+    {
+      "key": "caregiverPassword",
+      "value": "Password123"
+    },
+    {
+      "key": "caregiverOtp",
+      "value": ""
+    },
+    {
+      "key": "caregiverProfileImagePath",
+      "value": ""
+    },
+    {
+      "key": "caregiverToken",
+      "value": ""
+    },
+    {
+      "key": "patientId",
+      "value": ""
+    },
+    {
+      "key": "assessmentId",
+      "value": ""
+    },
+    {
+      "key": "referralId",
+      "value": ""
+    },
+    {
+      "key": "taskId",
+      "value": ""
+    },
+    {
+      "key": "taskProgress",
+      "value": "65"
+    },
+    {
+      "key": "taskStepIndex",
+      "value": "0"
+    }
   ]
 }

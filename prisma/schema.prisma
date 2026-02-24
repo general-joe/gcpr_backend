@@ -359,9 +359,12 @@ model RehabTask {
   startDate        DateTime?
   endDate          DateTime?
   video            Json?
+  progress         Int       @default(0)
+  completedStepIndexes Int[] @default([])
 
   status      RehabTaskStatus @default(PENDING)
   completedAt DateTime?
+  caregiverMarkedDoneAt DateTime?
 
   referralId String?
   referral   ClinicalReferral? @relation(fields: [referralId], references: [id])
