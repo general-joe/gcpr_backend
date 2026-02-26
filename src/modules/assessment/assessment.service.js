@@ -70,16 +70,28 @@ const sectionLetter = (index) => {
   return letters[index] ?? `S${index + 1}`;
 };
 
+const buildItemLookup = (toolConfig) => {
+  const items = Array.isArray(toolConfig?.items) ? toolConfig.items : [];
+  return new Map(items.map((item) => [item.id, item]));
+};
+
 const buildGMFMFields = (toolConfig) => {
   const dimensions = Array.isArray(toolConfig?.dimensions) ? toolConfig.dimensions : [];
+  const itemLookup = buildItemLookup(toolConfig);
+
   return dimensions.map((dimension) => {
     const [start, end] = dimension.itemRange;
     const fields = [];
 
     for (let itemNumber = start; itemNumber <= end; itemNumber += 1) {
+      const fieldCode = `${dimension.code}${itemNumber}`;
+      const itemDef = itemLookup.get(fieldCode);
+
       fields.push({
-        fieldCode: `${dimension.code}${itemNumber}`,
-        question: `GMFM Item ${dimension.code}${itemNumber}`,
+        fieldCode,
+        question: itemDef?.text ?? `GMFM Item ${fieldCode}`,
+        dimension: itemDef?.dimension ?? dimension.code,
+        itemNumber: itemDef?.number ?? itemNumber,
         expectedAnswerFormat: "number_or_NT",
         allowedValues: [0, 1, 2, 3, "NT"]
       });
@@ -101,7 +113,7 @@ const buildSectionFields = (toolConfig) => {
     fields: (section.items ?? []).map((item, itemIndex) => ({
       fieldCode: `${sectionLetter(sectionIndex)}${itemIndex + 1}`,
       fieldKey: item.id,
-      question: toTitleFromId(item.id),
+      question: item.text ?? item.label ?? toTitleFromId(item.id),
       expectedAnswerFormat: ITEM_TYPE_TO_FORMAT[item.type] ?? "string",
       options: item.options ?? null
     }))
