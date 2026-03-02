@@ -29,33 +29,21 @@ class CpPatientController {
     );
   });
 
-  static markTaskStepDone = catchAsync(async (req, res) => {
+  static markTaskDayDone = catchAsync(async (req, res) => {
     const userId = res.locals.user?.id;
     const { patientId, taskId } = req.params;
-    const { stepIndex } = req.validatedData ?? req.body;
-    const task = await CpPatientService.markTaskStepDone(
+    const { date } = req.validatedData ?? req.body;
+    const task = await CpPatientService.markTaskDayDone(
       userId,
       patientId,
       taskId,
-      stepIndex,
+      date,
     );
 
     UtilFunctions.outputSuccess(
       res,
       task,
-      "Task step marked as done successfully",
-    );
-  });
-
-  static markTaskDone = catchAsync(async (req, res) => {
-    const userId = res.locals.user?.id;
-    const { patientId, taskId } = req.params;
-    const task = await CpPatientService.markTaskDone(userId, patientId, taskId);
-
-    UtilFunctions.outputSuccess(
-      res,
-      task,
-      "Task marked as completed successfully",
+      "Task day marked as done successfully",
     );
   });
 }

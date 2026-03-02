@@ -725,48 +725,6 @@ class AssessmentService {
       tasks
     };
   }
-
-  static async updateTaskProgress(user, taskId, progress) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user.id);
-
-    const task = await prisma.rehabTask.findUnique({
-      where: { id: taskId },
-      select: { id: true, providerId: true, status: true }
-    });
-
-    if (!task) {
-      throw new gcprError(HttpStatus.NOT_FOUND, "Task not found");
-    }
-
-    if (task.providerId !== serviceProvider.id) {
-      throw new gcprError(
-        HttpStatus.FORBIDDEN,
-        "Only assigned provider can update task progress"
-      );
-    }
-
-    const nextStatus = progress >= 100 ? "COMPLETED" : "ASSIGNED";
-    const completedAt = progress >= 100 ? new Date() : null;
-
-    const updatedTask = await prisma.rehabTask.update({
-      where: { id: taskId },
-      data: {
-        progress,
-        status: nextStatus,
-        completedAt
-      },
-      include: {
-        patient: {
-          select: { id: true, fullName: true }
-        },
-        referral: {
-          select: { id: true, status: true, fromProviderId: true }
-        }
-      }
-    });
-
-    return updatedTask;
-  }
 }
 
 export default AssessmentService;

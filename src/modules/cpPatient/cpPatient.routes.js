@@ -2,7 +2,7 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import { validate } from "../../middlewares/validation.js";
 import {
-  caregiverTaskStepDoneSchema,
+  caregiverTaskDayDoneSchema,
   cpPatientSchema,
 } from "./cpPatient.validator.js";
 import { authorize } from "../../middlewares/auth.js";
@@ -38,18 +38,11 @@ cpPatientRouter.get(
 );
 
 cpPatientRouter.patch(
-  "/:patientId/assigned-tasks/:taskId/steps/done",
+  "/:patientId/assigned-tasks/:taskId/days/done",
   authorize(["CAREGIVER"]),
-  validate(caregiverTaskStepDoneSchema),
+  validate(caregiverTaskDayDoneSchema),
   authRateLimiter,
-  CpPatientController.markTaskStepDone,
-);
-
-cpPatientRouter.patch(
-  "/:patientId/assigned-tasks/:taskId/done",
-  authorize(["CAREGIVER"]),
-  authRateLimiter,
-  CpPatientController.markTaskDone,
+  CpPatientController.markTaskDayDone,
 );
 
 export default cpPatientRouter;

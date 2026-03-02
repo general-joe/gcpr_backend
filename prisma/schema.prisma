@@ -360,7 +360,7 @@ model RehabTask {
   endDate          DateTime?
   video            Json?
   progress         Int       @default(0)
-  completedStepIndexes Int[] @default([])
+  completedDates String[] @default([])
 
   status      RehabTaskStatus @default(PENDING)
   completedAt DateTime?

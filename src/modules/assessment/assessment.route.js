@@ -8,8 +8,7 @@ import {
   submitAssessmentSchema,
   createReferralSchema,
   updateReferralStatusSchema,
-  createRehabTaskSchema,
-  updateTaskProgressSchema
+  createRehabTaskSchema
 } from "./assessment.validator.js";
 
 const assessmentRouter = express.Router();
@@ -88,13 +87,6 @@ assessmentRouter.get(
   "/tasks/my",
   authorize(["SERVICE_PROVIDER"]),
   AssessmentController.getMyAssignedTasks
-);
-
-assessmentRouter.patch(
-  "/tasks/:taskId/progress",
-  authorize(["SERVICE_PROVIDER"]),
-  validate(updateTaskProgressSchema),
-  AssessmentController.updateTaskProgress
 );
 
 export default assessmentRouter;

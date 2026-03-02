@@ -14,8 +14,8 @@ export const cpPatientSchema = z.object({
   typeOfSchool: z.enum(["PUBLIC", "PRIVATE", "SPECIAL_NEEDS"]).optional(),
 });
 
-export const caregiverTaskStepDoneSchema = z
+export const caregiverTaskDayDoneSchema = z
   .object({
-    stepIndex: z.number().int().min(0),
+    date: z.coerce.date().optional(),
   })
   .strict();
