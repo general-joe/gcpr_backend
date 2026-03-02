@@ -122,11 +122,12 @@
  *                         type: integer
  *                         minimum: 0
  *                         maximum: 100
- *                       completedStepIndexes:
+ *                       completedDates:
  *                         type: array
  *                         items:
- *                           type: integer
- *                         description: Zero-based step indexes completed by caregiver
+ *                           type: string
+ *                           format: date
+ *                         description: Dates the caregiver marked the task as completed
  *                       completedAt:
  *                         type: string
  *                         format: date-time
@@ -160,9 +161,9 @@
  *       404:
  *         description: Patient not found or caregiver profile not found
  *
- * /cp-patient/{patientId}/assigned-tasks/{taskId}/steps/done:
+ * /cp-patient/{patientId}/assigned-tasks/{taskId}/days/done:
  *   patch:
- *     summary: Mark one instruction step as done for a patient's assigned task
+ *     summary: Mark a task as done for a specific day
  *     tags: [CP Patient]
  *     security:
  *       - bearerAuth: []
@@ -183,14 +184,13 @@
  *         application/json:
  *           schema:
  *             type: object
- *             required: [stepIndex]
  *             properties:
- *               stepIndex:
- *                 type: integer
- *                 minimum: 0
- *                 description: Zero-based index of instruction step
+ *               date:
+ *                 type: string
+ *                 format: date
+ *                 description: Day to mark as completed (defaults to today)
  *           example:
- *             stepIndex: 0
+ *             date: 2026-03-01
  *     responses:
  *       200:
  *         description: Task step marked as done successfully
@@ -201,34 +201,5 @@
  *       404:
  *         description: Patient or task not found
  *       422:
- *         description: Task has no instruction steps or invalid step index
- *
- * /cp-patient/{patientId}/assigned-tasks/{taskId}/done:
- *   patch:
- *     summary: Mark a patient's assigned task as fully completed
- *     tags: [CP Patient]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: patientId
- *         required: true
- *         schema:
- *           type: string
- *       - in: path
- *         name: taskId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Task marked as completed successfully
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
- *       404:
- *         description: Patient or task not found
- *       422:
- *         description: Task is not yet assigned
+ *         description: Task is not yet assigned or completion date is invalid
  */

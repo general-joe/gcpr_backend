@@ -67,9 +67,3 @@ export const createRehabTaskSchema = z
     "endDate must be greater than or equal to startDate"
   )
   .strict();
-
-export const updateTaskProgressSchema = z
-  .object({
-    progress: z.number().int().min(0).max(100)
-  })
-  .strict();
