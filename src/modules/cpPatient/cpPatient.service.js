@@ -189,7 +189,7 @@ class CpPatientService {
     return task;
   }
 
-  static async markTaskStepDone(userId, patientId, taskId, stepIndex) {
+  static async markTaskDayDone(userId, patientId, taskId, date) {
     const caregiver = await CpPatientService.requireCaregiver(userId);
     const task = await CpPatientService.getCaregiverTaskForPatient(
       caregiver.id,
@@ -197,81 +197,41 @@ class CpPatientService {
       taskId,
     );
 
-    const steps = Array.isArray(task.instructionSteps) ? task.instructionSteps : [];
-    if (steps.length === 0) {
+    const completionDate = date ? new Date(date) : new Date();
+    if (Number.isNaN(completionDate.getTime())) {
       throw new gcprError(
         HttpStatus.UNPROCESSABLE_ENTITY,
-        "This task has no instruction steps to track",
+        "Invalid completion date",
       );
     }
 
-    if (stepIndex >= steps.length) {
-      throw new gcprError(
-        HttpStatus.UNPROCESSABLE_ENTITY,
-        `Invalid stepIndex. Expected a value between 0 and ${steps.length - 1}`,
-      );
-    }
-
-    const doneSet = new Set(Array.isArray(task.completedStepIndexes) ? task.completedStepIndexes : []);
-    doneSet.add(stepIndex);
-
-    const completedStepIndexes = Array.from(doneSet).sort((a, b) => a - b);
-    const progress = Math.min(
-      100,
-      Math.round((completedStepIndexes.length / steps.length) * 100),
+    const dateKey = completionDate.toISOString().slice(0, 10);
+    const doneSet = new Set(
+      Array.isArray(task.completedDates) ? task.completedDates : [],
     );
-    const isCompleted = progress >= 100;
+    doneSet.add(dateKey);
+
+    const completedDates = Array.from(doneSet).sort();
+    const durationDays = task.durationDays ?? 0;
+    const progress =
+      durationDays > 0
+        ? Math.min(
+            100,
+            Math.round((completedDates.length / durationDays) * 100),
+          )
+        : 0;
+    const isCompleted = durationDays > 0 && completedDates.length >= durationDays;
 
     const updatedTask = await prisma.rehabTask.update({
       where: { id: task.id },
       data: {
-        completedStepIndexes,
+        completedDates,
         progress,
         status: isCompleted ? "COMPLETED" : "ASSIGNED",
         completedAt: isCompleted ? task.completedAt ?? new Date() : null,
         caregiverMarkedDoneAt: isCompleted
           ? task.caregiverMarkedDoneAt ?? new Date()
           : null,
-      },
-      include: {
-        provider: {
-          select: {
-            id: true,
-            user: {
-              select: { fullName: true, phoneNumber: true },
-            },
-            profession: true,
-            facilityName: true,
-          },
-        },
-        referral: {
-          select: { id: true, status: true },
-        },
-      },
-    });
-
-    return updatedTask;
-  }
-
-  static async markTaskDone(userId, patientId, taskId) {
-    const caregiver = await CpPatientService.requireCaregiver(userId);
-    const task = await CpPatientService.getCaregiverTaskForPatient(
-      caregiver.id,
-      patientId,
-      taskId,
-    );
-
-    const steps = Array.isArray(task.instructionSteps) ? task.instructionSteps : [];
-    const completedStepIndexes = steps.map((_, index) => index);
-
-    const updatedTask = await prisma.rehabTask.update({
-      where: { id: task.id },
-      data: {
-        completedStepIndexes,
-        progress: 100,
-        status: "COMPLETED",
-        completedAt: task.completedAt ?? new Date(),
-        caregiverMarkedDoneAt: task.caregiverMarkedDoneAt ?? new Date(),
       },
       include: {
         provider: {

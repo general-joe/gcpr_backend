@@ -283,11 +283,6 @@
  *                 type: string
  *               durationDays:
  *                 type: integer
- *               progress:
- *                 type: integer
- *                 minimum: 0
- *                 maximum: 100
- *                 description: Task progress percentage
  *               startDate:
  *                 type: string
  *                 format: date-time
@@ -324,42 +319,4 @@
  *     responses:
  *       200:
  *         description: Assigned rehab tasks retrieved successfully
- */
-
-/**
- * @swagger
- * /assessment/tasks/{taskId}/progress:
- *   patch:
- *     summary: Update progress of a rehab task assigned to logged-in provider
- *     tags: [Assessment]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: taskId
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [progress]
- *             properties:
- *               progress:
- *                 type: integer
- *                 minimum: 0
- *                 maximum: 100
- *           example:
- *             progress: 65
- *     responses:
- *       200:
- *         description: Task progress updated successfully
- *       403:
- *         description: Forbidden
- *       404:
- *         description: Task not found
  */
