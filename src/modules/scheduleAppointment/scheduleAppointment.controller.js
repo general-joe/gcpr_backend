@@ -48,6 +48,24 @@ class ScheduleAppointmentController {
       "Appointment scheduled successfully",
     );
   });
+
+  static getProviderAvailability = catchAsync(async (req, res) => {
+  const { providerId, date } = req.query;
+
+  const result =
+    await ScheduleAppointmentService.getProviderAvailability(
+      providerId,
+      date
+    );
+
+  UtilFunctions.outputSuccess(
+    res,
+    result,
+    "Provider availability fetched successfully"
+  );
+});
+
+
 }
 
 export default ScheduleAppointmentController;

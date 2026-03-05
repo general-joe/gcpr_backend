@@ -224,6 +224,47 @@ class ScheduleAppointmentService {
 
     return createdAppointment;
   }
+
+  static async getProviderAvailability(providerId, date) {
+  const parsedDate = new Date(date);
+
+  if (isNaN(parsedDate.getTime())) {
+    throw new gcprError(HttpStatus.BAD_REQUEST, "Invalid date");
+  }
+
+  const dayOfWeek = parsedDate.getDay();
+
+  const availabilities = await prisma.providerAvailability.findMany({
+    where: {
+      providerId,
+      dayOfWeek,
+    },
+    select: {
+      id: true,
+      dayOfWeek: true,
+      startTime: true,
+      endTime: true,
+    },
+    orderBy: {
+      startTime: "asc",
+    },
+  });
+
+  if (!availabilities.length) {
+    return {
+      providerId,
+      date,
+      message: "Provider has no availability for this date",
+      slots: [],
+    };
+  }
+
+  return {
+    providerId,
+    date,
+    slots: availabilities,
+  };
+}
 }
 
 export default ScheduleAppointmentService;
