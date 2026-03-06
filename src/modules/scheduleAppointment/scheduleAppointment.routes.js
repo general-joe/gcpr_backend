@@ -27,4 +27,11 @@ scheduleAppointmentRouter.post(
   ScheduleAppointmentController.createAppointment,
 );
 
+scheduleAppointmentRouter.get(
+  "/provider-availability",
+  authorize(["CAREGIVER"]),
+  authRateLimiter,
+  ScheduleAppointmentController.getProviderAvailability,
+);
+
 export default scheduleAppointmentRouter;
