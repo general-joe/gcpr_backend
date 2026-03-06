@@ -1,20 +1,36 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
 import { authorize } from "../../middlewares/auth.js";
+
 import UserController from "./user.controller.js";
 
 const userRouter = express.Router();
 
-const authRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 50,
-});
-
+/**
+ * GET /users/profile
+ * Get user profile
+ * Available to: SERVICE_PROVIDER, CAREGIVER
+ */
 userRouter.get(
   "/profile",
   authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
-  authRateLimiter,
   UserController.getProfile,
+);
+
+/**
+ * GET /users/videos
+ * List all videos from the YouTube channel with database caching
+ * Available to: ALL USERS (SERVICE_PROVIDER and CAREGIVER)
+ *
+ * Query Parameters:
+ *  - pageSize: number of videos per page (default: 25)
+ *  - pageToken: pagination token for next page
+ *  - order: video ordering ('date', 'rating', 'relevance', 'title', 'videoCount', 'viewCount')
+ */
+userRouter.get(
+  "/videos",
+  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
+  UserController.listVideos,
 );
 
 export default userRouter;

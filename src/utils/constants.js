@@ -167,5 +167,67 @@ export default {
     ACCOUNT_NUMBER: /^[0-9]{8}$/,
   },
 
-
+  THERAPY_CATEGORIES: {
+    PHYSIOTHERAPY: {
+      name: "Physiotherapy",
+      icon: "💪",
+      subcategories: [
+        "Stretching",
+        "Strength",
+        "Balance",
+        "Mobility",
+        "Endurance",
+        "Functional Play",
+      ],
+    },
+    SPEECH_THERAPY: {
+      name: "Speech Therapy",
+      icon: "🗣️",
+      subcategories: [
+        "Oral Motor",
+        "Sensory",
+        "Breathing",
+        "Voice Control",
+        "Sound Practice",
+        "Language",
+        "Communication",
+        "Reading",
+        "Feeding Support",
+      ],
+    },
+    OCCUPATIONAL_THERAPY: {
+      name: "Occupational Therapy",
+      icon: "✋",
+      subcategories: [
+        "Fine Motor",
+        "Gross Motor",
+        "ADLs",
+        "Sensory",
+        "Cognitive",
+        "Environment",
+      ],
+    },
+    NUTRITION_FEEDING: {
+      name: "Nutrition & Feeding",
+      icon: "🥗",
+      subcategories: [
+        "Meal Prep",
+        "Feeding Skills",
+        "Texture Practice",
+        "Hydration",
+        "Nutrition Education",
+      ],
+    },
+    PSYCHOTHERAPY: {
+      name: "Psychotherapy",
+      icon: "🧠",
+      subcategories: [
+        "Stress Management",
+        "Emotional Resilience",
+        "Self-Care",
+        "Coping Skills",
+        "Support Network",
+      ],
+    },
+  },
 };
