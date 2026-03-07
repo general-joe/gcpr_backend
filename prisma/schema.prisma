@@ -105,6 +105,7 @@ enum appointmentStatus {
   APPROVED
   DECLINED
   COMPLETED
+  RESCHEDULED
 }
 
 model User {
@@ -358,7 +359,7 @@ model RehabTask {
   durationDays     Int
   startDate        DateTime?
   endDate          DateTime?
-  video            Json?
+  videoUrl            String?
   progress         Int       @default(0)
   completedDates   String[]  @default([])
 
@@ -382,7 +383,8 @@ model Appointment {
   provider   serviceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
   appointmentDate DateTime
-  reason          String
+  reasonText          String?
+  reasonAudio         String?
 
   status    appointmentStatus @default(PENDING)
   createdAt DateTime          @default(now())

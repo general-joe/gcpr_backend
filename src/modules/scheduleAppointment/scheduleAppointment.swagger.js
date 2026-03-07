@@ -1,8 +1,161 @@
 /**
  * @swagger
+ * tags:
+ *   name: Schedule Appointment
+ *   description: Endpoints for caregivers to view available providers and schedule appointments
+ *
+ * components:
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ *
+ *   schemas:
+ *     ErrorResponse:
+ *       type: object
+ *       properties:
+ *         statusCode:
+ *           type: integer
+ *           example: 400
+ *         message:
+ *           type: string
+ *           example: "Invalid date or time"
+ *
+ *     AvailableProvidersResponse:
+ *       type: object
+ *       properties:
+ *         date:
+ *           type: string
+ *           format: date
+ *           example: "2026-03-10"
+ *         time:
+ *           type: string
+ *           example: "10:30"
+ *         total:
+ *           type: integer
+ *           example: 3
+ *         providers:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: string
+ *                 format: uuid
+ *               profession:
+ *                 type: string
+ *                 example: "PHYSIOTHERAPIST"
+ *               facilityName:
+ *                 type: string
+ *                 example: "New Hope Rehab Center"
+ *               facilityAddress:
+ *                 type: string
+ *                 example: "East Legon, Accra"
+ *               user:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     format: uuid
+ *                   fullName:
+ *                     type: string
+ *                   phoneNumber:
+ *                     type: string
+ *                   email:
+ *                     type: string
+ *
+ *     AppointmentResponse:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         patientId:
+ *           type: string
+ *           format: uuid
+ *         providerId:
+ *           type: string
+ *           format: uuid
+ *         appointmentDate:
+ *           type: string
+ *           format: date-time
+ *         reason:
+ *           type: string
+ *         status:
+ *           type: string
+ *           enum: [PENDING, CONFIRMED, CANCELLED, COMPLETED]
+ *         patient:
+ *           type: object
+ *           properties:
+ *             id:
+ *               type: string
+ *               format: uuid
+ *             fullName:
+ *               type: string
+ *         provider:
+ *           type: object
+ *           properties:
+ *             id:
+ *               type: string
+ *               format: uuid
+ *             profession:
+ *               type: string
+ *             facilityName:
+ *               type: string
+ *             facilityAddress:
+ *               type: string
+ *             user:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                   format: uuid
+ *                 fullName:
+ *                   type: string
+ *                 phoneNumber:
+ *                   type: string
+ *                 email:
+ *                   type: string
+ *
+ *     ProviderAvailabilityResponse:
+ *       type: object
+ *       properties:
+ *         providerId:
+ *           type: string
+ *           format: uuid
+ *         date:
+ *           type: string
+ *           format: date
+ *         message:
+ *           type: string
+ *           nullable: true
+ *         slots:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: string
+ *                 format: uuid
+ *               dayOfWeek:
+ *                 type: integer
+ *                 minimum: 0
+ *                 maximum: 6
+ *               startTime:
+ *                 type: string
+ *                 example: "09:00"
+ *               endTime:
+ *                 type: string
+ *                 example: "17:00"
+ */
+
+/**
+ * @swagger
  * /schedule-appointment/available-providers:
  *   get:
- *     summary: Fetch service providers available for a specific date and time
+ *     summary: Get list of service providers available at a specific date and time
+ *     description: Returns providers who are available on the given day of week and have no conflicting appointment at the exact datetime.
  *     tags: [Schedule Appointment]
  *     security:
  *       - bearerAuth: []
@@ -13,45 +166,43 @@
  *         schema:
  *           type: string
  *           format: date
- *         example: 2026-03-10
+ *         description: Appointment date (YYYY-MM-DD)
+ *         example: "2026-03-10"
  *       - in: query
  *         name: time
  *         required: true
  *         schema:
  *           type: string
+ *           pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
+ *         description: Time in 24-hour format (HH:MM)
  *         example: "10:30"
  *     responses:
  *       200:
- *         description: Available providers fetched successfully
+ *         description: Successfully retrieved available providers
  *         content:
  *           application/json:
- *             example:
- *               status: SUCCESS
- *               data:
- *                 date: 2026-03-10
- *                 time: "10:30"
- *                 total: 1
- *                 providers:
- *                   - id: 2f39fb95-68bc-4551-ad49-cea239d18980
- *                     profession: PHYSIOTHERAPIST
- *                     facilityName: New Hope Rehab Center
- *                     facilityAddress: East Legon
- *                     user:
- *                       id: 87ea3e90-f1a5-41d0-84b8-0abed8e77c99
- *                       fullName: Jane Doe
- *                       phoneNumber: "+233201234567"
- *                       email: janedoe@example.com
- *               message: Available providers fetched successfully
+ *             schema:
+ *               $ref: '#/components/schemas/AvailableProvidersResponse'
  *       400:
- *         description: Validation error
+ *         description: Invalid date or time format
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
- *         description: Unauthorized
+ *         description: Unauthorized – missing or invalid token
  *       403:
- *         description: Forbidden (CAREGIVER only)
- *
+ *         description: Forbidden – user is not a registered caregiver
+ *       500:
+ *         description: Internal server error
+ */
+
+/**
+ * @swagger
  * /schedule-appointment:
  *   post:
- *     summary: Schedule appointment with a service provider
+ *     summary: Create a new appointment for a patient with a service provider
+ *     description: Only caregivers can schedule appointments for their associated patients. Validates availability and no conflicts.
  *     tags: [Schedule Appointment]
  *     security:
  *       - bearerAuth: []
@@ -61,49 +212,90 @@
  *         application/json:
  *           schema:
  *             type: object
- *             required: [patientId, providerId, appointmentDate, reason]
+ *             required:
+ *               - patientId
+ *               - providerId
+ *               - appointmentDate
+ *               - reason
  *             properties:
  *               patientId:
  *                 type: string
  *                 format: uuid
+ *                 description: ID of the patient (must belong to the authenticated caregiver)
  *               providerId:
  *                 type: string
  *                 format: uuid
+ *                 description: ID of the selected service provider
  *               appointmentDate:
  *                 type: string
  *                 format: date-time
+ *                 description: Full ISO datetime of the appointment
+ *                 example: "2026-03-10T10:30:00.000Z"
  *               reason:
  *                 type: string
- *           example:
- *             patientId: f4f08ec9-11e4-4f15-8bc0-45d61653f3e0
- *             providerId: 2f39fb95-68bc-4551-ad49-cea239d18980
- *             appointmentDate: "2026-03-10T10:30:00.000Z"
- *             reason: Follow-up consultation for therapy progress
+ *                 description: Reason for the appointment/visit
+ *                 example: "Follow-up consultation for therapy progress"
  *     responses:
- *       200:
- *         description: Appointment scheduled successfully
+ *       201:
+ *         description: Appointment created successfully
  *         content:
  *           application/json:
- *             example:
- *               status: SUCCESS
- *               data:
- *                 id: 80d9a116-91dd-4141-b70f-d00933e8f71b
- *                 patientId: f4f08ec9-11e4-4f15-8bc0-45d61653f3e0
- *                 providerId: 2f39fb95-68bc-4551-ad49-cea239d18980
- *                 appointmentDate: "2026-03-10T10:30:00.000Z"
- *                 reason: Follow-up consultation for therapy progress
- *                 status: PENDING
- *               message: Appointment scheduled successfully
+ *             schema:
+ *               $ref: '#/components/schemas/AppointmentResponse'
  *       400:
- *         description: Validation error
+ *         description: Invalid input (e.g. malformed date)
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (CAREGIVER only)
+ *         description: Forbidden – not the caregiver of this patient
  *       404:
  *         description: Patient or provider not found
  *       409:
- *         description: Provider already has a conflicting appointment
+ *         description: Provider already has an appointment at this exact time
  *       422:
- *         description: Provider is not available at selected date and time
+ *         description: Provider not available at the requested date/time
+ *       500:
+ *         description: Internal server error
+ */
+
+/**
+ * @swagger
+ * /schedule-appointment/provider-availability:
+ *   get:
+ *     summary: Get availability slots for a specific provider on a given date
+ *     description: Returns all availability slots defined for the provider on the requested day of week.
+ *     tags: [Schedule Appointment]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: providerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID of the service provider
+ *       - in: query
+ *         name: date
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Date to check availability for (YYYY-MM-DD)
+ *         example: "2026-03-10"
+ *     responses:
+ *       200:
+ *         description: Provider availability slots retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProviderAvailabilityResponse'
+ *       400:
+ *         description: Invalid date or providerId format
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Provider not found (if no availabilities exist, still returns empty slots array)
+ *       500:
+ *         description: Internal server error
  */
