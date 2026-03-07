@@ -14,6 +14,8 @@ export const scheduleAppointmentSchema = z
     appointmentDate: z.coerce.date({
       invalid_type_error: "appointmentDate is required",
     }),
-    reason: z.string().min(1, "reason is required"),
+    reasonText: z.string().optional(),
+    reasonAudio: z.string().optional(),
+
   })
   .strict();
