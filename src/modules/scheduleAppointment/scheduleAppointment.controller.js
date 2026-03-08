@@ -50,22 +50,82 @@ class ScheduleAppointmentController {
   });
 
   static getProviderAvailability = catchAsync(async (req, res) => {
-  const { providerId, date } = req.query;
+    const { providerId, date } = req.query;
 
-  const result =
-    await ScheduleAppointmentService.getProviderAvailability(
+    const result = await ScheduleAppointmentService.getProviderAvailability(
       providerId,
-      date
+      date,
     );
 
-  UtilFunctions.outputSuccess(
-    res,
-    result,
-    "Provider availability fetched successfully"
-  );
-});
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "Provider availability fetched successfully",
+    );
+  });
+  static approveAppointment = catchAsync(async (req, res) => {
+    const userId = res.locals.user?.id;
+    const { appointmentId } = req.validatedData;
 
+    const result = await ScheduleAppointmentService.approveAppointment(
+      userId,
+      appointmentId,
+    );
 
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "Appointment approved successfully",
+    );
+  });
+
+  static rescheduleAppointment = catchAsync(async (req, res) => {
+    const userId = res.locals.user?.id;
+    const payload = req.validatedData;
+
+    const result = await ScheduleAppointmentService.rescheduleAppointment(
+      userId,
+      payload,
+    );
+
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "Appointment rescheduled successfully",
+    );
+  });
+
+  static providerAppointments = catchAsync(async (req, res) => {
+    const userId = res.locals.user?.id;
+    const query = req.query;
+
+    const result = await ScheduleAppointmentService.providerAppointments(
+      userId,
+      query,
+    );
+
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "Provider appointments fetched successfully",
+    );
+  });
+
+  static caregiverAppointments = catchAsync(async (req, res) => {
+    const userId = res.locals.user?.id;
+    const query = req.query;
+
+    const result = await ScheduleAppointmentService.caregiverAppointments(
+      userId,
+      query,
+    );
+
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "Caregiver appointments fetched successfully",
+    );
+  });
 }
 
 export default ScheduleAppointmentController;
