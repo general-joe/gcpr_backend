@@ -4,6 +4,10 @@ import { authorize } from "../../middlewares/auth.js";
 import { validate } from "../../middlewares/validation.js";
 import ScheduleAppointmentController from "./scheduleAppointment.controller.js";
 import { scheduleAppointmentSchema } from "./scheduleAppointment.validator.js";
+import {
+  approveAppointmentSchema,
+  rescheduleAppointmentSchema,
+} from "./scheduleAppointment.validator.js";
 
 const scheduleAppointmentRouter = express.Router();
 
@@ -32,6 +36,35 @@ scheduleAppointmentRouter.get(
   authorize(["CAREGIVER"]),
   authRateLimiter,
   ScheduleAppointmentController.getProviderAvailability,
+);
+scheduleAppointmentRouter.patch(
+  "/approve",
+  authorize(["SERVICE_PROVIDER"]),
+  validate(approveAppointmentSchema),
+  authRateLimiter,
+  ScheduleAppointmentController.approveAppointment,
+);
+
+scheduleAppointmentRouter.patch(
+  "/reschedule",
+  authorize(["SERVICE_PROVIDER"]),
+  validate(rescheduleAppointmentSchema),
+  authRateLimiter,
+  ScheduleAppointmentController.rescheduleAppointment,
+);
+
+scheduleAppointmentRouter.get(
+  "/provider",
+  authorize(["SERVICE_PROVIDER"]),
+  authRateLimiter,
+  ScheduleAppointmentController.providerAppointments,
+);
+
+scheduleAppointmentRouter.get(
+  "/caregiver",
+  authorize(["CAREGIVER"]),
+  authRateLimiter,
+  ScheduleAppointmentController.caregiverAppointments,
 );
 
 export default scheduleAppointmentRouter;
