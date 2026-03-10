@@ -289,6 +289,9 @@
  *               endDate:
  *                 type: string
  *                 format: date-time
+ *               videoUrl:
+ *                 type: string
+ *                 description: Direct URL to the rehab task video
  *               video:
  *                 type: object
  *                 additionalProperties: true
@@ -319,4 +322,42 @@
  *     responses:
  *       200:
  *         description: Assigned rehab tasks retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 total:
+ *                   type: number
+ *                 tasks:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       title:
+ *                         type: string
+ *                       instructions:
+ *                         type: string
+ *                       frequencyPerDay:
+ *                         type: number
+ *                       durationDays:
+ *                         type: number
+ *                       startDate:
+ *                         type: string
+ *                         format: date-time
+ *                       endDate:
+ *                         type: string
+ *                         format: date-time
+ *                       videoUrl:
+ *                         type: string
+ *                         description: Direct URL to the rehab task video
+ *                       status:
+ *                         type: string
+ *                         enum: [PENDING, ASSIGNED, COMPLETED]
+ *                       progress:
+ *                         type: integer
+ *                         minimum: 0
+ *                         maximum: 100
  */

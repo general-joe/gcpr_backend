@@ -80,11 +80,14 @@
  *         appointmentDate:
  *           type: string
  *           format: date-time
- *         reason:
+ *         reasonText:
  *           type: string
+ *         reasonAudio:
+ *           type: string
+ *           description: URL to the recorded audio reason
  *         status:
  *           type: string
- *           enum: [PENDING, CONFIRMED, CANCELLED, COMPLETED]
+ *           enum: [PENDING, APPROVED, DECLINED, COMPLETED, RESCHEDULED]
  *         patient:
  *           type: object
  *           properties:
@@ -216,7 +219,6 @@
  *               - patientId
  *               - providerId
  *               - appointmentDate
- *               - reason
  *             properties:
  *               patientId:
  *                 type: string
@@ -231,10 +233,20 @@
  *                 format: date-time
  *                 description: Full ISO datetime of the appointment
  *                 example: "2026-03-10T10:30:00.000Z"
- *               reason:
+ *               reasonText:
  *                 type: string
  *                 description: Reason for the appointment/visit
  *                 example: "Follow-up consultation for therapy progress"
+ *               reasonAudio:
+ *                 type: string
+ *                 description: URL to the recorded audio reason
+ *                 example: "https://example.com/audio/appointment-reason.m4a"
+ *           example:
+ *             patientId: "b1f4e9e4-3b8b-4e7b-9c55-5b5c8c7a1e22"
+ *             providerId: "6a2d2e7f-91c8-4a62-9b75-0f9b0b2c3c44"
+ *             appointmentDate: "2026-03-10T10:30:00.000Z"
+ *             reasonText: "Follow-up consultation for therapy progress"
+ *             reasonAudio: "https://example.com/audio/appointment-reason.m4a"
  *     responses:
  *       201:
  *         description: Appointment created successfully
@@ -298,4 +310,78 @@
  *         description: Provider not found (if no availabilities exist, still returns empty slots array)
  *       500:
  *         description: Internal server error
+ */
+
+/**
+ * @swagger
+ * /schedule-appointment/provider:
+ *   get:
+ *     summary: Get appointments for the authenticated service provider
+ *     tags: [Schedule Appointment]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter appointments by date (YYYY-MM-DD)
+ *       - in: query
+ *         name: month
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Filter appointments by month (YYYY-MM)
+ *     responses:
+ *       200:
+ *         description: Provider appointments fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/AppointmentResponse'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+
+/**
+ * @swagger
+ * /schedule-appointment/caregiver:
+ *   get:
+ *     summary: Get appointments for the authenticated caregiver
+ *     tags: [Schedule Appointment]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: date
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter appointments by date (YYYY-MM-DD)
+ *       - in: query
+ *         name: month
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Filter appointments by month (YYYY-MM)
+ *     responses:
+ *       200:
+ *         description: Caregiver appointments fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/AppointmentResponse'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
  */

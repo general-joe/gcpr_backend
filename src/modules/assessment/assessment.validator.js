@@ -57,6 +57,7 @@ export const createRehabTaskSchema = z
     durationDays: z.number().int().min(1).max(365),
     startDate: z.coerce.date().optional(),
     endDate: z.coerce.date().optional(),
+    videoUrl: z.string().url().optional(),
     video: z.record(z.string(), z.any()).optional()
   })
   .refine(
