@@ -676,6 +676,8 @@ class AssessmentService {
         "Referral must be ACCEPTED before assigning rehab tasks"
       );
     }
+    const videoUrl =
+      data.videoUrl ?? data.video?.videoUrl ?? data.video?.url ?? null;
     const task = await prisma.rehabTask.create({
       data: {
         patientId: referral.patientId,
@@ -689,7 +691,7 @@ class AssessmentService {
         durationDays: data.durationDays,
         startDate: data.startDate ? new Date(data.startDate) : null,
         endDate: data.endDate ? new Date(data.endDate) : null,
-        videoUrl: data.videoUrl ?? null,
+        videoUrl,
         progress: 0,
         status: "ASSIGNED"
       },

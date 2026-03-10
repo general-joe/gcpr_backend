@@ -209,7 +209,8 @@ class ScheduleAppointmentService {
           patientId: payload.patientId,
           providerId: payload.providerId,
           appointmentDate,
-          reason: payload.reason,
+          reasonText: payload.reasonText ?? payload.reason ?? null,
+          reasonAudio: payload.reasonAudio ?? null,
           status: "PENDING",
         },
         include: {
