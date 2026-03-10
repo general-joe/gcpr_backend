@@ -115,6 +115,9 @@
  *                       endDate:
  *                         type: string
  *                         format: date-time
+ *                       videoUrl:
+ *                         type: string
+ *                         description: Direct URL to the rehab task video
  *                       status:
  *                         type: string
  *                         enum: [PENDING, ASSIGNED, COMPLETED]
