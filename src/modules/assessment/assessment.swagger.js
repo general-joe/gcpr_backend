@@ -304,6 +304,7 @@
  *             frequencyPerDay: 2
  *             frequencyNote: "Morning and evening"
  *             durationDays: 21
+ *             videoUrl: "https://www.youtube.com/watch?v=XXXXXXXXXXX"
  *     responses:
  *       200:
  *         description: Rehab task assigned successfully
