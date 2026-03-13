@@ -385,7 +385,18 @@ class ScheduleAppointmentService {
       where,
       include: {
         patient: true,
-        provider: true,
+        provider: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                phoneNumber: true,
+                email: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         appointmentDate: "asc",
@@ -421,7 +432,18 @@ class ScheduleAppointmentService {
       where,
       include: {
         patient: true,
-        provider: true,
+        provider: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                phoneNumber: true,
+                email: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         appointmentDate: "asc",
