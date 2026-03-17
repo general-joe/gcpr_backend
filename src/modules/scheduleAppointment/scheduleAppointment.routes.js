@@ -33,7 +33,7 @@ scheduleAppointmentRouter.post(
 
 scheduleAppointmentRouter.get(
   "/provider-availability",
-  authorize(["CAREGIVER"]),
+  authorize(["CAREGIVER", "SERVICE_PROVIDER"]),
   authRateLimiter,
   ScheduleAppointmentController.getProviderAvailability,
 );
