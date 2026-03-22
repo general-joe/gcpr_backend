@@ -151,6 +151,40 @@
  *               endTime:
  *                 type: string
  *                 example: "17:00"
+ *
+ *     ApproveAppointmentRequest:
+ *       type: object
+ *       required:
+ *         - appointmentId
+ *       properties:
+ *         appointmentId:
+ *           type: string
+ *           format: uuid
+ *           description: ID of the appointment to approve
+ *           example: "6a2d2e7f-91c8-4a62-9b75-0f9b0b2c3c44"
+ *
+ *     RescheduleAppointmentRequest:
+ *       type: object
+ *       required:
+ *         - appointmentId
+ *         - newDate
+ *         - newTime
+ *       properties:
+ *         appointmentId:
+ *           type: string
+ *           format: uuid
+ *           description: ID of the appointment to reschedule
+ *           example: "6a2d2e7f-91c8-4a62-9b75-0f9b0b2c3c44"
+ *         newDate:
+ *           type: string
+ *           format: date
+ *           description: New appointment date (YYYY-MM-DD)
+ *           example: "2026-03-12"
+ *         newTime:
+ *           type: string
+ *           pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
+ *           description: New appointment time in 24-hour format (HH:MM)
+ *           example: "14:30"
  */
 
 /**
@@ -266,6 +300,76 @@
  *         description: Provider already has an appointment at this exact time
  *       422:
  *         description: Provider not available at the requested date/time
+ *       500:
+ *         description: Internal server error
+ */
+
+/**
+ * @swagger
+ * /schedule-appointment/approve:
+ *   patch:
+ *     summary: Approve an appointment for the authenticated service provider
+ *     tags: [Schedule Appointment]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ApproveAppointmentRequest'
+ *           example:
+ *             appointmentId: "6a2d2e7f-91c8-4a62-9b75-0f9b0b2c3c44"
+ *     responses:
+ *       200:
+ *         description: Appointment approved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AppointmentResponse'
+ *       400:
+ *         description: Invalid request payload
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden – appointment does not belong to the authenticated provider
+ *       500:
+ *         description: Internal server error
+ */
+
+/**
+ * @swagger
+ * /schedule-appointment/reschedule:
+ *   patch:
+ *     summary: Reschedule an appointment for the authenticated service provider
+ *     tags: [Schedule Appointment]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RescheduleAppointmentRequest'
+ *           example:
+ *             appointmentId: "6a2d2e7f-91c8-4a62-9b75-0f9b0b2c3c44"
+ *             newDate: "2026-03-12"
+ *             newTime: "14:30"
+ *     responses:
+ *       200:
+ *         description: Appointment rescheduled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AppointmentResponse'
+ *       400:
+ *         description: Invalid request payload
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden – appointment does not belong to the authenticated provider
+ *       422:
+ *         description: Provider not available at the new requested date/time
  *       500:
  *         description: Internal server error
  */
