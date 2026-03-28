@@ -385,6 +385,14 @@ class AuthService {
       );
     }
 
+    // Clean up expired tokens to improve performance
+    await prisma.refreshToken.deleteMany({
+      where: {
+        userId,
+        expiresAt: { lt: new Date() },
+      },
+    });
+
     // Find the refresh token for this user
     const storedTokens = await prisma.refreshToken.findMany({
       where: { userId },
@@ -430,6 +438,21 @@ class AuthService {
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
+
+    // Clean up old tokens - keep only the 5 most recent tokens per user
+    const allUserTokens = await prisma.refreshToken.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (allUserTokens.length > 5) {
+      const tokensToDelete = allUserTokens.slice(5);
+      await prisma.refreshToken.deleteMany({
+        where: {
+          id: { in: tokensToDelete.map(t => t.id) },
+        },
+      });
+    }
 
     return { accessToken: newAccessToken, refreshToken: newRefreshToken };
   }
