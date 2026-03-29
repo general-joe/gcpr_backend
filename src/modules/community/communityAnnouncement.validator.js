@@ -1,43 +1,49 @@
-import Joi from "joi";
+import { z } from "zod";
 
-export const createAnnouncementSchema = Joi.object({
-  title: Joi.string().min(3).max(200).required().messages({
-    "string.min": "Title must be at least 3 characters",
-    "string.max": "Title cannot exceed 200 characters",
-    "any.required": "Title is required",
-  }),
-  content: Joi.string().min(10).max(5000).required().messages({
-    "string.min": "Content must be at least 10 characters",
-    "string.max": "Content cannot exceed 5000 characters",
-    "any.required": "Content is required",
-  }),
-  isPinned: Joi.alternatives()
-    .try(Joi.boolean(), Joi.string().valid("true", "false"))
+export const createAnnouncementSchema = z.object({
+  title: z
+    .string()
+    .min(3, "Title must be at least 3 characters")
+    .max(200, "Title cannot exceed 200 characters"),
+  content: z
+    .string()
+    .min(10, "Content must be at least 10 characters")
+    .max(5000, "Content cannot exceed 5000 characters"),
+  isPinned: z
+    .union([z.boolean(), z.enum(["true", "false"])])
     .optional()
-    .default(false),
+    .default(false)
+    .transform((val) => {
+      if (typeof val === "string") {
+        return val === "true";
+      }
+      return val;
+    }),
 });
 
-export const updateAnnouncementSchema = Joi.object({
-  title: Joi.string().min(3).max(200).optional().messages({
-    "string.min": "Title must be at least 3 characters",
-    "string.max": "Title cannot exceed 200 characters",
-  }),
-  content: Joi.string().min(10).max(5000).optional().messages({
-    "string.min": "Content must be at least 10 characters",
-    "string.max": "Content cannot exceed 5000 characters",
-  }),
-  isPinned: Joi.alternatives()
-    .try(Joi.boolean(), Joi.string().valid("true", "false"))
+export const updateAnnouncementSchema = z.object({
+  title: z
+    .string()
+    .min(3, "Title must be at least 3 characters")
+    .max(200, "Title cannot exceed 200 characters")
     .optional(),
+  content: z
+    .string()
+    .min(10, "Content must be at least 10 characters")
+    .max(5000, "Content cannot exceed 5000 characters")
+    .optional(),
+  isPinned: z
+    .union([z.boolean(), z.enum(["true", "false"])])
+    .optional()
+    .transform((val) => {
+      if (typeof val === "string") {
+        return val === "true";
+      }
+      return val;
+    }),
 });
 
-export const announcementIdParamSchema = Joi.object({
-  communityId: Joi.string().uuid().required().messages({
-    "string.guid": "Invalid community ID",
-    "any.required": "Community ID is required",
-  }),
-  announcementId: Joi.string().uuid().required().messages({
-    "string.guid": "Invalid announcement ID",
-    "any.required": "Announcement ID is required",
-  }),
+export const announcementIdParamSchema = z.object({
+  communityId: z.string().uuid("Invalid community ID"),
+  announcementId: z.string().uuid("Invalid announcement ID"),
 });

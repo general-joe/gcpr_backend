@@ -1,70 +1,80 @@
-import Joi from "joi";
+import { z } from "zod";
 
-export const createCommunitySchema = Joi.object({
-  name: Joi.string().min(3).max(100).required().messages({
-    "string.min": "Community name must be at least 3 characters",
-    "string.max": "Community name cannot exceed 100 characters",
-    "any.required": "Community name is required",
-  }),
-  description: Joi.string().max(500).optional().allow("").messages({
-    "string.max": "Description cannot exceed 500 characters",
-  }),
-  isPublic: Joi.alternatives()
-    .try(Joi.boolean(), Joi.string().valid("true", "false"))
+export const createCommunitySchema = z.object({
+  name: z
+    .string()
+    .min(3, "Community name must be at least 3 characters")
+    .max(100, "Community name cannot exceed 100 characters"),
+  description: z
+    .string()
+    .max(500, "Description cannot exceed 500 characters")
     .optional()
-    .default(false),
-  maxMembers: Joi.number().integer().min(2).max(10000).optional().default(1000).messages({
-    "number.min": "Maximum members must be at least 2",
-    "number.max": "Maximum members cannot exceed 10000",
-  }),
+    .default(""),
+  isPublic: z
+    .union([z.boolean(), z.enum(["true", "false"])])
+    .optional()
+    .default(false)
+    .transform((val) => {
+      if (typeof val === "string") {
+        return val === "true";
+      }
+      return val;
+    }),
+  maxMembers: z
+    .number()
+    .int()
+    .min(2, "Maximum members must be at least 2")
+    .max(10000, "Maximum members cannot exceed 10000")
+    .optional()
+    .default(1000),
 });
 
-export const updateCommunitySchema = Joi.object({
-  name: Joi.string().min(3).max(100).optional().messages({
-    "string.min": "Community name must be at least 3 characters",
-    "string.max": "Community name cannot exceed 100 characters",
-  }),
-  description: Joi.string().max(500).optional().allow("").messages({
-    "string.max": "Description cannot exceed 500 characters",
-  }),
-  isPublic: Joi.alternatives()
-    .try(Joi.boolean(), Joi.string().valid("true", "false"))
+export const updateCommunitySchema = z.object({
+  name: z
+    .string()
+    .min(3, "Community name must be at least 3 characters")
+    .max(100, "Community name cannot exceed 100 characters")
     .optional(),
-  maxMembers: Joi.number().integer().min(2).max(10000).optional().messages({
-    "number.min": "Maximum members must be at least 2",
-    "number.max": "Maximum members cannot exceed 10000",
+  description: z
+    .string()
+    .max(500, "Description cannot exceed 500 characters")
+    .optional()
+    .default(""),
+  isPublic: z
+    .union([z.boolean(), z.enum(["true", "false"])])
+    .optional()
+    .transform((val) => {
+      if (typeof val === "string") {
+        return val === "true";
+      }
+      return val;
+    }),
+  maxMembers: z
+    .number()
+    .int()
+    .min(2, "Maximum members must be at least 2")
+    .max(10000, "Maximum members cannot exceed 10000")
+    .optional(),
+});
+
+export const joinCommunitySchema = z.object({
+  inviteCode: z
+    .string()
+    .min(6, "Invalid invite code")
+    .max(20, "Invalid invite code"),
+});
+
+export const updateMemberRoleSchema = z.object({
+  role: z.enum(["ADMIN", "MEMBER"], {
+    errorMap: () => ({ message: "Role must be either ADMIN or MEMBER" }),
   }),
 });
 
-export const joinCommunitySchema = Joi.object({
-  inviteCode: Joi.string().min(6).max(20).required().messages({
-    "string.min": "Invalid invite code",
-    "string.max": "Invalid invite code",
-    "any.required": "Invite code is required",
-  }),
+export const communityIdParamSchema = z.object({
+  communityId: z.string().uuid("Invalid community ID"),
 });
 
-export const updateMemberRoleSchema = Joi.object({
-  role: Joi.string().valid("ADMIN", "MEMBER").required().messages({
-    "any.only": "Role must be either ADMIN or MEMBER",
-    "any.required": "Role is required",
-  }),
-});
-
-export const communityIdParamSchema = Joi.object({
-  communityId: Joi.string().uuid().required().messages({
-    "string.guid": "Invalid community ID",
-    "any.required": "Community ID is required",
-  }),
-});
-
-export const memberIdParamSchema = Joi.object({
-  communityId: Joi.string().uuid().required().messages({
-    "string.guid": "Invalid community ID",
-    "any.required": "Community ID is required",
-  }),
-  memberId: Joi.string().uuid().required().messages({
-    "string.guid": "Invalid member ID",
-    "any.required": "Member ID is required",
-  }),
+export const memberIdParamSchema = z.object({
+  communityId: z.string().uuid("Invalid community ID"),
+  memberId: z.string().uuid("Invalid member ID"),
 });
