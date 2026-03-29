@@ -1,6 +1,14 @@
 
 import swaggerJsdoc from "swagger-jsdoc";
 import '../modules/auth/auth.swagger.js';
+import '../modules/community/community.swagger.js';
+import '../modules/community/communityGroup.swagger.js';
+import '../modules/community/communityAnnouncement.swagger.js';
+import '../modules/files/files.swagger.js';
+import '../modules/scheduleAppointment/scheduleAppointment.swagger.js';
+import '../modules/cpPatient/cpPatient.swagger.js';
+import '../modules/careGiver/careGiver.swagger.js';
+import '../modules/assessment/assessment.swagger.js';
 
 const getServerUrls = () => {
 	return [
