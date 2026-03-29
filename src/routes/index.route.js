@@ -7,6 +7,9 @@ import cpPatientRouter from "../modules/cpPatient/cpPatient.routes.js";
 import assessmentRouter from "../modules/assessment/assessment.route.js";
 import userRouter from "../modules/user/user.route.js";
 import scheduleAppointmentRouter from "../modules/scheduleAppointment/scheduleAppointment.routes.js";
+import communityRouter from "../modules/community/community.route.js";
+import communityGroupRouter from "../modules/community/communityGroup.route.js";
+import communityAnnouncementRouter from "../modules/community/communityAnnouncement.route.js";
 
 
 router.use("/auth", authRouter);
@@ -16,5 +19,8 @@ router.use("/cp-patient", cpPatientRouter);
 router.use("/assessment", assessmentRouter);
 router.use("/user", userRouter);
 router.use("/schedule-appointment", scheduleAppointmentRouter);
+router.use("/community", communityRouter);
+router.use("/community/:communityId/groups", communityGroupRouter);
+router.use("/community/:communityId/announcements", communityAnnouncementRouter);
 
 export default router;

@@ -130,6 +130,14 @@ model User {
 
   serviceProvider serviceProvider?
   caregiver       CareGiver?
+
+  // Community relations
+  createdCommunities     Community[]             @relation("CommunityCreator")
+  communityMemberships   CommunityMember[]
+  communityGroupMembers  CommunityGroupMember[]
+  communityMessages      CommunityMessage[]
+  communityAnnouncements CommunityAnnouncement[]
+  communityInvitations   CommunityInvitation[]
 }
 
 model Otp {
@@ -359,7 +367,7 @@ model RehabTask {
   durationDays     Int
   startDate        DateTime?
   endDate          DateTime?
-  videoUrl            String?
+  videoUrl         String?
   progress         Int       @default(0)
   completedDates   String[]  @default([])
 
@@ -383,8 +391,8 @@ model Appointment {
   provider   serviceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
   appointmentDate DateTime
-  reasonText          String?
-  reasonAudio         String?
+  reasonText      String?
+  reasonAudio     String?
 
   status    appointmentStatus @default(PENDING)
   createdAt DateTime          @default(now())
@@ -416,13 +424,191 @@ model AssessmentToolProfession {
 }
 
 model VideoCache {
-  id                String   @id @default(uuid())
-  cacheKey          String   @unique // e.g., "youtube_channel_videos"
-  cachedData        Json // Stores the entire response from YouTube API
-  pageInfo          Json? // Stores pagination info
-  lastFetch         DateTime @default(now())
-  ttl               Int      @default(3600) // Time to live in seconds (default: 1 hour)
-  isValid           Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id         String   @id @default(uuid())
+  cacheKey   String   @unique // e.g., "youtube_channel_videos"
+  cachedData Json // Stores the entire response from YouTube API
+  pageInfo   Json? // Stores pagination info
+  lastFetch  DateTime @default(now())
+  ttl        Int      @default(3600) // Time to live in seconds (default: 1 hour)
+  isValid    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// ==================== COMMUNITY MODELS ====================
+
+enum CommunityMemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum CommunityMemberStatus {
+  ACTIVE
+  PENDING
+  BANNED
+  LEFT
+}
+
+enum GroupMemberRole {
+  ADMIN
+  MEMBER
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  LOCATION
+}
+
+model Community {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  image       String?
+  createdBy   String
+  creator     User    @relation("CommunityCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+
+  inviteCode    String? @unique
+  inviteEnabled Boolean @default(true)
+  maxMembers    Int     @default(1000)
+  isPublic      Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members       CommunityMember[]
+  groups        CommunityGroup[]
+  announcements CommunityAnnouncement[]
+  invitations   CommunityInvitation[]
+
+  @@index([createdBy])
+  @@index([inviteCode])
+}
+
+model CommunityMember {
+  id          String                @id @default(uuid())
+  communityId String
+  community   Community             @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        CommunityMemberRole   @default(MEMBER)
+  status      CommunityMemberStatus @default(ACTIVE)
+  joinedAt    DateTime              @default(now())
+  invitedBy   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([communityId, userId])
+  @@index([userId])
+  @@index([communityId, status])
+}
+
+model CommunityGroup {
+  id          String    @id @default(uuid())
+  communityId String
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  image       String?
+  createdBy   String
+
+  isDefault          Boolean @default(false)
+  isAnnouncementOnly Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members  CommunityGroupMember[]
+  messages CommunityMessage[]
+
+  @@index([communityId])
+  @@index([createdBy])
+}
+
+model CommunityGroupMember {
+  id       String          @id @default(uuid())
+  groupId  String
+  group    CommunityGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     GroupMemberRole @default(MEMBER)
+  joinedAt DateTime        @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([groupId, userId])
+  @@index([userId])
+}
+
+model CommunityMessage {
+  id        String             @id @default(uuid())
+  groupId   String
+  group     CommunityGroup     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User               @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  content   String?
+  type      MessageType        @default(TEXT)
+  mediaUrl  String?
+  metadata  Json?
+  status    MessageStatus      @default(SENT)
+  replyToId String?
+  replyTo   CommunityMessage?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   CommunityMessage[] @relation("MessageReplies")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([groupId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+model CommunityAnnouncement {
+  id          String    @id @default(uuid())
+  communityId String
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  title       String
+  content     String
+  mediaUrl    String?
+  createdBy   String
+  creator     User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  isPinned    Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([communityId])
+  @@index([createdBy])
+}
+
+model CommunityInvitation {
+  id          String    @id @default(uuid())
+  communityId String
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  invitedBy   String
+  inviter     User      @relation(fields: [invitedBy], references: [id], onDelete: Cascade)
+  invitedUser String?
+  phoneNumber String?
+  email       String?
+  code        String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([communityId])
+  @@index([code])
+  @@index([invitedBy])
 }
