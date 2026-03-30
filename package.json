@@ -5,13 +5,14 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "migrate": "pnpm exec prisma migrate dev --name init",
-    "start": "node ./index.js",
     "dev": "nodemon ./index.js",
-    "migrate:deploy": "pnpm exec prisma migrate deploy",
-    "migrate:reset": "pnpm exec prisma migrate reset",
-    "generate": "pnpm exec prisma generate"
+    "start": "prisma migrate deploy && node ./index.js",
+    "postinstall": "prisma generate",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:reset": "prisma migrate reset",
+    "generate": "prisma generate",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
