@@ -21,12 +21,20 @@ export const createCommunitySchema = z.object({
       return val;
     }),
   maxMembers: z
-    .number()
-    .int()
-    .min(2, "Maximum members must be at least 2")
-    .max(10000, "Maximum members cannot exceed 10000")
+    .union([z.number(), z.string()])
     .optional()
-    .default(1000),
+    .default(1000)
+    .transform((val) => {
+      if (typeof val === "string") {
+        const parsed = parseInt(val, 10);
+        if (isNaN(parsed)) {
+          throw new Error("Invalid input: expected number, received string");
+        }
+        return parsed;
+      }
+      return val;
+    })
+    .pipe(z.number().int().min(2, "Maximum members must be at least 2").max(10000, "Maximum members cannot exceed 10000")),
 });
 
 export const updateCommunitySchema = z.object({
@@ -50,11 +58,22 @@ export const updateCommunitySchema = z.object({
       return val;
     }),
   maxMembers: z
-    .number()
-    .int()
-    .min(2, "Maximum members must be at least 2")
-    .max(10000, "Maximum members cannot exceed 10000")
-    .optional(),
+    .union([z.number(), z.string()])
+    .optional()
+    .transform((val) => {
+      if (val === undefined) {
+        return undefined;
+      }
+      if (typeof val === "string") {
+        const parsed = parseInt(val, 10);
+        if (isNaN(parsed)) {
+          throw new Error("Invalid input: expected number, received string");
+        }
+        return parsed;
+      }
+      return val;
+    })
+    .pipe(z.number().int().min(2, "Maximum members must be at least 2").max(10000, "Maximum members cannot exceed 10000").optional()),
 });
 
 export const joinCommunitySchema = z.object({
