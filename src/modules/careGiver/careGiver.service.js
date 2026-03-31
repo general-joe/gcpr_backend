@@ -142,7 +142,7 @@ import constants from "../../utils/constants.js";
 
     return {
       careGivers,
-      pagination: { page, limit, total },
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
 }
