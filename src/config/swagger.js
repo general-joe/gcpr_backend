@@ -41,6 +41,54 @@ const swaggerOptions = {
           bearerFormat: "JWT",
         },
       },
+      parameters: {
+        Page: {
+          name: "page",
+          in: "query",
+          required: false,
+          schema: {
+            type: "integer",
+            minimum: 1,
+            default: 1,
+          },
+          description: "Page number for pagination",
+        },
+        Limit: {
+          name: "limit",
+          in: "query",
+          required: false,
+          schema: {
+            type: "integer",
+            minimum: 1,
+            maximum: 100,
+            default: 10,
+          },
+          description: "Number of items per page",
+        },
+      },
+      schemas: {
+        Pagination: {
+          type: "object",
+          properties: {
+            page: {
+              type: "integer",
+              example: 1,
+            },
+            limit: {
+              type: "integer",
+              example: 10,
+            },
+            total: {
+              type: "integer",
+              example: 100,
+            },
+            totalPages: {
+              type: "integer",
+              example: 10,
+            },
+          },
+        },
+      },
       responses: {
         BadRequest: {
           description: "Bad request - Invalid input data",
