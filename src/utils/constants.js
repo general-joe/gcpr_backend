@@ -103,7 +103,7 @@ export default {
       },
 
       {
-        url: process.env.BASE_URL,
+        url: process.env.GCPR_API_URL,
         description: "Local Server",
       },
     ],

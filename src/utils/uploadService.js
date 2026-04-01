@@ -13,7 +13,7 @@ class UploadService {
         try {
             
             fs.writeFileSync(`./src/files/${folder}/${filename}`, buffer)
-            return `${process.env.BASE_URL}/${folder}/${filename}`
+            return `${process.env.GCPR_API_URL}/${folder}/${filename}`
         } catch (error) {
             console.log("File upload error",error)
             return error
