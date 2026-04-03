@@ -133,10 +133,12 @@ class UtilFunctions {
   }
 
   static getLimitOffset(query, keep = true) {
+    const page = parseInt(query.page, 10) || 1;
+    const limit = parseInt(query.limit, 10) || 10;
     const limitObj = {
-      offset: !query.page ? 0 : (query.page - 1) * (query.limit || 10),
-      limit: query.limit || 10,
-      page: query.page || 1,
+      offset: (page - 1) * limit,
+      limit,
+      page,
       keyword: query.keyword || "",
       tags: query.tags ? query.tags.split(",") : [],
       listing_order: !query.listing_order ? "recent" : query.listing_order,
