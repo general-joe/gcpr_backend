@@ -35,7 +35,7 @@
  *                 enum: [PARENT, GUARDIAN, SIBLING, OTHER]
  *               householdSize:
  *                 type: number
- *               schoolEnrollmmentStatus:
+ *               schoolEnrollmentStatus:
  *                 type: boolean
  *               typeOfSchool:
  *                 type: string

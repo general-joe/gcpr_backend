@@ -46,6 +46,73 @@ class CareGiverController {
       "Caregivers fetched successfully"
     );
   });
+
+  static getCareGiverById = catchAsync(async (req, res) => {
+    const { id } = req.params;
+
+    const result = await CareGiverService.fetchCareGiverById(id);
+
+    if (!result) {
+      return UtilFunctions.outputError(res, "Caregiver not found", 404);
+    }
+
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "Caregiver profile fetched successfully"
+    );
+  });
+
+  static updateCareGiverProfile = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const userId = res.locals.user.id;
+
+    // Ensure caregiver exists and belongs to the user (for INDIVIDUAL)
+    const existingCareGiver = await CareGiverService.fetchCareGiverById(id);
+    if (!existingCareGiver) {
+      return UtilFunctions.outputError(res, "Caregiver not found", 404);
+    }
+    if (existingCareGiver.type === "INDIVIDUAL" && existingCareGiver.userId !== userId) {
+      return UtilFunctions.outputError(res, "Unauthorized to update this caregiver profile", 403);
+    }
+
+    const updatedData = {
+      ...req.body,
+      userId: existingCareGiver.type === "INDIVIDUAL" ? userId : null,
+    };
+
+    const result = await CareGiverService.updateProfile(id, req, updatedData);
+
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "Caregiver profile updated successfully"
+    );
+  });
+
+  static deleteCareGiverProfile = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const userId = res.locals.user.id;
+
+    // Ensure caregiver exists and belongs to the user (for INDIVIDUAL)
+    const existingCareGiver = await CareGiverService.fetchCareGiverById(id);
+    if (!existingCareGiver) {
+      return UtilFunctions.outputError(res, "Caregiver not found", 404);
+    }
+    if (existingCareGiver.type === "INDIVIDUAL" && existingCareGiver.userId !== userId) {
+      return UtilFunctions.outputError(res, "Unauthorized to delete this caregiver profile", 403);
+    }
+
+    await CareGiverService.deleteProfile(id);
+
+    UtilFunctions.outputSuccess(
+      res,
+      null,
+      "Caregiver profile deleted successfully"
+    );
+  });
+
+  
 }
 
 export default CareGiverController;

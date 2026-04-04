@@ -176,4 +176,29 @@
  *         description: Unauthorized or invalid token
  *       403:
  *         description: Forbidden - insufficient role permissions
+ *
+ * /user/deactivate-account:
+ *   post:
+ *     summary: Deactivate the authenticated user's account
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     description: Deactivates the currently authenticated user's account. This sets the account status to DEACTIVATED. The action is reversible by contacting support.
+ *     responses:
+ *       200:
+ *         description: Account deactivated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ *                   example: Account deactivated successfully
+ *       401:
+ *         description: Unauthorized or invalid token
+ *       403:
+ *         description: Forbidden - insufficient role permissions
  */

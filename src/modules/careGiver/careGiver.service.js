@@ -1,6 +1,8 @@
 import prisma from "../../config/database.js";
 import UploadService from "../../utils/uploadService.js";
 import constants from "../../utils/constants.js";
+import { getIO } from "../../socket.io.js";
+import _ from "lodash";
 
  class CareGiverService {
   static async completeProfile(req, caregiverData) {
@@ -42,7 +44,7 @@ import constants from "../../utils/constants.js";
         groupContact: caregiverData.groupContact,
         groupDigitalAddress: caregiverData.groupDigitalAddress,
         groupEmail: caregiverData.groupEmail,
-        ManagerName: caregiverData.ManagerName,
+        managerName: caregiverData.managerName,
         managerContact: caregiverData.managerContact,
         verificationDocuments: caregiverData.verificationDocuments || [],
       },
@@ -53,6 +55,15 @@ import constants from "../../utils/constants.js";
       await prisma.user.update({
         where: { id: caregiverData.userId },
         data: { profileCompleted: true },
+      });
+    }
+
+    // Emit real-time update via Socket.IO
+    const io = getIO();
+    if (io) {
+      io.to(`user-${caregiverData.userId}`).emit('caregiver-profile-updated', {
+        type: 'PROFILE_COMPLETED',
+        caregiverId: caregiver.id
       });
     }
 
@@ -127,7 +138,7 @@ import constants from "../../utils/constants.js";
       groupContact: u.groupContact,
       groupDigitalAddress: u.groupDigitalAddress,
       groupEmail: u.groupEmail,
-      ManagerName: u.ManagerName,
+      managerName: u.managerName,
       managerContact: u.managerContact,
       verificationDocuments: u.verificationDocuments,
 
@@ -145,6 +156,101 @@ import constants from "../../utils/constants.js";
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
+
+  static async getCareGiverById(careGiverId) {
+    const caregiver = await prisma.careGiver.findUnique({
+      where: { id: careGiverId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phoneNumber: true,
+            gender: true,
+            verified: true,
+            profileCompleted: true,
+            createdAt: true,
+          },
+        },
+        cpPatients: {
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
+      },
+    });
+
+    return caregiver;
+  }
+
+  static async getCareGiversByUserId(userId) {
+    const caregivers = await prisma.careGiver.findMany({
+      where: { userId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phoneNumber: true,
+            gender: true,
+            verified: true,
+            profileCompleted: true,
+            createdAt: true,
+          },
+        },
+        cpPatients: {
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
+      },
+    });
+
+    return caregivers;
+  }
+
+    static async deleteCareGiver(careGiverId) {
+    const caregiver = await prisma.careGiver.delete({
+      where: { id: careGiverId },
+    });
+
+    // Emit real-time update via Socket.IO
+    const io = getIO();
+    if (io && caregiver.userId) {
+      io.to(`user-${caregiver.userId}`).emit('caregiver-profile-deleted', {
+        type: 'PROFILE_DELETED',
+        caregiverId: careGiverId
+      });
+    }
+
+    return caregiver;
+    }
+
+    static async updateCareGiver(careGiverId, updateData) {
+    const caregiver = await prisma.careGiver.update({
+      where: { id: careGiverId },
+      data: updateData,
+    });
+
+    // Emit real-time update via Socket.IO
+    const io = getIO();
+    if (io && caregiver.userId) {
+      io.to(`user-${caregiver.userId}`).emit('caregiver-profile-updated', {
+        type: 'PROFILE_UPDATED',
+        caregiverId: caregiver.id
+      });
+    }
+
+    return caregiver; 
+  }
+
+  // Aliases for controller compatibility
+  static fetchCareGiverById = CareGiverService.getCareGiverById;
+  static updateProfile = (id, req, data) => CareGiverService.updateCareGiver(id, data);
+  static deleteProfile = CareGiverService.deleteCareGiver;
+
 }
 
 export default CareGiverService;

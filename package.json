@@ -9,7 +9,7 @@
     "start": "prisma migrate deploy && node ./index.js",
     "postinstall": "prisma generate",
     "migrate:deploy": "prisma migrate deploy",
-    "migrate:dev": "prisma migrate dev",
+    "migrate:dev": "prisma migrate dev --name init",
     "migrate:reset": "prisma migrate reset",
     "generate": "prisma generate",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -44,6 +44,7 @@
     "prisma": "^7.3.0",
     "rand-token": "^1.0.1",
     "resend": "^6.9.1",
+    "socket.io": "^4.8.3",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "zod": "^4.3.6"

@@ -4,7 +4,8 @@ import {
   paediatricPhysiotherapyAssessmentConfig,
   homeRehabPharmacyConfig,
   cpProgramIntakeConfig,
-  otCpClinicalAssessmentConfig
+  otCpClinicalAssessmentConfig,
+  dietitianNutritionConsultationConfig
 } from "../../config/tools/index.js";
 import { SCORERS } from "./scorers/index.js";
 
@@ -40,7 +41,8 @@ const TOOL_CONFIGS = {
   PAEDIATRIC_PHYSIOTHERAPY_ASSESSMENT: paediatricPhysiotherapyAssessmentConfig,
   OT_CP_CLINICAL_ASSESSMENT: otCpClinicalAssessmentConfig,
   CP_PROGRAM_INTAKE: cpProgramIntakeConfig,
-  HOME_REHAB_PHARMACY_PRESCRIPTION: homeRehabPharmacyConfig
+  HOME_REHAB_PHARMACY_PRESCRIPTION: homeRehabPharmacyConfig,
+  DIETITIAN_NUTRITION_CONSULTATION: dietitianNutritionConsultationConfig
 };
 
 const normalizeToolCode = (toolCode) =>

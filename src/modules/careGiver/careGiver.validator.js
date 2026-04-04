@@ -23,7 +23,7 @@ export const caregiverProfileSchema = z.discriminatedUnion('type', [
     groupDigitalAddress: z.string().optional(),
     groupEmail: z.email('Invalid group email'),
 
-    ManagerName: z.string().min(1, 'Manager name is required'),
+    managerName: z.string().min(1, 'Manager name is required'),
     managerContact: z.string().min(1, 'Manager contact is required'),
 
     verificationDocuments: z.array(z.string()).min(1, 'Verification documents required'),

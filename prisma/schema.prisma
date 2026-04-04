@@ -46,10 +46,12 @@ enum IdType {
   ECOWAS_ID
 }
 
-enum schoolType {
+enum SchoolType {
   PUBLIC
   PRIVATE
   SPECIAL_NEEDS
+
+  @@map("schoolType")
 }
 
 enum Profession {
@@ -100,12 +102,14 @@ enum RehabTaskStatus {
   COMPLETED
 }
 
-enum appointmentStatus {
+enum AppointmentStatus {
   PENDING
   APPROVED
   DECLINED
   COMPLETED
   RESCHEDULED
+
+  @@map("appointmentStatus")
 }
 
 model User {
@@ -119,6 +123,7 @@ model User {
   profileImage        String?
   verified            Boolean              @default(false)
   profileCompleted    Boolean              @default(false)
+  accountStatus       AccountStatus        @default(ACTIVE)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   address             String?
@@ -128,7 +133,7 @@ model User {
   refreshToken        RefreshToken[]
   passwordResetTokens PasswordResetToken[]
 
-  serviceProvider serviceProvider?
+  serviceProvider ServiceProvider?
   caregiver       CareGiver?
 
   // Community relations
@@ -138,6 +143,11 @@ model User {
   communityMessages      CommunityMessage[]
   communityAnnouncements CommunityAnnouncement[]
   communityInvitations   CommunityInvitation[]
+  sentDirectMessages     DirectMessage[]         @relation("DirectMessageSender")
+  receivedDirectMessages DirectMessage[]         @relation("DirectMessageReceiver")
+  pdfResources           PdfResource[]
+  notifications          Notification[]
+  pushNotificationTokens PushNotificationToken[] @relation("UserPushTokens")
 }
 
 model Otp {
@@ -172,7 +182,7 @@ model PasswordResetToken {
   usedAt    DateTime?
 }
 
-model serviceProvider {
+model ServiceProvider {
   id     String @id @default(uuid())
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -202,12 +212,15 @@ model serviceProvider {
 
   appointments   Appointment[]
   availabilities ProviderAvailability[]
+  pdfResources   PdfResource[]
+
+  @@map("serviceProvider")
 }
 
 model ProviderAvailability {
   id         String          @id @default(uuid())
   providerId String
-  provider   serviceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  provider   ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
   dayOfWeek Int // 0 = Sunday, 1 = Monday ... 6 = Saturday
   startTime String // stored as HH:mm
@@ -235,7 +248,7 @@ model CareGiver {
   groupContact          String?
   groupDigitalAddress   String?
   groupEmail            String?
-  ManagerName           String?
+  managerName           String?   @map("ManagerName")
   managerContact        String?
   verificationDocuments String[]
   isVerified            Boolean  @default(true)
@@ -243,14 +256,13 @@ model CareGiver {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  cpPatients cpPatient[]
+  cpPatients CpPatient[]
 }
 
-model cpPatient {
+model CpPatient {
   id                      String       @id @default(uuid())
   fullName                String
   dateOfBirth             DateTime
-  age                     Int
   gender                  Gender
   address                 String
   placeOfBirth            String
@@ -260,8 +272,8 @@ model cpPatient {
   caregiver               CareGiver    @relation(fields: [caregiverId], references: [id], onDelete: Cascade)
   relationToCaregiver     Relationship
   householdSize           Int
-  schoolEnrollmmentStatus Boolean      @default(false)
-  typeOfSchool            schoolType?
+  schoolEnrollmentStatus  Boolean      @default(false) @map("schoolEnrollmmentStatus")
+  typeOfSchool            SchoolType?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -272,33 +284,39 @@ model cpPatient {
   functionalClassifications FunctionalClassification[]
 
   appointments Appointment[]
+
+  @@map("cpPatient")
+  @@index([caregiverId])
 }
 
 model FunctionalClassification {
-  id        String    @id @default(uuid())
+  id        String   @id @default(uuid())
   patientId String
-  patient   cpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient   CpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   classifier String
   level      Int
   assessedAt DateTime
 
   assessorId String?
-  assessor   serviceProvider? @relation(fields: [assessorId], references: [id])
+  assessor   ServiceProvider? @relation(fields: [assessorId], references: [id])
 
   notes String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([patientId])
+  @@index([assessorId])
 }
 
 model ClinicalAssessment {
-  id        String    @id @default(uuid())
+  id        String   @id @default(uuid())
   patientId String
-  patient   cpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient   CpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   providerId String
-  provider   serviceProvider @relation("ProviderAssessments", fields: [providerId], references: [id], onDelete: Cascade)
+  provider   ServiceProvider @relation("ProviderAssessments", fields: [providerId], references: [id], onDelete: Cascade)
 
   toolCode    String
   toolVersion String
@@ -313,6 +331,9 @@ model ClinicalAssessment {
   updatedAt DateTime @updatedAt
 
   reports ClinicalAssessmentReport[]
+
+  @@index([patientId])
+  @@index([providerId])
 }
 
 model ClinicalAssessmentReport {
@@ -326,17 +347,19 @@ model ClinicalAssessmentReport {
   recommendations Json?
 
   createdAt DateTime @default(now())
+
+  @@index([assessmentId])
 }
 
 model ClinicalReferral {
-  id        String    @id @default(uuid())
+  id        String   @id @default(uuid())
   patientId String
-  patient   cpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient   CpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   fromProviderId String
-  fromProvider   serviceProvider  @relation("ProviderReferrals", fields: [fromProviderId], references: [id], onDelete: Cascade)
+  fromProvider   ServiceProvider  @relation("ProviderReferrals", fields: [fromProviderId], references: [id], onDelete: Cascade)
   toProviderId   String?
-  toProvider     serviceProvider? @relation("ReferralRecipients", fields: [toProviderId], references: [id], onDelete: SetNull)
+  toProvider     ServiceProvider? @relation("ReferralRecipients", fields: [toProviderId], references: [id], onDelete: SetNull)
 
   toProfession Profession
   reason       String
@@ -348,16 +371,18 @@ model ClinicalReferral {
 
   generatedTasks RehabTask[]
 
+  @@index([patientId])
+  @@index([fromProviderId])
   @@index([toProviderId])
 }
 
 model RehabTask {
-  id        String    @id @default(uuid())
+  id        String   @id @default(uuid())
   patientId String
-  patient   cpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient   CpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   providerId String
-  provider   serviceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  provider   ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
   title            String
   instructions     String
@@ -380,23 +405,30 @@ model RehabTask {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([patientId])
+  @@index([providerId])
+  @@index([referralId])
 }
 
 model Appointment {
-  id        String    @id @default(uuid())
+  id        String   @id @default(uuid())
   patientId String
-  patient   cpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient   CpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   providerId String
-  provider   serviceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  provider   ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
   appointmentDate DateTime
   reasonText      String?
   reasonAudio     String?
 
-  status    appointmentStatus @default(PENDING)
+  status    AppointmentStatus @default(PENDING)
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
+
+  @@index([patientId])
+  @@index([providerId])
 }
 
 model AssessmentTool {
@@ -468,6 +500,38 @@ enum MessageType {
   AUDIO
   DOCUMENT
   LOCATION
+}
+
+enum DirectMessageStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+enum NotificationType {
+  IN_APP
+  PUSH
+}
+
+enum NotificationCategory {
+  DIRECT_MESSAGE
+  COMMUNITY_MESSAGE
+  COMMUNITY_ANNOUNCEMENT
+  APPOINTMENT_REMINDER
+  TASK_REMINDER
+  SYSTEM
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+  ARCHIVED
+}
+
+enum AccountStatus {
+  ACTIVE
+  DEACTIVATED
+  DELETED
 }
 
 model Community {
@@ -566,9 +630,10 @@ model CommunityMessage {
   replyToId String?
   replyTo   CommunityMessage?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies   CommunityMessage[] @relation("MessageReplies")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  likes     Int                @default(0)
+  dislikes  Int                @default(0)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
 
   @@index([groupId])
   @@index([senderId])
@@ -611,4 +676,81 @@ model CommunityInvitation {
   @@index([communityId])
   @@index([code])
   @@index([invitedBy])
+}
+
+model PdfResource {
+  id                String          @id @default(uuid())
+  title             String
+  description       String?
+  pdfFile           String[]
+  serviceProviderId String
+  serviceProvider   ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  user              User?           @relation(fields: [userId], references: [id])
+  userId            String?
+
+  @@map("pdfResource")
+  @@index([serviceProviderId])
+}
+
+// Notification models
+model Notification {
+  id           String               @id @default(uuid())
+  userId       String
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         NotificationType
+  category     NotificationCategory
+  title        String
+  content      String?
+  data         Json? // Additional data specific to notification type
+  status       NotificationStatus   @default(UNREAD)
+  relatedId    String? // ID of related entity (messageId, announcementId, etc.)
+  relatedModel String? // Model name of related entity
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  expiresAt    DateTime? // For time-sensitive notifications
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([type, category])
+}
+
+// Push notification tokens (for mobile/web push)
+model PushNotificationToken {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade, name: "UserPushTokens")
+  token      String   @unique
+  deviceType String // ios, android, web
+  deviceId   String? // Device identifier
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+  @@index([token])
+  @@index([isActive])
+}
+
+// Direct messaging models
+model DirectMessage {
+  id         String              @id @default(uuid())
+  senderId   String
+  sender     User                @relation(fields: [senderId], references: [id], onDelete: Cascade, name: "DirectMessageSender")
+  receiverId String
+  receiver   User                @relation(fields: [receiverId], references: [id], onDelete: Cascade, name: "DirectMessageReceiver")
+  content    String?
+  mediaUrl   String?
+  type       MessageType         @default(TEXT)
+  status     DirectMessageStatus @default(SENT)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  @@map("directMessage")
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([createdAt])
+  @@index([senderId, receiverId])
 }

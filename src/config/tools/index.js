@@ -4,6 +4,7 @@ import paediatricPhysiotherapyAssessmentConfig from "./paediatric-physiotherapy-
 import homeRehabPharmacyConfig from "./home-rehab-pharmacy.config.js";
 import cpProgramIntakeConfig from "./cp-program-intake.config.js";
 import otCpClinicalAssessmentConfig from "./ot-cp-clinical-assessment.config.js";
+import dietitianNutritionConsultationConfig from "./dietitian-nutrition-consultation.config.js";
 
 export {
   gmfm88Config,
@@ -11,5 +12,6 @@ export {
   paediatricPhysiotherapyAssessmentConfig,
   homeRehabPharmacyConfig,
   cpProgramIntakeConfig,
-  otCpClinicalAssessmentConfig
+  otCpClinicalAssessmentConfig,
+  dietitianNutritionConsultationConfig
 };

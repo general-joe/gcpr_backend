@@ -165,6 +165,52 @@
 
 /**
  * @swagger
+ * /assessment/{assessmentId}/referral-recommendations:
+ *   get:
+ *     summary: Get referral recommendations based on assessment results
+ *     tags: [Assessment]
+ *     security:
+ *       - bearerAuth: []
+ *     description: Analyses the scored assessment report and returns profession-level referral recommendations. For GMFM-88, dimensions below 50% trigger targeted recommendations. For other tools, standard profession mappings are returned.
+ *     parameters:
+ *       - in: path
+ *         name: assessmentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: The ID of a completed assessment
+ *     responses:
+ *       200:
+ *         description: Referral recommendations generated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 assessmentId:
+ *                   type: string
+ *                 toolCode:
+ *                   type: string
+ *                 suggestedProfessions:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: [SPEECH_THERAPIST, REHABILITATION_PAEDIATRICIAN]
+ *                 dimensionFindings:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 reasoning:
+ *                   type: string
+ *       403:
+ *         description: Access denied
+ *       404:
+ *         description: Assessment not found
+ */
+
+/**
+ * @swagger
  * /assessment/patient/{patientId}/reports:
  *   get:
  *     summary: Get assessment history for a patient (authorized care team only)

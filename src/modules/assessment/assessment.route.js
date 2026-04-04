@@ -45,6 +45,12 @@ assessmentRouter.get(
 );
 
 assessmentRouter.get(
+  "/:assessmentId/referral-recommendations",
+  authorize(["SERVICE_PROVIDER"]),
+  AssessmentController.getReferralRecommendations
+);
+
+assessmentRouter.get(
   "/patient/:patientId/reports",
   authorize(["SERVICE_PROVIDER"]),
   AssessmentController.getAssessmentReportsByPatient

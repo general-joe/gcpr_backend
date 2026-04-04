@@ -65,7 +65,7 @@
  *             $ref: '#/components/schemas/ServiceProviderProfile'
  *     responses:
  *       200:
- *         description: Service provider profile completed
+ *         description: Service provider profile completed. A real-time update is sent via Socket.IO to the user's room.
  *       400:
  *         description: Validation error or missing license image
  *       401:
