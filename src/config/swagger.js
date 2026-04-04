@@ -9,6 +9,11 @@ import '../modules/scheduleAppointment/scheduleAppointment.swagger.js';
 import '../modules/cpPatient/cpPatient.swagger.js';
 import '../modules/careGiver/careGiver.swagger.js';
 import '../modules/assessment/assessment.swagger.js';
+import '../modules/directMessage/directMessage.swagger.js';
+import '../modules/resource/resource.swagger.js';
+import '../modules/user/user.swagger.js';
+import '../modules/serviceProvider/serviceProvider.swagger.js';
+import '../modules/notification/notification.swagger.js';
 
 const getServerUrls = () => {
 	return [

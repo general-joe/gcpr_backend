@@ -1,23 +1,27 @@
-import CONSTANTS from '../utils/constants.js'
-// import AWS from 'aws-sdk'
 import fs from 'fs'
+import path from 'path'
 
-// const s3 = new AWS.S3({
-//     Bucket: CONSTANTS.BUCKET,
-//     signatureVersion: 'v4'
-// })
+const ALLOWED_EXTENSIONS = new Set([
+    '.jpg', '.jpeg', '.png', '.gif', '.webp',  // Images
+    '.pdf',                                       // Documents
+    '.mp3', '.wav', '.m4a', '.ogg',               // Audio
+    '.mp4', '.mov', '.avi',                        // Video
+]);
 
 class UploadService {
     static async saveFile (buffer, filename, folder) {
-        // if (['ci', 'local'].includes(process.env.NODE_ENV)) return
         try {
-            
+            const ext = path.extname(filename).toLowerCase();
+            if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
+                throw new Error(`File type "${ext}" is not allowed`);
+            }
+
             fs.writeFileSync(`./src/files/${folder}/${filename}`, buffer)
             const baseUrl = process.env.GCPR_API_URL
             return `${baseUrl}/${folder}/${filename}`
         } catch (error) {
             console.log("File upload error",error)
-            return error
+            throw error
         }
     }
 

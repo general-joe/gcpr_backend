@@ -4,6 +4,8 @@ import express from 'express'
 import cookieParser from 'cookie-parser'
 import morgan from 'morgan'
 import cors from 'cors'
+import { Server } from 'socket.io'
+import http from 'http'
 
 // Global Variables
 import WRITE from './utils/logger.js'
@@ -22,12 +24,24 @@ import filesRouter from './modules/files/files.route.js'
 dotenv.config()
 
 const app = express()
+const server = http.createServer(app)
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+})
 
 global.WRITE = WRITE
 global.CONSTANTS = CONSTANTS
 global.MOMENT = MOMENT
 global._ = _
 global.gcprError = gcprError
+global.io = io
+
+// Initialize Socket.IO instance
+import { initializeSocketIO } from './socket.io.js';
+initializeSocketIO(io);
 
 
 
@@ -87,7 +101,72 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  WRITE.info(`User connected: ${socket.id}`);
 
+  // Join user-specific room for direct messages
+  socket.on('join-user-room', (userId) => {
+    socket.join(`user-${userId}`);
+    WRITE.info(`User ${userId} joined room user-${userId}`);
+  });
 
+  // Join community room
+  socket.on('join-community-room', (communityId) => {
+    socket.join(`community-${communityId}`);
+    WRITE.info(`User joined community room community-${communityId}`);
+  });
 
-export default app
+  // Join community group room
+  socket.on('join-community-group-room', (groupId) => {
+    socket.join(`community-group-${groupId}`);
+    WRITE.info(`User joined community group room community-group-${groupId}`);
+  });
+
+  // Handle typing indicators for direct messages
+  socket.on('typing-start', ({ roomId, userId, isTyping }) => {
+    socket.to(roomId).emit('typing-start', { userId, isTyping });
+  });
+
+  socket.on('typing-stop', ({ roomId, userId, isTyping }) => {
+    socket.to(roomId).emit('typing-stop', { userId, isTyping });
+  });
+
+  // Handle typing indicators for community messages
+  socket.on('community-typing-start', ({ communityId, groupId, userId, isTyping }) => {
+    const roomId = groupId ? `community-group-${groupId}` : `community-${communityId}`;
+    socket.to(roomId).emit('community-typing-start', { userId, isTyping, communityId, groupId });
+  });
+
+  socket.on('community-typing-stop', ({ communityId, groupId, userId, isTyping }) => {
+    const roomId = groupId ? `community-group-${groupId}` : `community-${communityId}`;
+    socket.to(roomId).emit('community-typing-stop', { userId, isTyping, communityId, groupId });
+  });
+
+  // Handle new direct message
+  socket.on('new-direct-message', (messageData) => {
+    // Send to both sender and receiver rooms
+    io.to(`user-${messageData.senderId}`).emit('new-direct-message', messageData);
+    io.to(`user-${messageData.receiverId}`).emit('new-direct-message', messageData);
+  });
+
+  // Handle new community message
+  socket.on('new-community-message', (messageData) => {
+    const { communityId, groupId } = messageData;
+    const roomId = groupId ? `community-group-${groupId}` : `community-${communityId}`;
+    io.to(roomId).emit('new-community-message', messageData);
+  });
+
+  // Handle new community announcement
+  socket.on('new-community-announcement', (announcementData) => {
+    const { communityId } = announcementData;
+    io.to(`community-${communityId}`).emit('new-community-announcement', announcementData);
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    WRITE.info(`User disconnected: ${socket.id}`);
+  });
+});
+
+export default server

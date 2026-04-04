@@ -10,7 +10,7 @@ export const cpPatientSchema = z.object({
   numberOfSiblings: z.number().optional(),
   relationToCaregiver: z.enum(["PARENT", "GUARDIAN", "SIBLING", "OTHER"]),
   householdSize: z.number().min(1, "Household size is required"),
-  schoolEnrollmmentStatus: z.boolean().optional(),
+  schoolEnrollmentStatus: z.boolean().optional(),
   typeOfSchool: z.enum(["PUBLIC", "PRIVATE", "SPECIAL_NEEDS"]).optional(),
 });
 

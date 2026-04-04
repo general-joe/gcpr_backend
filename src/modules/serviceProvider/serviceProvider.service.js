@@ -2,6 +2,8 @@ import prisma from "../../config/database.js";
 
 import UploadService from "../../utils/uploadService.js";
 import constants from "../../utils/constants.js";
+import { getIO } from "../../socket.io.js";
+import _ from "lodash";
 
 const SAFE_USER_SELECT = {
   id: true,
@@ -87,6 +89,15 @@ export class ServiceProviderService {
         profileCompleted: true,
       },
     });
+
+    // Emit real-time update via Socket.IO
+    const io = getIO();
+    if (io) {
+      io.to(`user-${serviceProviderData.userId}`).emit('service-provider-profile-updated', {
+        type: 'PROFILE_COMPLETED',
+        serviceProviderId: completeProfile.id
+      });
+    }
 
     return completeProfile;
   }
@@ -254,6 +265,15 @@ export class ServiceProviderService {
       },
     });
 
+    // Emit real-time update via Socket.IO
+    const io = getIO();
+    if (io && updatedServiceProvider.userId) {
+      io.to(`user-${updatedServiceProvider.userId}`).emit('service-provider-profile-updated', {
+        type: 'PROFILE_UPDATED',
+        serviceProviderId: updatedServiceProvider.id
+      });
+    }
+
     return updatedServiceProvider;
   }
 
@@ -280,6 +300,15 @@ export class ServiceProviderService {
     const deletedServiceProvider = await prisma.serviceProvider.delete({
       where: { id },
     });
+
+    // Emit real-time update via Socket.IO
+    const io = getIO();
+    if (io && deletedServiceProvider.userId) {
+      io.to(`user-${deletedServiceProvider.userId}`).emit('service-provider-profile-deleted', {
+        type: 'PROFILE_DELETED',
+        serviceProviderId: id
+      });
+    }
 
     return deletedServiceProvider;
   }

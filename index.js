@@ -2,7 +2,7 @@
 'use strict'
 
 import dotenv from 'dotenv'
-import app from './src/server.js'
+import server from './src/server.js'
 import cron from 'node-cron'
 import WRITE from './src/utils/logger.js'
 // import CronService from './server/services/cron/CronService.js'
@@ -19,7 +19,7 @@ dotenv.config()
 const port = process.env.PORT || 3000
 
 
-export default app.listen(port, () => {
+export default server.listen(port, () => {
     WRITE.info(`Server is started at : http://localhost:${port} `)
 })
 

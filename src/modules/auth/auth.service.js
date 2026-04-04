@@ -134,6 +134,13 @@ class AuthService {
     // Handle SMS OTP verification (Hubtel)
     if (user.otp.requestId && user.otp.prefix) {
       const isValid = await VerifyOTP(user.otp.requestId, user.otp.prefix, otp);
+      if (!isValid) {
+        await prisma.otp.update({
+          where: { id: user.otp.id },
+          data: { attempts: { increment: 1 } },
+        });
+        throw new gcprError(HttpStatus.UNAUTHORIZED, "Invalid OTP");
+      }
     }
 
     // Handle EMAIL OTP verification (Database)

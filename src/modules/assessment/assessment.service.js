@@ -5,12 +5,14 @@ import {
   paediatricPhysiotherapyAssessmentConfig,
   homeRehabPharmacyConfig,
   cpProgramIntakeConfig,
-  otCpClinicalAssessmentConfig
+  otCpClinicalAssessmentConfig,
+  dietitianNutritionConsultationConfig
 } from "../../config/tools/index.js";
 import {
   processAssessment,
   getToolConfigByCode
 } from "../../services/assessment/assessment.service.js";
+import { generateReferralRecommendations } from "../../services/assessment/referral.engine.js";
 import HttpStatus from "../../utils/http-status.js";
 
 const TOOL_ALIASES = {
@@ -28,15 +30,26 @@ const TOOL_ALIASES = {
   PAEDIATRIC_PHYSIOTHERAPY_ASSESSMENT: "PAEDIATRIC_PHYSIOTHERAPY_ASSESSMENT",
   paediatric_physiotherapy_assessment: "PAEDIATRIC_PHYSIOTHERAPY_ASSESSMENT",
   "paediatric-physiotherapy-assessment": "PAEDIATRIC_PHYSIOTHERAPY_ASSESSMENT",
-  OT_CP_CLINICAL_ASSESSMENT: "OT_CP_CLINICAL_ASSESSMENT",
-  ot_cp_clinical_assessment: "OT_CP_CLINICAL_ASSESSMENT",
-  "ot-cp-clinical-assessment": "OT_CP_CLINICAL_ASSESSMENT",
+  HOME_REHAB_PHARMACY: "HOME_REHAB_PHARMACY",
+  "HOME-REHAB-PHARMACY": "HOME_REHAB_PHARMACY",
+  home_rehab_pharmacy: "HOME_REHAB_PHARMACY",
+  "home-rehab-pharmacy": "HOME_REHAB_PHARMACY",
+  homeRehabPharmacy: "HOME_REHAB_PHARMACY",
   CP_PROGRAM_INTAKE: "CP_PROGRAM_INTAKE",
+  "CP-PROGRAM-INTAKE": "CP_PROGRAM_INTAKE",
   cp_program_intake: "CP_PROGRAM_INTAKE",
   "cp-program-intake": "CP_PROGRAM_INTAKE",
-  HOME_REHAB_PHARMACY_PRESCRIPTION: "HOME_REHAB_PHARMACY_PRESCRIPTION",
-  home_rehab_pharmacy_prescription: "HOME_REHAB_PHARMACY_PRESCRIPTION",
-  "home-rehab-pharmacy-prescription": "HOME_REHAB_PHARMACY_PRESCRIPTION"
+  cpProgramIntake: "CP_PROGRAM_INTAKE",
+  OT_CP_CLINICAL_ASSESSMENT: "OT_CP_CLINICAL_ASSESSMENT",
+  "OT-CP-CLINICAL-ASSESSMENT": "OT_CP_CLINICAL_ASSESSMENT",
+  ot_cp_clinical_assessment: "OT_CP_CLINICAL_ASSESSMENT",
+  "ot-cp-clinical-assessment": "OT_CP_CLINICAL_ASSESSMENT",
+  otCpClinicalAssessment: "OT_CP_CLINICAL_ASSESSMENT",
+  DIETITIAN_NUTRITION_CONSULTATION: "DIETITIAN_NUTRITION_CONSULTATION",
+  "DIETITIAN-NUTRITION-CONSULTATION": "DIETITIAN_NUTRITION_CONSULTATION",
+  dietitian_nutrition_consultation: "DIETITIAN_NUTRITION_CONSULTATION",
+  "dietitian-nutrition-consultation": "DIETITIAN_NUTRITION_CONSULTATION",
+  dietitianNutritionConsultation: "DIETITIAN_NUTRITION_CONSULTATION"
 };
 
 const normalizeToolCode = (toolCode) => TOOL_ALIASES[toolCode] ?? toolCode;
@@ -46,7 +59,8 @@ const ALL_TOOL_CONFIGS = [
   paediatricPhysiotherapyAssessmentConfig,
   otCpClinicalAssessmentConfig,
   cpProgramIntakeConfig,
-  homeRehabPharmacyConfig
+  homeRehabPharmacyConfig,
+  dietitianNutritionConsultationConfig
 ];
 
 const ITEM_TYPE_TO_FORMAT = {
@@ -703,6 +717,43 @@ class AssessmentService {
     });
 
     return task;
+  }
+
+  static async getReferralRecommendations(user, assessmentId) {
+    const serviceProvider = await AssessmentService.requireServiceProvider(user.id);
+
+    const assessment = await prisma.clinicalAssessment.findUnique({
+      where: { id: assessmentId },
+      include: {
+        reports: { orderBy: { createdAt: "desc" }, take: 1 }
+      }
+    });
+
+    if (!assessment) {
+      throw new gcprError(HttpStatus.NOT_FOUND, "Assessment not found");
+    }
+
+    const canAccess = await AssessmentService.canProviderAccessPatient(
+      serviceProvider.id,
+      assessment.patientId
+    );
+    if (!canAccess) {
+      throw new gcprError(HttpStatus.FORBIDDEN, "Access to patient denied");
+    }
+
+    const report = assessment.reports[0] ?? null;
+    const scores = report?.scores ?? null;
+
+    const recommendations = generateReferralRecommendations({
+      toolCode: assessment.toolCode,
+      scores
+    });
+
+    return {
+      assessmentId: assessment.id,
+      toolCode: assessment.toolCode,
+      ...recommendations
+    };
   }
 
   static async getMyAssignedTasks(user) {
