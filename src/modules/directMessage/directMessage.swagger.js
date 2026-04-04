@@ -137,9 +137,7 @@
  *                 status:
  *                   type: string
  *                 data:
- *                   type: object
- *                   properties:
- *                     $ref: '#/components/schemas/DirectMessage'
+ *                   $ref: '#/components/schemas/DirectMessage'
  *                 message:
  *                   type: string
  *       400:
