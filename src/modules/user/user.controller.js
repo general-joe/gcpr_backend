@@ -58,6 +58,22 @@ class UserController {
       "Videos retrieved successfully",
     );
   });
+
+  /**
+   * Deactivate user account (soft delete)
+   * Available to: SERVICE_PROVIDER, CAREGIVER (users can deactivate their own account)
+   */
+  static deactivateAccount = catchAsync(async (req, res) => {
+    const userId = res.locals.user?.id;
+
+    if (!userId) {
+      return UtilFunctions.outputError(res, "Unauthorized", {}, undefined, 401);
+    }
+
+    const user = await UserService.deactivateAccount(userId);
+
+    return UtilFunctions.outputSuccess(res, { user }, "Account deactivated successfully");
+  });
 }
 
 export default UserController;

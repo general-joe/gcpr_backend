@@ -61,8 +61,6 @@ class CpPatientService {
       throw new Error("Invalid dateOfBirth");
     }
 
-    const age = new Date().getFullYear() - dateOfBirth.getFullYear();
-
     const caregiver = await prisma.careGiver.findUnique({
       where: { userId },
       select: { id: true },
@@ -79,7 +77,6 @@ class CpPatientService {
       data: {
         fullName: data.fullName,
         dateOfBirth,
-        age,
         gender: data.gender,
         address: data.address,
         placeOfBirth: data.placeOfBirth,
@@ -88,7 +85,7 @@ class CpPatientService {
         caregiverId: caregiver.id,
         relationToCaregiver: data.relationToCaregiver,
         householdSize: data.householdSize,
-        schoolEnrollmmentStatus: data.schoolEnrollmmentStatus ?? false,
+        schoolEnrollmentStatus: data.schoolEnrollmentStatus ?? false,
         typeOfSchool: data.typeOfSchool,
       },
     });

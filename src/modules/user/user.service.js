@@ -129,6 +129,20 @@ class UserService {
       throw error;
     }
   }
+
+  /**
+   * Deactivate user account (soft delete)
+   * @param {string} userId - The ID of the user
+   * @returns {Promise<Object>} Updated user with deactivated status
+   */
+  static async deactivateAccount(userId) {
+    return await prisma.user.update({
+      where: { id: userId },
+      data: {
+        accountStatus: "DEACTIVATED"
+      }
+    });
+  }
 }
 
 export default UserService;

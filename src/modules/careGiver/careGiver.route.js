@@ -29,4 +29,28 @@ caregiverRouter.get(
   CareGiverController.getCareGivers
 );
 
+caregiverRouter.get(
+  "/:id",
+  authorize(["SERVICE_PROVIDER"]),
+  authRateLimiter,
+  CareGiverController.getCareGiverById
+);
+
+caregiverRouter.put(
+  "/:id",
+  authorize(["CAREGIVER"]),
+  upload.fields([{ name: "verificationDocuments", maxCount: 5 }]),
+  validate(caregiverProfileSchema),
+  authRateLimiter,
+  CareGiverController.updateCareGiverProfile
+);
+
+caregiverRouter.delete(
+  "/:id",
+  authorize(["CAREGIVER"]),
+  authRateLimiter,
+  CareGiverController.deleteCareGiverProfile
+);
+
+
 export default caregiverRouter;

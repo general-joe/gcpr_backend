@@ -1,5 +1,4 @@
 import express from "express";
-import rateLimit from "express-rate-limit";
 import { authorize } from "../../middlewares/auth.js";
 
 import UserController from "./user.controller.js";
@@ -31,6 +30,17 @@ userRouter.get(
   "/videos",
   authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
   UserController.listVideos,
+);
+
+/**
+ * POST /users/deactivate-account
+ * Deactivate user account (soft delete)
+ * Available to: SERVICE_PROVIDER, CAREGIVER (users can deactivate their own account)
+ */
+userRouter.post(
+  "/deactivate-account",
+  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
+  UserController.deactivateAccount,
 );
 
 export default userRouter;
