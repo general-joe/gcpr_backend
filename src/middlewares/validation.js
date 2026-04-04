@@ -5,7 +5,7 @@ import { ZodError } from 'zod';
  * @param {import('zod').ZodSchema} schema - The Zod schema to validate against
  * @returns {Function} Express middleware function
  */
-export const validate = (schema) => {
+export const validate = (schema, source = 'body') => {
   // Safety check – prevents silent crashes
   if (!schema || typeof schema.parseAsync !== 'function') {
     throw new Error('validate() expects a valid Zod schema');
@@ -13,11 +13,16 @@ export const validate = (schema) => {
 
   return async (req, res, next) => {
     try {
-      // Validate request body
-      const validatedData = await schema.parseAsync(req.body);
+      const data = req[source];
+      const validatedData = await schema.parseAsync(data);
 
-      // Attach validated data
-      req.validatedData = validatedData;
+      if (source === 'body') {
+        req.validatedData = validatedData;
+      } else if (source === 'params') {
+        req.params = { ...req.params, ...validatedData };
+      } else if (source === 'query') {
+        req.query = { ...req.query, ...validatedData };
+      }
 
       return next();
     } catch (error) {
