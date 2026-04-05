@@ -19,7 +19,8 @@ dotenv.config()
 const port = process.env.PORT || 3000
 
 
-export default app.listen(port, "0.0.0.0",() => {
+export default server.listen(port, "0.0.0.0",() => {
     WRITE.info(`Server is started at : 0.0.0.0:${port} `)
 })
+
 
