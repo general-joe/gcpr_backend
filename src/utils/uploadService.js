@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { fileURLToPath } from 'url'
 
 const ALLOWED_EXTENSIONS = new Set([
     '.jpg', '.jpeg', '.png', '.gif', '.webp',  // Images
@@ -7,6 +8,10 @@ const ALLOWED_EXTENSIONS = new Set([
     '.mp3', '.wav', '.m4a', '.ogg',               // Audio
     '.mp4', '.mov', '.avi',                        // Video
 ]);
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const filesBasePath = path.resolve(__dirname, "../files");
 
 class UploadService {
     static async saveFile (buffer, filename, folder) {
@@ -16,7 +21,12 @@ class UploadService {
                 throw new Error(`File type "${ext}" is not allowed`);
             }
 
-            fs.writeFileSync(`./src/files/${folder}/${filename}`, buffer)
+            const folderPath = path.resolve(filesBasePath, folder);
+            // Ensure directory exists
+            fs.mkdirSync(folderPath, { recursive: true });
+
+            const filePath = path.resolve(folderPath, filename);
+            fs.writeFileSync(filePath, buffer)
             const baseUrl = process.env.GCPR_API_URL
             return `${baseUrl}/${folder}/${filename}`
         } catch (error) {

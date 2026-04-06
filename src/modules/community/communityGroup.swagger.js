@@ -92,6 +92,10 @@
  *         mediaUrl:
  *           type: string
  *           nullable: true
+ *         caption:
+ *           type: string
+ *           nullable: true
+ *           description: Caption for media messages
  *         metadata:
  *           type: object
  *           nullable: true

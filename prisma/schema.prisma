@@ -625,6 +625,7 @@ model CommunityMessage {
   content   String?
   type      MessageType        @default(TEXT)
   mediaUrl  String?
+  caption   String?            // Caption for media messages
   metadata  Json?
   status    MessageStatus      @default(SENT)
   replyToId String?
@@ -647,6 +648,7 @@ model CommunityAnnouncement {
   title       String
   content     String
   mediaUrl    String?
+  caption     String?           // Caption for media content
   createdBy   String
   creator     User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
   isPinned    Boolean   @default(false)
@@ -743,6 +745,7 @@ model DirectMessage {
   receiver   User                @relation(fields: [receiverId], references: [id], onDelete: Cascade, name: "DirectMessageReceiver")
   content    String?
   mediaUrl   String?
+  caption    String?             // Caption for media messages
   type       MessageType         @default(TEXT)
   status     DirectMessageStatus @default(SENT)
   createdAt  DateTime            @default(now())

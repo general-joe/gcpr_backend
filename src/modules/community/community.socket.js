@@ -41,6 +41,24 @@ const setupCommunitySocketHandlers = (socket, io) => {
     io.to(`community-${communityId}`).emit('new-community-announcement', announcementData);
   });
 
+  // Handle announcement updates
+  socket.on('community-announcement-updated', (announcementData) => {
+    const { communityId } = announcementData;
+    io.to(`community-${communityId}`).emit('community-announcement-updated', announcementData);
+  });
+
+  // Handle announcement deletion
+  socket.on('community-announcement-deleted', (data) => {
+    const { communityId, announcementId } = data;
+    io.to(`community-${communityId}`).emit('community-announcement-deleted', data);
+  });
+
+  // Handle announcement pin/unpin
+  socket.on('community-announcement-pinned', (announcementData) => {
+    const { communityId } = announcementData;
+    io.to(`community-${communityId}`).emit('community-announcement-pinned', announcementData);
+  });
+
   // Handle community member updates (when someone joins/leaves)
   socket.on('community-member-updated', (memberData) => {
     const { communityId } = memberData;

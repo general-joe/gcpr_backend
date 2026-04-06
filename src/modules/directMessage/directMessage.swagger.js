@@ -23,6 +23,10 @@
  *         mediaUrl:
  *           type: string
  *           nullable: true
+ *         caption:
+ *           type: string
+ *           nullable: true
+ *           description: Caption for media messages
  *         type:
  *           type: string
  *           enum: [TEXT, IMAGE, VIDEO, AUDIO, DOCUMENT, LOCATION]
@@ -50,6 +54,9 @@
  *         mediaUrl:
  *           type: string
  *           description: URL to media attachment
+ *         caption:
+ *           type: string
+ *           description: Caption for media messages
  *         type:
  *           type: string
  *           enum: [TEXT, IMAGE, VIDEO, AUDIO, DOCUMENT, LOCATION]
@@ -101,6 +108,10 @@
  *         mediaUrl:
  *           type: string
  *           nullable: true
+ *         caption:
+ *           type: string
+ *           nullable: true
+ *           description: Caption for media messages
  *         type:
  *           type: string
  *           enum: [TEXT, IMAGE, VIDEO, AUDIO, DOCUMENT, LOCATION]

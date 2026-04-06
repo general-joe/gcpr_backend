@@ -28,6 +28,10 @@
  *         mediaUrl:
  *           type: string
  *           nullable: true
+ *         caption:
+ *           type: string
+ *           nullable: true
+ *           description: Caption for announcement media
  *         createdBy:
  *           type: string
  *           format: uuid
@@ -84,6 +88,9 @@
  *                 type: string
  *                 format: binary
  *                 description: Announcement media
+ *               caption:
+ *                 type: string
+ *                 description: Caption for media
  *               isPinned:
  *                 type: boolean
  *                 default: false
@@ -234,6 +241,9 @@
  *                 type: string
  *                 format: binary
  *                 description: Announcement media
+ *               caption:
+ *                 type: string
+ *                 description: Caption for media
  *               isPinned:
  *                 type: boolean
  *                 description: Pin announcement to top
