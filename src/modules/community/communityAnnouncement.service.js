@@ -3,6 +3,7 @@ import HttpStatus from "../../utils/http-status.js";
 import UtilFunctions from "../../utils/UtilFunctions.js";
 import UploadService from "../../utils/uploadService.js";
 import constants from "../../utils/constants.js";
+import { getIO } from "../../socket.io.js";
 
 class CommunityAnnouncementService {
   /**
@@ -58,6 +59,12 @@ class CommunityAnnouncementService {
         },
       },
     });
+
+    // Emit real-time event to community members
+    const io = getIO();
+    if (io) {
+      io.to(`community-${communityId}`).emit('new-community-announcement', announcement);
+    }
 
     return announcement;
   }
@@ -227,6 +234,12 @@ class CommunityAnnouncementService {
       },
     });
 
+    // Emit real-time event to community members
+    const io = getIO();
+    if (io) {
+      io.to(`community-${announcement.communityId}`).emit('community-announcement-updated', updatedAnnouncement);
+    }
+
     return updatedAnnouncement;
   }
 
@@ -262,6 +275,15 @@ class CommunityAnnouncementService {
     await prisma.communityAnnouncement.delete({
       where: { id: announcementId },
     });
+
+    // Emit real-time event to community members
+    const io = getIO();
+    if (io) {
+      io.to(`community-${announcement.communityId}`).emit('community-announcement-deleted', {
+        announcementId,
+        communityId: announcement.communityId,
+      });
+    }
 
     return { message: "Announcement deleted successfully" };
   }
@@ -308,6 +330,12 @@ class CommunityAnnouncementService {
         },
       },
     });
+
+    // Emit real-time event to community members
+    const io = getIO();
+    if (io) {
+      io.to(`community-${announcement.communityId}`).emit('community-announcement-pinned', updatedAnnouncement);
+    }
 
     return updatedAnnouncement;
   }

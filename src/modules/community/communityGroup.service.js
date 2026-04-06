@@ -3,6 +3,7 @@ import HttpStatus from "../../utils/http-status.js";
 import UtilFunctions from "../../utils/UtilFunctions.js";
 import UploadService from "../../utils/uploadService.js";
 import constants from "../../utils/constants.js";
+import { getIO } from "../../socket.io.js";
 
 class CommunityGroupService {
   /**
@@ -684,7 +685,7 @@ class CommunityGroupService {
       );
     }
 
-    const { content, type, mediaUrl, metadata, replyToId } = messageData;
+    const { content, type, mediaUrl, metadata, replyToId, caption } = messageData;
 
     const message = await prisma.communityMessage.create({
       data: {
@@ -693,6 +694,7 @@ class CommunityGroupService {
         content,
         type: type || "TEXT",
         mediaUrl,
+        caption,
         metadata,
         replyToId,
         status: "SENT",
@@ -719,6 +721,12 @@ class CommunityGroupService {
         },
       },
     });
+
+    // Emit real-time event to group members
+    const io = getIO();
+    if (io) {
+      io.to(`community-group-${groupId}`).emit('new-community-message', message);
+    }
 
     return message;
   }
@@ -774,6 +782,15 @@ class CommunityGroupService {
     await prisma.communityMessage.delete({
       where: { id: messageId },
     });
+
+    // Emit real-time event to group members
+    const io = getIO();
+    if (io) {
+      io.to(`community-group-${message.groupId}`).emit('community-message-deleted', {
+        messageId,
+        groupId: message.groupId,
+      });
+    }
 
     return { message: "Message deleted successfully" };
   }
