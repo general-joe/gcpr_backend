@@ -5,7 +5,7 @@ import catchAsync from "../../middlewares/catchAsync.js";
 export default class DirectMessageController {
   static sendMessage = catchAsync(async (req, res) => {
     const senderId = res.locals.user.id;
-    const { receiverId, content, mediaUrl, type } = req.body;
+    const { receiverId, content, mediaUrl, type, caption } = req.body;
 
     // Validate input
     if (!receiverId) {
@@ -26,6 +26,7 @@ export default class DirectMessageController {
       receiverId,
       content: content || null,
       mediaUrl: mediaUrl || null,
+      caption: caption || null,
       type: type || "TEXT",
     };
 

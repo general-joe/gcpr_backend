@@ -1,5 +1,9 @@
 import prisma from "../../config/database.js";
 import { getIO } from "../../socket.io.js";
+import {
+  sendPushNotification,
+  sendMulticastPushNotification,
+} from "../../utils/firebaseService.js";
 
 export default class NotificationService {
   static async getUserNotifications(userId, page = 1, limit = 20, unreadOnly = false) {
@@ -131,12 +135,12 @@ export default class NotificationService {
     const notification = await prisma.notification.create({
       data: notificationData
     });
-    
+
     // Emit real-time notification via Socket.IO
     const io = getIO();
     if (io) {
       io.to(`user-${notificationData.userId}`).emit('new-notification', notification);
-      
+
       // Also send a general notification update for badge count
       const unreadCount = await this.getUnreadCount(notificationData.userId);
       io.to(`user-${notificationData.userId}`).emit('notification-badge-update', {
@@ -144,8 +148,52 @@ export default class NotificationService {
         count: unreadCount
       });
     }
-    
+
+    // Send push notification if user has push tokens
+    if (notificationData.type === "PUSH" || notificationData.type === "IN_APP") {
+      await this.sendPushNotificationToUser(notificationData.userId, notification);
+    }
+
     return notification;
+  }
+
+  static async sendPushNotificationToUser(userId, notification) {
+    try {
+      // Get user's active push tokens
+      const tokens = await prisma.pushNotificationToken.findMany({
+        where: {
+          userId,
+          isActive: true
+        }
+      });
+
+      if (tokens.length === 0) {
+        return; // User has no active tokens
+      }
+
+      const firebaseTokens = tokens.map(t => t.token);
+
+      // Send Firebase push notification
+      const pushPayload = {
+        title: notification.title || "GCPR Notification",
+        body: notification.content || "You have a new notification",
+        data: {
+          notificationId: notification.id,
+          category: notification.category,
+          relatedId: notification.relatedId || "",
+          relatedModel: notification.relatedModel || ""
+        }
+      };
+
+      if (firebaseTokens.length === 1) {
+        await sendPushNotification(firebaseTokens[0], pushPayload);
+      } else {
+        await sendMulticastPushNotification(firebaseTokens, pushPayload);
+      }
+    } catch (error) {
+      // Log error but don't throw - push notification failure shouldn't block main flow
+      console.error(`Failed to send push notification to user ${userId}:`, error.message);
+    }
   }
 
   static async createDirectMessageNotification(message) {

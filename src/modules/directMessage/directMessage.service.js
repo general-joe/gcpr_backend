@@ -33,81 +33,53 @@ export default class DirectMessageService {
   }
 
   static async getUserConversations(userId) {
-    // Get distinct users the current user has messaged with
-    const conversations = await prisma.$queryRaw`
-      SELECT DISTINCT 
-        CASE 
-          WHEN "senderId" = ${userId} THEN "receiverId"
-          ELSE "senderId"
-        END as userId,
-        u."fullName",
-        u."profileImage",
-        (
-          SELECT content 
-          FROM "directMessage" dm2
-          WHERE 
-            (dm2."senderId" = ${userId} AND dm2."receiverId" = 
-              CASE 
-                WHEN dm."senderId" = ${userId} THEN dm."receiverId"
-                ELSE dm."senderId"
-              END
-            ) OR 
-            (dm2."receiverId" = ${userId} AND dm2."senderId" = 
-              CASE 
-                WHEN dm."senderId" = ${userId} THEN dm."receiverId"
-                ELSE dm."senderId"
-              END
-            )
-          ORDER BY dm2."createdAt" DESC
-          LIMIT 1
-        ) as lastMessage,
-        (
-          SELECT "createdAt"
-          FROM "directMessage" dm2
-          WHERE 
-            (dm2."senderId" = ${userId} AND dm2."receiverId" = 
-              CASE 
-                WHEN dm."senderId" = ${userId} THEN dm."receiverId"
-                ELSE dm."senderId"
-              END
-            ) OR 
-            (dm2."receiverId" = ${userId} AND dm2."senderId" = 
-              CASE 
-                WHEN dm."senderId" = ${userId} THEN dm."receiverId"
-                ELSE dm."senderId"
-              END
-            )
-          ORDER BY dm2."createdAt" DESC
-          LIMIT 1
-        ) as lastMessageAt,
-        (
-          SELECT COUNT(*)
-          FROM "directMessage" dm2
-          WHERE 
-            dm2."receiverId" = ${userId} AND 
-            dm2."senderId" = 
-              CASE 
-                WHEN dm."senderId" = ${userId} THEN dm."receiverId"
-                ELSE dm."senderId"
-              END AND
-            dm2."status" = 'SENT'
-        ) as unreadCount
-      FROM "directMessage" dm
-      JOIN "User" u ON 
-        (CASE 
-          WHEN dm."senderId" = ${userId} THEN dm."receiverId"
-          ELSE dm."senderId"
-        END) = u.id
-      WHERE dm."senderId" = ${userId} OR dm."receiverId" = ${userId}
-      GROUP BY 
-        CASE 
-          WHEN dm."senderId" = ${userId} THEN dm."receiverId"
-          ELSE dm."senderId"
-        END,
-        u."fullName",
-        u."profileImage"
-      ORDER BY lastMessageAt DESC
-    `;
+    // Get all messages involving the user
+    const messages = await prisma.directMessage.findMany({
+      where: {
+        OR: [{ senderId: userId }, { receiverId: userId }],
+      },
+      include: {
+        sender: {
+          select: { id: true, fullName: true, profileImage: true },
+        },
+        receiver: {
+          select: { id: true, fullName: true, profileImage: true },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    // Group by conversation partner and get the latest message
+    const conversationMap = new Map();
+    for (const message of messages) {
+      const otherUser = message.senderId === userId ? message.receiver : message.sender;
+      const conversationKey = otherUser.id;
+
+      if (!conversationMap.has(conversationKey)) {
+        conversationMap.set(conversationKey, {
+          userId: otherUser.id,
+          fullName: otherUser.fullName,
+          profileImage: otherUser.profileImage,
+          lastMessage: message.content || `[${message.type}]`,
+          lastMessageAt: message.createdAt,
+          unreadCount: 0,
+        });
+      }
+
+      // Count unread messages from the other user to current user
+      if (message.receiverId === userId && message.status === "SENT") {
+        const conv = conversationMap.get(conversationKey);
+        conv.unreadCount += 1;
+      }
+    }
+
+    // Convert to array and sort by latest message
+    const conversations = Array.from(conversationMap.values()).sort(
+      (a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt)
+    );
+
     return conversations;
   }
 
