@@ -43,6 +43,10 @@ global.io = io
 import { initializeSocketIO } from './socket.io.js';
 initializeSocketIO(io);
 
+// Eagerly initialize Firebase so errors surface at startup
+import { initializeFirebase } from './utils/firebaseService.js';
+initializeFirebase();
+
 
 
 app.use(compression())
