@@ -2,13 +2,13 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import sgMail from "@sendgrid/mail";
+import { MailerSend, EmailParams, Sender, Recipient } from "mailersend";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-console.log("SENDGRID KEY LOADED:", !!process.env.SENDGRID_API_KEY);
+const mailerSend = new MailerSend({ apiKey: process.env.MAILERSEND_API_KEY });
+console.log("MAILERSEND KEY LOADED:", !!process.env.MAILERSEND_API_KEY);
 
 // Recreate __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -49,15 +49,17 @@ export async function sendEmail(to, templateName, variables) {
     success: "Operation Successful",
   };
 
-  const msg = {
-    from: "synxdevghana@gmail.com", //
-    to,
-    subject: subjectMap[templateName],
-    html: htmlContent,
-  };
+  const sentFrom = new Sender("MS_wGd8Fb@test-eqvygm07968l0p7w.mlsender.net", "NeuroCare");
+  const recipients = [new Recipient(to)];
+
+  const emailParams = new EmailParams()
+    .setFrom(sentFrom)
+    .setTo(recipients)
+    .setSubject(subjectMap[templateName])
+    .setHtml(htmlContent);
 
   try {
-    return await sgMail.send(msg);
+    return await mailerSend.email.send(emailParams);
   } catch (error) {
     console.error("EMAIL SEND FAILED:", error);
     throw error;

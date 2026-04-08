@@ -23,7 +23,7 @@ const getServerUrls = () => {
 		},
 		{
 			url: process.env.GCPR_API_URL || "",
-			description: "GCPR Production Server",
+			description: "GMNC Production Server",
 		},
 	];
 };
@@ -32,9 +32,9 @@ const swaggerOptions = {
   definition: {
     openapi: "3.0.0",
     info: {
-      title: "GCPR API",
+      title: "GMNC API",
       version: "1.0.0",
-      description: "GCPR - API documentation",
+      description: "GMNC - API documentation",
     },
     servers: getServerUrls(),
 
