@@ -8,7 +8,7 @@ src/config/firebase-service-account.json
 
 logs
 /src/generated/prisma
-src/files
+# src/files
 
 
 .pnpm-store/
