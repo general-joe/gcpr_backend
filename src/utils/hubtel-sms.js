@@ -71,8 +71,15 @@ export const VerifyOTP = async (requestId, prefix, code) => {
     );
     return res.status === 200;
   } catch (error) {
+    // If Hubtel responded with an HTTP error (wrong code, expired, etc.)
+    // treat it as an invalid OTP rather than a server crash
+    if (error?.response) {
+      console.log("Hubtel OTP verify rejected:", getAxiosErrorMessage(error));
+      return false;
+    }
+    // Network / timeout / no response — escalate as a real error
     const details = getAxiosErrorMessage(error);
-    console.log(details);
+    console.log("Hubtel OTP verify network error:", details);
     throw new Error(`Failed to verify OTP: ${details}`);
   }
 };
