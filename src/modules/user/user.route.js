@@ -43,4 +43,15 @@ userRouter.post(
   UserController.deactivateAccount,
 );
 
+ /**
+ * POST /users/delete-account
+ * Delete user account (soft delete)
+ * Available to: SERVICE_PROVIDER, CAREGIVER (users can delete their own account)
+ */
+userRouter.post(
+  "/delete-account",
+  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
+  UserController.deleteUserAccount,
+);
+
 export default userRouter;

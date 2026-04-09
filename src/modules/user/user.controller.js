@@ -74,6 +74,22 @@ class UserController {
 
     return UtilFunctions.outputSuccess(res, { user }, "Account deactivated successfully");
   });
+
+  /**
+   * Delete user account (soft delete)
+   * Available to: SERVICE_PROVIDER, CAREGIVER (users can delete their own account)
+   */
+  static deleteUserAccount = catchAsync(async (req, res) => {
+    const userId = res.locals.user?.id;
+
+    if (!userId) {
+      return UtilFunctions.outputError(res, "Unauthorized", {}, undefined, 401);
+    }
+
+    const user = await UserService.deleteUserAccount(userId);
+
+    return UtilFunctions.outputSuccess(res, { user }, "Account deleted successfully");
+  });
 }
 
 export default UserController;
