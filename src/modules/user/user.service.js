@@ -142,6 +142,20 @@ class UserService {
         accountStatus: "DEACTIVATED"
       }
     });
+    
+  }
+  static async deleteUserAccount(userId) {
+    // Soft delete: Mark the account as deleted without removing data
+    return await prisma.user.update({
+      where: { id: userId },
+      data: {
+        accountStatus: "DELETED",
+        email: null, // Anonymize email
+        name: null,  // Anonymize name
+        caregiver: { deleteMany: {} }, // Remove caregiver data
+        serviceProvider: { deleteMany: {} }, // Remove service provider data
+      }
+    });
   }
 }
 

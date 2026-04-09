@@ -201,4 +201,31 @@
  *         description: Unauthorized or invalid token
  *       403:
  *         description: Forbidden - insufficient role permissions
+ * 
+ * /user/delete-account:
+ *   post:
+ *     summary: Delete the authenticated user's account
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     description: Deletes the currently authenticated user's account. This performs a soft delete by setting the account status to DELETED. The action is irreversible.
+ *     responses:
+ *       200:
+ *         description: Account deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ *                   example: Account deleted successfully
+ *       401:
+ *         description: Unauthorized or invalid token
+ *       403:
+ *         description: Forbidden - insufficient role permissions
  */
+
+
