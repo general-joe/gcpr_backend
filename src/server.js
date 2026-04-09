@@ -24,6 +24,7 @@ import filesRouter from './modules/files/files.route.js'
 dotenv.config()
 
 const app = express()
+app.set('trust proxy', 1);
 const server = http.createServer(app)
 const io = new Server(server, {
   cors: {
