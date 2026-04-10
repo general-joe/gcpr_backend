@@ -62,6 +62,10 @@ export async function sendEmail(to, templateName, variables) {
     return await mailerSend.email.send(emailParams);
   } catch (error) {
     console.error("EMAIL SEND FAILED:", error);
-    throw error;
+
+    return {
+      success: false,
+      error: error.message,
+    }; 
   }
 }
