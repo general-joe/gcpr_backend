@@ -2,13 +2,13 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { MailerSend, EmailParams, Sender, Recipient } from "mailersend";
+import { Resend } from "resend";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-const mailerSend = new MailerSend({ apiKey: process.env.MAILERSEND_API_KEY });
-console.log("MAILERSEND KEY LOADED:", !!process.env.MAILERSEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY);
+console.log("RESEND KEY LOADED:", !!process.env.RESEND_API_KEY);
 
 // Recreate __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -19,6 +19,12 @@ const templateMap = {
   reset: "password.reset.html",
   otp: "verification.otp.html",
   success: "success.operation.html",
+};
+
+const subjectMap = {
+  reset: "Reset Your Password",
+  otp: "Your OTP Code",
+  success: "Operation Successful",
 };
 
 /**
@@ -33,39 +39,22 @@ export async function sendEmail(to, templateName, variables) {
   // src/utils → src/templates
   const templatePath = path.join(__dirname, "..", "templates", fileName);
 
-  let htmlContent = fs.readFileSync(templatePath, "utf-8");
+  let html = fs.readFileSync(templatePath, "utf-8");
 
   // Replace {{variables}}
   for (const key in variables) {
-    htmlContent = htmlContent.replace(
-      new RegExp(`{{${key}}}`, "g"),
-      variables[key]
-    );
+    html = html.replace(new RegExp(`{{${key}}}`, "g"), variables[key]);
   }
 
-  const subjectMap = {
-    reset: "Reset Your Password",
-    otp: "Your OTP Code",
-    success: "Operation Successful",
-  };
-
-  const sentFrom = new Sender("MS_wGd8Fb@test-eqvygm07968l0p7w.mlsender.net", "NeuroCare");
-  const recipients = [new Recipient(to)];
-
-  const emailParams = new EmailParams()
-    .setFrom(sentFrom)
-    .setTo(recipients)
-    .setSubject(subjectMap[templateName])
-    .setHtml(htmlContent);
-
   try {
-    return await mailerSend.email.send(emailParams);
+    return await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL ?? "NeuroCare <onboarding@resend.dev>",
+      to,
+      subject: subjectMap[templateName],
+      html,
+    });
   } catch (error) {
     console.error("EMAIL SEND FAILED:", error);
-
-    return {
-      success: false,
-      error: error.message,
-    }; 
+    return { success: false, error: error.message };
   }
 }
