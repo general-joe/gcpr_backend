@@ -21,6 +21,7 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^7.3.0",
+    "@sendgrid/mail": "^8.1.6",
     "axios": "^1.13.4",
     "bcryptjs": "^3.0.3",
     "body-parser": "^2.2.2",
@@ -43,7 +44,6 @@
     "pg": "^8.17.2",
     "prisma": "^7.3.0",
     "rand-token": "^1.0.1",
-    "resend": "^6.9.1",
     "socket.io": "^4.8.3",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
