@@ -2,13 +2,13 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { Resend } from "resend";
+import sgMail from "@sendgrid/mail";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-console.log("RESEND KEY LOADED:", !!process.env.RESEND_API_KEY);
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+console.log("SENDGRID KEY LOADED:", !!process.env.SENDGRID_API_KEY);
 
 // Recreate __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -47,14 +47,16 @@ export async function sendEmail(to, templateName, variables) {
   }
 
   try {
-    return await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL ?? "NeuroCare <onboarding@resend.dev>",
+    const msg = {
+      from: process.env.SENDGRID_FROM_EMAIL,
       to,
       subject: subjectMap[templateName],
       html,
-    });
+    };
+    const [response] = await sgMail.send(msg);
+    return { success: true, statusCode: response.statusCode };
   } catch (error) {
-    console.error("EMAIL SEND FAILED:", error);
-    return { success: false, error: error.message };
+    console.error("EMAIL SEND FAILED:", error?.response?.body ?? error.message);
+    return { success: false, error: error?.response?.body ?? error.message };
   }
 }
