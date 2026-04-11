@@ -186,9 +186,10 @@ class AuthService {
     });
 
     if (user.email) {
-      await sendEmail(user.email, "success", {
+      // fire-and-forget — don't block the response on a confirmation email
+      sendEmail(user.email, "success", {
         message: `${user.fullName}, your account has been verified.`,
-      });
+      }).catch((err) => console.error("Success email failed:", err.message));
     }
 
     if (user.phoneNumber) {
@@ -223,7 +224,7 @@ class AuthService {
     });
 
     if (identifier.includes("@")) {
-      await sendEmail(user.email, "reset-password", { otp: otpCode });
+      await sendEmail(user.email, "reset", { otp: otpCode });
     } else {
       await SendSMS(
         user.phoneNumber,
