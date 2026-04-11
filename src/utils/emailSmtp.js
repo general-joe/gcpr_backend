@@ -2,17 +2,26 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import sgMail from "@sendgrid/mail";
+import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-console.log("SENDGRID KEY LOADED:", !!process.env.SENDGRID_API_KEY);
-
 // Recreate __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// HostAfrica HMailPlus SMTP transporter (port 587, STARTTLS)
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,   
+  port: Number(process.env.SMTP_PORT) || 587,
+  secure: false,                 
+  auth: {
+    user: process.env.SMTP_USER, 
+    pass: process.env.SMTP_PASS,
+  },
+  requireTLS: true,              
+});
 
 // Template mapping
 const templateMap = {
@@ -47,16 +56,15 @@ export async function sendEmail(to, templateName, variables) {
   }
 
   try {
-    const msg = {
-      from: process.env.SENDGRID_FROM_EMAIL,
+    const info = await transporter.sendMail({
+      from: `"${process.env.SMTP_FROM_NAME || "NeuroCare"}" <${process.env.SMTP_USER}>`,
       to,
       subject: subjectMap[templateName],
       html,
-    };
-    const [response] = await sgMail.send(msg);
-    return { success: true, statusCode: response.statusCode };
+    });
+    return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("EMAIL SEND FAILED:", error?.response?.body ?? error.message);
-    return { success: false, error: error?.response?.body ?? error.message };
+    console.error("EMAIL SEND FAILED:", error.message);
+    return { success: false, error: error.message };
   }
 }
