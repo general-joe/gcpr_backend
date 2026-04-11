@@ -109,7 +109,12 @@ class AuthService {
         },
       });
 
-      await sendEmail(newUser.email, "otp", { otp: otpCode });
+      const emailResult = await sendEmail(newUser.email, "otp", { otp: otpCode });
+      if (!emailResult.success) {
+        console.error("OTP EMAIL FAILED for", newUser.email, ":", emailResult.error);
+      } else {
+        console.log("OTP EMAIL SENT to", newUser.email, "messageId:", emailResult.messageId);
+      }
     }
 
     return { otpChannel: otpMode };
