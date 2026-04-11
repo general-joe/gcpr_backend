@@ -13,14 +13,17 @@ const __dirname = path.dirname(__filename);
 
 // HostAfrica HMailPlus SMTP transporter (port 587, STARTTLS)
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,   
+  host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT) || 587,
-  secure: false,                 
+  secure: false,
   auth: {
-    user: process.env.SMTP_USER, 
+    user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
-  requireTLS: true,              
+  requireTLS: true,
+  connectionTimeout: 10000,  // fail fast if SMTP is unreachable (10s)
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
 });
 
 // Template mapping
