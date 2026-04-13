@@ -109,7 +109,10 @@ class AuthService {
         },
       });
 
-      const emailResult = await sendEmail(newUser.email, "otp", { otp: otpCode });
+      const emailResult = await sendEmail(newUser.email, "otp", {
+        otp: otpCode,
+        name: newUser.fullName,
+      });
       if (!emailResult.success) {
         console.error("OTP EMAIL FAILED for", newUser.email, ":", emailResult.error);
       } else {
@@ -188,6 +191,7 @@ class AuthService {
     if (user.email) {
       // fire-and-forget — don't block the response on a confirmation email
       sendEmail(user.email, "success", {
+        name: user.fullName,
         message: `${user.fullName}, your account has been verified.`,
       }).catch((err) => console.error("Success email failed:", err.message));
     }
@@ -224,7 +228,10 @@ class AuthService {
     });
 
     if (identifier.includes("@")) {
-      await sendEmail(user.email, "reset", { otp: otpCode });
+      await sendEmail(user.email, "reset", {
+        otp: otpCode,
+        name: user.fullName,
+      });
     } else {
       await SendSMS(
         user.phoneNumber,
@@ -382,7 +389,7 @@ class AuthService {
         },
       });
 
-      await sendEmail(user.email, "otp", { otp: otpCode });
+      await sendEmail(user.email, "otp", { otp: otpCode, name: user.fullName });
 
       return { message: "OTP resent to your email address" };
     } else {
