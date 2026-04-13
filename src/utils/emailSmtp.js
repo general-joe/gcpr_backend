@@ -2,7 +2,7 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import nodemailer from "nodemailer";
+import sgMail from "@sendgrid/mail";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -11,20 +11,10 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// HostAfrica HMailPlus SMTP transporter (port 587, STARTTLS)
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-  requireTLS: true,
-  connectionTimeout: 10000,  // fail fast if SMTP is unreachable (10s)
-  greetingTimeout: 10000,
-  socketTimeout: 15000,
-});
+const sendgridApiKey = process.env.SENDGRID_API_KEY;
+if (sendgridApiKey) {
+  sgMail.setApiKey(sendgridApiKey);
+}
 
 // Template mapping
 const templateMap = {
@@ -42,7 +32,7 @@ const subjectMap = {
 /**
  * Send email using a mapped template
  */
-export async function sendEmail(to, templateName, variables) {
+export async function sendEmail(to, templateName, variables = {}) {
   const fileName = templateMap[templateName];
   if (!fileName) {
     throw new Error(`Template "${templateName}" not found`);
@@ -53,19 +43,41 @@ export async function sendEmail(to, templateName, variables) {
 
   let html = fs.readFileSync(templatePath, "utf-8");
 
+  const mergedVariables = { ...variables };
+  if (!mergedVariables.name) {
+    mergedVariables.name = mergedVariables.fullName || "there";
+  }
+
   // Replace {{variables}}
-  for (const key in variables) {
-    html = html.replace(new RegExp(`{{${key}}}`, "g"), variables[key]);
+  for (const key in mergedVariables) {
+    html = html.replace(new RegExp(`{{${key}}}`, "g"), mergedVariables[key]);
   }
 
   try {
-    const info = await transporter.sendMail({
-      from: `"${process.env.SMTP_FROM_NAME || "NeuroCare"}" <${process.env.SMTP_USER}>`,
+    if (!sendgridApiKey) {
+      throw new Error("SENDGRID_API_KEY is not configured");
+    }
+
+    const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+    if (!fromEmail) {
+      throw new Error("SENDGRID_FROM_EMAIL is not configured");
+    }
+
+    const fromName = process.env.SENDGRID_FROM_NAME || "NeuroCare";
+
+    const [response] = await sgMail.send({
+      from: { email: fromEmail, name: fromName },
       to,
       subject: subjectMap[templateName],
       html,
     });
-    return { success: true, messageId: info.messageId };
+
+    const messageId =
+      response?.headers?.["x-message-id"] ||
+      response?.headers?.["X-Message-Id"] ||
+      null;
+
+    return { success: true, messageId };
   } catch (error) {
     console.error("EMAIL SEND FAILED:", error.message);
     return { success: false, error: error.message };
