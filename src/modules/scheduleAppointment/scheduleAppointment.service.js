@@ -241,7 +241,7 @@ class ScheduleAppointmentService {
       await NotificationService.createNotification({
         userId: appointment.patientId,
         type: "IN_APP",
-        category: "APPOINTMENT",
+        category: "APPOINTMENT_REMINDER",
         title: "Appointment Scheduled",
         content: `Your appointment is scheduled for ${appointment.appointmentDate}.`,
         relatedId: appointment.id,
@@ -251,7 +251,7 @@ class ScheduleAppointmentService {
       await NotificationService.createNotification({
         userId: appointment.provider.user.id,
         type: "IN_APP",
-        category: "APPOINTMENT",
+        category: "APPOINTMENT_REMINDER",
         title: "New Appointment",
         content: `You have a new appointment scheduled for ${appointment.appointmentDate}.`,
         relatedId: appointment.id,
@@ -331,7 +331,7 @@ class ScheduleAppointmentService {
     await NotificationService.createNotification({
       userId: updated.patientId,
       type: "IN_APP",
-      category: "APPOINTMENT",
+      category: "APPOINTMENT_REMINDER",
       title: "Appointment Approved",
       content: "Your appointment has been approved.",
       relatedId: updated.id,
@@ -392,7 +392,7 @@ class ScheduleAppointmentService {
     await NotificationService.createNotification({
       userId: updated.patientId,
       type: "IN_APP",
-      category: "APPOINTMENT",
+      category: "APPOINTMENT_REMINDER",
       title: "Appointment Rescheduled",
       content: `Your appointment has been rescheduled to ${updated.appointmentDate}.`,
       relatedId: updated.id,

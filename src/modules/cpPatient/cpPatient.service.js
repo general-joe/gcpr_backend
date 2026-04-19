@@ -96,7 +96,7 @@ class CpPatientService {
       await NotificationService.createNotification({
         userId,
         type: "IN_APP",
-        category: "PATIENT_CREATED",
+        category: "SYSTEM",
         title: "Patient Profile Created",
         content: `Patient profile for ${data.fullName} has been created successfully.`,
         relatedId: patient.id,
@@ -271,7 +271,7 @@ class CpPatientService {
         await NotificationService.createNotification({
           userId: providerUserId,
           type: "IN_APP",
-          category: "REHAB_TASK_PROGRESS",
+          category: "TASK_REMINDER",
           title: isCompleted ? "Rehab Task Completed" : "Rehab Task Progress Updated",
           content: isCompleted
             ? "A rehab task for your patient has been marked as completed by the caregiver."
