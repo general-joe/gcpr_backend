@@ -88,7 +88,7 @@ class AuthService {
     await NotificationService.createNotification({
       userId: newUser.id,
       type: "IN_APP",
-      category: "ACCOUNT",
+      category: "SYSTEM",
       title: "Welcome!",
       content: "Your account has been created successfully.",
       relatedId: newUser.id,
@@ -188,7 +188,7 @@ class AuthService {
     await NotificationService.createNotification({
       userId: user.id,
       type: "IN_APP",
-      category: "ACCOUNT",
+      category: "SYSTEM",
       title: "Account Verified",
       content: "Your account has been verified.",
       relatedId: user.id,
@@ -299,7 +299,7 @@ class AuthService {
     await NotificationService.createNotification({
       userId: user.id,
       type: "IN_APP",
-      category: "ACCOUNT",
+      category: "SYSTEM",
       title: "Password Reset",
       content: "Your password has been reset successfully.",
       relatedId: user.id,

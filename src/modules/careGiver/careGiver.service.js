@@ -62,7 +62,7 @@ import _ from "lodash";
         await NotificationService.createNotification({
           userId: caregiverData.userId,
           type: "IN_APP",
-          category: "CAREGIVER_PROFILE",
+          category: "SYSTEM",
           title: "Profile Completed",
           content: "Your caregiver profile has been completed successfully.",
           relatedId: caregiver.id,
@@ -248,7 +248,7 @@ import _ from "lodash";
         await NotificationService.createNotification({
           userId: caregiver.userId,
           type: "IN_APP",
-          category: "CAREGIVER_PROFILE",
+          category: "SYSTEM",
           title: "Profile Deleted",
           content: "Your caregiver profile has been deleted.",
           relatedId: careGiverId,
@@ -285,7 +285,7 @@ import _ from "lodash";
         await NotificationService.createNotification({
           userId: caregiver.userId,
           type: "IN_APP",
-          category: "CAREGIVER_PROFILE",
+          category: "SYSTEM",
           title: "Profile Updated",
           content: "Your caregiver profile has been updated.",
           relatedId: caregiver.id,
