@@ -104,7 +104,7 @@ export class ServiceProviderService {
       await NotificationService.createNotification({
         userId: serviceProviderData.userId,
         type: "IN_APP",
-        category: "SERVICE_PROVIDER_PROFILE",
+        category: "SYSTEM",
         title: "Profile Completed",
         content: "Your service provider profile has been completed successfully.",
         relatedId: completeProfile.id,
@@ -296,7 +296,7 @@ export class ServiceProviderService {
         await NotificationService.createNotification({
           userId: updatedServiceProvider.userId,
           type: "IN_APP",
-          category: "SERVICE_PROVIDER_PROFILE",
+          category: "SYSTEM",
           title: "Profile Updated",
           content: "Your service provider profile has been updated.",
           relatedId: updatedServiceProvider.id,
@@ -350,7 +350,7 @@ export class ServiceProviderService {
         await NotificationService.createNotification({
           userId: deletedServiceProvider.userId,
           type: "IN_APP",
-          category: "SERVICE_PROVIDER_PROFILE",
+          category: "SYSTEM",
           title: "Profile Deleted",
           content: "Your service provider profile has been deleted.",
           relatedId: id,

@@ -149,7 +149,7 @@ class UserService {
       await NotificationService.createNotification({
         userId,
         type: "IN_APP",
-        category: "ACCOUNT",
+        category: "SYSTEM",
         title: "Account Deactivated",
         content: "Your account has been deactivated. If this was not you, please contact support immediately.",
         relatedId: userId,
@@ -180,7 +180,7 @@ class UserService {
       await NotificationService.createNotification({
         userId,
         type: "IN_APP",
-        category: "ACCOUNT",
+        category: "SYSTEM",
         title: "Account Deleted",
         content: "Your account has been deleted. If this was not you, please contact support immediately.",
         relatedId: userId,

@@ -385,7 +385,7 @@ class AssessmentService {
         await NotificationService.createNotification({
           userId: patient.userId,
           type: "IN_APP",
-          category: "ASSESSMENT_SUBMITTED",
+          category: "SYSTEM",
           title: "Assessment Submitted",
           content: `A new assessment has been submitted for you by your provider.`,
           relatedId: result.assessment.id,
@@ -507,7 +507,7 @@ class AssessmentService {
           await NotificationService.createNotification({
             userId: provider.userId,
             type: "IN_APP",
-            category: "REFERRAL_RECEIVED",
+            category: "SYSTEM",
             title: "New Referral",
             content: `You have received a new referral for patient assessment.`,
             relatedId: referral.id,
@@ -774,7 +774,7 @@ class AssessmentService {
         await NotificationService.createNotification({
           userId: patient.userId,
           type: "IN_APP",
-          category: "REHAB_TASK_ASSIGNED",
+          category: "TASK_REMINDER",
           title: "New Rehab Task Assigned",
           content: `A new rehab task has been assigned to you by your provider.`,
           relatedId: task.id,
