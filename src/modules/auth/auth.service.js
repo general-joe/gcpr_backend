@@ -1,3 +1,4 @@
+import NotificationService from "../notification/notification.service.js";
 import prisma from "../../config/database.js";
 import { hash, compare } from "../../utils/password.js";
 import UtilFunctions from "../../utils/UtilFunctions.js";
@@ -72,6 +73,7 @@ class AuthService {
     userData.email = normalizedEmail;
     userData.phoneNumber = normalizedPhone;
 
+
     const newUser = await prisma.user.create({
       data: {
         ...userData,
@@ -80,6 +82,17 @@ class AuthService {
           ? new Date(userData.dateOfBirth)
           : undefined,
       },
+    });
+
+    // Notify user of registration
+    await NotificationService.createNotification({
+      userId: newUser.id,
+      type: "IN_APP",
+      category: "ACCOUNT",
+      title: "Welcome!",
+      content: "Your account has been created successfully.",
+      relatedId: newUser.id,
+      relatedModel: "User"
     });
 
     if (otpMode === constants.OTP_MODES.SMS) {
@@ -165,9 +178,21 @@ class AuthService {
       throw new gcprError(HttpStatus.UNAUTHORIZED, "Invalid OTP configuration");
     }
 
+
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: { verified: true },
+    });
+
+    // Notify user of verification
+    await NotificationService.createNotification({
+      userId: user.id,
+      type: "IN_APP",
+      category: "ACCOUNT",
+      title: "Account Verified",
+      content: "Your account has been verified.",
+      relatedId: user.id,
+      relatedModel: "User"
     });
 
     await prisma.otp.delete({ where: { id: user.otp.id } });
@@ -269,6 +294,17 @@ class AuthService {
     });
 
     await prisma.otp.delete({ where: { id: user.otp.id } });
+
+    // Notify user of password reset
+    await NotificationService.createNotification({
+      userId: user.id,
+      type: "IN_APP",
+      category: "ACCOUNT",
+      title: "Password Reset",
+      content: "Your password has been reset successfully.",
+      relatedId: user.id,
+      relatedModel: "User"
+    });
 
     return { message: "Password reset successful" };
   }

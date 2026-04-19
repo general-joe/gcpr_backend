@@ -1,4 +1,5 @@
 import prisma from "../../config/database.js";
+import NotificationService from "../notification/notification.service.js";
 import {
   gmfm88Config,
   sltCpBaselineConfig,
@@ -374,6 +375,29 @@ class AssessmentService {
       };
     });
 
+    // Notify patient/caregiver on assessment submission
+    try {
+      const patient = await prisma.cpPatient.findUnique({
+        where: { id: data.patientId },
+        select: { userId: true }
+      });
+      if (patient && patient.userId) {
+        await NotificationService.createNotification({
+          userId: patient.userId,
+          type: "IN_APP",
+          category: "ASSESSMENT_SUBMITTED",
+          title: "Assessment Submitted",
+          content: `A new assessment has been submitted for you by your provider.`,
+          relatedId: result.assessment.id,
+          relatedModel: "ClinicalAssessment",
+          expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+        });
+      }
+    } catch (e) {
+      // Log but do not block
+      console.error("[Notification] Assessment submission notification failed:", e.message);
+    }
+
     return result;
   }
 
@@ -471,6 +495,30 @@ class AssessmentService {
 
       return createdReferral;
     });
+
+    // Notify referred provider (if direct)
+    try {
+      if (data.toProviderId) {
+        const provider = await prisma.serviceProvider.findUnique({
+          where: { id: data.toProviderId },
+          select: { userId: true }
+        });
+        if (provider && provider.userId) {
+          await NotificationService.createNotification({
+            userId: provider.userId,
+            type: "IN_APP",
+            category: "REFERRAL_RECEIVED",
+            title: "New Referral",
+            content: `You have received a new referral for patient assessment.`,
+            relatedId: referral.id,
+            relatedModel: "ClinicalReferral",
+            expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+          });
+        }
+      }
+    } catch (e) {
+      console.error("[Notification] Referral notification failed:", e.message);
+    }
 
     return referral;
   }
@@ -715,6 +763,28 @@ class AssessmentService {
         }
       }
     });
+
+    // Notify patient/caregiver on rehab task assignment
+    try {
+      const patient = await prisma.cpPatient.findUnique({
+        where: { id: referral.patientId },
+        select: { userId: true }
+      });
+      if (patient && patient.userId) {
+        await NotificationService.createNotification({
+          userId: patient.userId,
+          type: "IN_APP",
+          category: "REHAB_TASK_ASSIGNED",
+          title: "New Rehab Task Assigned",
+          content: `A new rehab task has been assigned to you by your provider.`,
+          relatedId: task.id,
+          relatedModel: "RehabTask",
+          expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+        });
+      }
+    } catch (e) {
+      console.error("[Notification] Rehab task notification failed:", e.message);
+    }
 
     return task;
   }
