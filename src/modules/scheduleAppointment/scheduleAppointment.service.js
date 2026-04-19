@@ -1,3 +1,4 @@
+import NotificationService from "../notification/notification.service.js";
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
 
@@ -236,6 +237,26 @@ class ScheduleAppointmentService {
         },
       });
 
+      // Notify patient
+      await NotificationService.createNotification({
+        userId: appointment.patientId,
+        type: "IN_APP",
+        category: "APPOINTMENT",
+        title: "Appointment Scheduled",
+        content: `Your appointment is scheduled for ${appointment.appointmentDate}.`,
+        relatedId: appointment.id,
+        relatedModel: "Appointment"
+      });
+      // Notify provider
+      await NotificationService.createNotification({
+        userId: appointment.provider.user.id,
+        type: "IN_APP",
+        category: "APPOINTMENT",
+        title: "New Appointment",
+        content: `You have a new appointment scheduled for ${appointment.appointmentDate}.`,
+        relatedId: appointment.id,
+        relatedModel: "Appointment"
+      });
       return appointment;
     });
 
@@ -300,12 +321,23 @@ class ScheduleAppointmentService {
       throw new gcprError(HttpStatus.FORBIDDEN, "Unauthorized appointment");
     }
 
-    return prisma.appointment.update({
+    const updated = await prisma.appointment.update({
       where: { id: appointmentId },
       data: {
         status: "APPROVED",
       },
     });
+    // Notify patient
+    await NotificationService.createNotification({
+      userId: updated.patientId,
+      type: "IN_APP",
+      category: "APPOINTMENT",
+      title: "Appointment Approved",
+      content: "Your appointment has been approved.",
+      relatedId: updated.id,
+      relatedModel: "Appointment"
+    });
+    return updated;
   }
   static async rescheduleAppointment(userId, payload) {
     const provider = await prisma.serviceProvider.findUnique({
@@ -349,13 +381,24 @@ class ScheduleAppointmentService {
       );
     }
 
-    return prisma.appointment.update({
+    const updated = await prisma.appointment.update({
       where: { id: payload.appointmentId },
       data: {
         appointmentDate: newDateTime,
         status: "RESCHEDULED",
       },
     });
+    // Notify patient
+    await NotificationService.createNotification({
+      userId: updated.patientId,
+      type: "IN_APP",
+      category: "APPOINTMENT",
+      title: "Appointment Rescheduled",
+      content: `Your appointment has been rescheduled to ${updated.appointmentDate}.`,
+      relatedId: updated.id,
+      relatedModel: "Appointment"
+    });
+    return updated;
   }
   static async providerAppointments(userId, query) {
     const provider = await prisma.serviceProvider.findUnique({

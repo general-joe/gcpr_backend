@@ -1,3 +1,4 @@
+import NotificationService from "../notification/notification.service.js";
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
 import UtilFunctions from "../../utils/UtilFunctions.js";
@@ -40,6 +41,7 @@ class CommunityAnnouncementService {
       );
     }
 
+
     const announcement = await prisma.communityAnnouncement.create({
       data: {
         communityId,
@@ -59,6 +61,27 @@ class CommunityAnnouncementService {
         },
       },
     });
+
+    // Notify all community members except the creator
+    const members = await prisma.communityMember.findMany({
+      where: {
+        communityId,
+        userId: { not: userId },
+        status: "ACTIVE"
+      },
+      select: { userId: true }
+    });
+    for (const member of members) {
+      await NotificationService.createNotification({
+        userId: member.userId,
+        type: "IN_APP",
+        category: "COMMUNITY_ANNOUNCEMENT",
+        title: "New Community Announcement",
+        content: title,
+        relatedId: announcement.id,
+        relatedModel: "CommunityAnnouncement"
+      });
+    }
 
     // Emit real-time event to community members
     const io = getIO();

@@ -1,8 +1,8 @@
 import prisma from "../../config/database.js";
-
 import UploadService from "../../utils/uploadService.js";
 import constants from "../../utils/constants.js";
 import { getIO } from "../../socket.io.js";
+import NotificationService from "../notification/notification.service.js";
 import _ from "lodash";
 
 const SAFE_USER_SELECT = {
@@ -97,6 +97,22 @@ export class ServiceProviderService {
         type: 'PROFILE_COMPLETED',
         serviceProviderId: completeProfile.id
       });
+    }
+
+    // Notify service provider user
+    try {
+      await NotificationService.createNotification({
+        userId: serviceProviderData.userId,
+        type: "IN_APP",
+        category: "SERVICE_PROVIDER_PROFILE",
+        title: "Profile Completed",
+        content: "Your service provider profile has been completed successfully.",
+        relatedId: completeProfile.id,
+        relatedModel: "ServiceProvider",
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      });
+    } catch (e) {
+      console.error("[Notification] Service provider profile completion notification failed:", e.message);
     }
 
     return completeProfile;
@@ -274,6 +290,24 @@ export class ServiceProviderService {
       });
     }
 
+    // Notify service provider user
+    if (updatedServiceProvider.userId) {
+      try {
+        await NotificationService.createNotification({
+          userId: updatedServiceProvider.userId,
+          type: "IN_APP",
+          category: "SERVICE_PROVIDER_PROFILE",
+          title: "Profile Updated",
+          content: "Your service provider profile has been updated.",
+          relatedId: updatedServiceProvider.id,
+          relatedModel: "ServiceProvider",
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        });
+      } catch (e) {
+        console.error("[Notification] Service provider profile update notification failed:", e.message);
+      }
+    }
+
     return updatedServiceProvider;
   }
 
@@ -308,6 +342,24 @@ export class ServiceProviderService {
         type: 'PROFILE_DELETED',
         serviceProviderId: id
       });
+    }
+
+    // Notify service provider user
+    if (deletedServiceProvider.userId) {
+      try {
+        await NotificationService.createNotification({
+          userId: deletedServiceProvider.userId,
+          type: "IN_APP",
+          category: "SERVICE_PROVIDER_PROFILE",
+          title: "Profile Deleted",
+          content: "Your service provider profile has been deleted.",
+          relatedId: id,
+          relatedModel: "ServiceProvider",
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        });
+      } catch (e) {
+        console.error("[Notification] Service provider profile deletion notification failed:", e.message);
+      }
     }
 
     return deletedServiceProvider;

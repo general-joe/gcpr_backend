@@ -1,5 +1,6 @@
 import prisma from "../../config/database.js";
 import youtubeApi from "../../utils/youtube-api.js";
+import NotificationService from "../notification/notification.service.js";
 
 /**
  * User Service - Handles user-related business logic
@@ -136,17 +137,34 @@ class UserService {
    * @returns {Promise<Object>} Updated user with deactivated status
    */
   static async deactivateAccount(userId) {
-    return await prisma.user.update({
+    const user = await prisma.user.update({
       where: { id: userId },
       data: {
         accountStatus: "DEACTIVATED"
       }
     });
-    
+
+    // Notify user on account deactivation
+    try {
+      await NotificationService.createNotification({
+        userId,
+        type: "IN_APP",
+        category: "ACCOUNT",
+        title: "Account Deactivated",
+        content: "Your account has been deactivated. If this was not you, please contact support immediately.",
+        relatedId: userId,
+        relatedModel: "User",
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      });
+    } catch (e) {
+      console.error("[Notification] Account deactivation notification failed:", e.message);
+    }
+
+    return user;
   }
   static async deleteUserAccount(userId) {
     // Soft delete: Mark the account as deleted without removing data
-    return await prisma.user.update({
+    const user = await prisma.user.update({
       where: { id: userId },
       data: {
         accountStatus: "DELETED",
@@ -156,6 +174,24 @@ class UserService {
         serviceProvider: { deleteMany: {} }, // Remove service provider data
       }
     });
+
+    // Notify user on account deletion
+    try {
+      await NotificationService.createNotification({
+        userId,
+        type: "IN_APP",
+        category: "ACCOUNT",
+        title: "Account Deleted",
+        content: "Your account has been deleted. If this was not you, please contact support immediately.",
+        relatedId: userId,
+        relatedModel: "User",
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      });
+    } catch (e) {
+      console.error("[Notification] Account deletion notification failed:", e.message);
+    }
+
+    return user;
   }
 }
 

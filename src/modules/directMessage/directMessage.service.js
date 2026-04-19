@@ -1,3 +1,4 @@
+import NotificationService from "../notification/notification.service.js";
 import prisma from "../../config/database.js";
 import { getIO } from "../../socket.io.js";
 
@@ -6,14 +7,25 @@ export default class DirectMessageService {
     const message = await prisma.directMessage.create({
       data: messageData,
     });
-    
+
     // Emit Socket.IO event for new message
     const io = getIO();
     if (io) {
       io.to(`user-${message.senderId}`).emit('new-direct-message', message);
       io.to(`user-${message.receiverId}`).emit('new-direct-message', message);
     }
-    
+
+    // Notify receiver
+    await NotificationService.createNotification({
+      userId: message.receiverId,
+      type: "IN_APP",
+      category: "DIRECT_MESSAGE",
+      title: "New Direct Message",
+      content: message.content ? (message.content.length > 50 ? message.content.substring(0, 50) + "..." : message.content) : "You have a new message",
+      relatedId: message.id,
+      relatedModel: "DirectMessage"
+    });
+
     return message;
   }
 
