@@ -1,5 +1,6 @@
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
+import NotificationService from "../notification/notification.service.js";
 
 class CpPatientService {
   static async requireCaregiver(userId) {
@@ -89,6 +90,22 @@ class CpPatientService {
         typeOfSchool: data.typeOfSchool,
       },
     });
+
+    // Notify caregiver user on patient creation
+    try {
+      await NotificationService.createNotification({
+        userId,
+        type: "IN_APP",
+        category: "PATIENT_CREATED",
+        title: "Patient Profile Created",
+        content: `Patient profile for ${data.fullName} has been created successfully.`,
+        relatedId: patient.id,
+        relatedModel: "cpPatient",
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      });
+    } catch (e) {
+      console.error("[Notification] Patient creation notification failed:", e.message);
+    }
 
     return patient;
   }
@@ -247,8 +264,31 @@ class CpPatientService {
       },
     });
 
+    // Notify provider when caregiver marks task day as done
+    try {
+      const providerUserId = updatedTask.provider?.user?.id;
+      if (providerUserId) {
+        await NotificationService.createNotification({
+          userId: providerUserId,
+          type: "IN_APP",
+          category: "REHAB_TASK_PROGRESS",
+          title: isCompleted ? "Rehab Task Completed" : "Rehab Task Progress Updated",
+          content: isCompleted
+            ? "A rehab task for your patient has been marked as completed by the caregiver."
+            : "A rehab task for your patient has new progress marked by the caregiver.",
+          relatedId: updatedTask.id,
+          relatedModel: "RehabTask",
+          expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+        });
+      }
+    } catch (e) {
+      console.error("[Notification] Rehab task progress notification failed:", e.message);
+    }
+
     return updatedTask;
   }
 }
+
+
 
 export default CpPatientService;

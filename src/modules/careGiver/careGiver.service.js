@@ -2,6 +2,7 @@ import prisma from "../../config/database.js";
 import UploadService from "../../utils/uploadService.js";
 import constants from "../../utils/constants.js";
 import { getIO } from "../../socket.io.js";
+import NotificationService from "../notification/notification.service.js";
 import _ from "lodash";
 
  class CareGiverService {
@@ -56,6 +57,21 @@ import _ from "lodash";
         where: { id: caregiverData.userId },
         data: { profileCompleted: true },
       });
+      // Notify caregiver user
+      try {
+        await NotificationService.createNotification({
+          userId: caregiverData.userId,
+          type: "IN_APP",
+          category: "CAREGIVER_PROFILE",
+          title: "Profile Completed",
+          content: "Your caregiver profile has been completed successfully.",
+          relatedId: caregiver.id,
+          relatedModel: "CareGiver",
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        });
+      } catch (e) {
+        console.error("[Notification] Caregiver profile completion notification failed:", e.message);
+      }
     }
 
     // Emit real-time update via Socket.IO
@@ -218,11 +234,30 @@ import _ from "lodash";
 
     // Emit real-time update via Socket.IO
     const io = getIO();
+
     if (io && caregiver.userId) {
       io.to(`user-${caregiver.userId}`).emit('caregiver-profile-deleted', {
         type: 'PROFILE_DELETED',
         caregiverId: careGiverId
       });
+    }
+
+    // Notify caregiver user
+    if (caregiver.userId) {
+      try {
+        await NotificationService.createNotification({
+          userId: caregiver.userId,
+          type: "IN_APP",
+          category: "CAREGIVER_PROFILE",
+          title: "Profile Deleted",
+          content: "Your caregiver profile has been deleted.",
+          relatedId: careGiverId,
+          relatedModel: "CareGiver",
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        });
+      } catch (e) {
+        console.error("[Notification] Caregiver profile deletion notification failed:", e.message);
+      }
     }
 
     return caregiver;
@@ -236,11 +271,30 @@ import _ from "lodash";
 
     // Emit real-time update via Socket.IO
     const io = getIO();
+
     if (io && caregiver.userId) {
       io.to(`user-${caregiver.userId}`).emit('caregiver-profile-updated', {
         type: 'PROFILE_UPDATED',
         caregiverId: caregiver.id
       });
+    }
+
+    // Notify caregiver user
+    if (caregiver.userId) {
+      try {
+        await NotificationService.createNotification({
+          userId: caregiver.userId,
+          type: "IN_APP",
+          category: "CAREGIVER_PROFILE",
+          title: "Profile Updated",
+          content: "Your caregiver profile has been updated.",
+          relatedId: caregiver.id,
+          relatedModel: "CareGiver",
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        });
+      } catch (e) {
+        console.error("[Notification] Caregiver profile update notification failed:", e.message);
+      }
     }
 
     return caregiver; 
