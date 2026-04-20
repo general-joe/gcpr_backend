@@ -164,15 +164,8 @@ class UserService {
   }
   static async deleteUserAccount(userId) {
     // Soft delete: Mark the account as deleted without removing data
-    const user = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        accountStatus: "DELETED",
-        email: null, // Anonymize email
-        fullName: null,  // Anonymize name
-        caregiver: { deleteMany: {} }, // Remove caregiver data
-        serviceProvider: { deleteMany: {} }, // Remove service provider data
-      }
+    const user = await prisma.user.delete({
+      where: { id: userId }
     });
 
     // Notify user on account deletion
