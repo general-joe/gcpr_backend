@@ -169,7 +169,7 @@ class UserService {
       data: {
         accountStatus: "DELETED",
         email: null, // Anonymize email
-        name: null,  // Anonymize name
+        fullName: null,  // Anonymize name
         caregiver: { deleteMany: {} }, // Remove caregiver data
         serviceProvider: { deleteMany: {} }, // Remove service provider data
       }
