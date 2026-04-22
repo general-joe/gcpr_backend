@@ -18,16 +18,7 @@ const authRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-const strictRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  message: {
-    status: "error",
-    message: "Too many attempts, please try again later.",
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+
 
 authRouter.post(
   "/register",
@@ -36,19 +27,18 @@ authRouter.post(
   validate(signUpSchema),
   authController.registerUser,
 );
-authRouter.post("/verify-otp", strictRateLimiter, authController.verifyOtp);
-authRouter.post("/resend-otp", strictRateLimiter, authController.resendOtp);
+authRouter.post("/verify-otp",  authController.verifyOtp);
+authRouter.post("/resend-otp", authController.resendOtp);
 authRouter.post("/login", authRateLimiter, authController.login);
 
 authRouter.post(
   "/forgot-password",
-  strictRateLimiter,
   authController.forgotPassword,
 );
 
 authRouter.post(
   "/reset-password",
-  strictRateLimiter,
+  authController.resetPassword,
   authController.resetPassword,
 );
 
