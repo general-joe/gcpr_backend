@@ -140,127 +140,192 @@ class ScheduleAppointmentService {
   }
 
   static async createAppointment(userId, payload) {
-    const caregiver = await ScheduleAppointmentService.requireCaregiver(userId);
-    await ScheduleAppointmentService.ensurePatientBelongsToCaregiver(
-      caregiver.id,
-      payload.patientId,
-    );
+    const operationId = `OP-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    try {
+      WRITE.debug("Creating appointment", {
+        operationId,
+        userId,
+        patientId: payload.patientId,
+        providerId: payload.providerId,
+        appointmentDate: payload.appointmentDate,
+      });
 
-    const appointmentDate = new Date(payload.appointmentDate);
-    if (isNaN(appointmentDate.getTime())) {
-      throw new gcprError(HttpStatus.BAD_REQUEST, "Invalid appointment date");
-    }
-    const now = new Date();
+      const caregiver = await ScheduleAppointmentService.requireCaregiver(userId);
+      WRITE.debug("Caregiver verified", { operationId, caregiverId: caregiver.id });
 
-    if (appointmentDate < now) {
-      throw new gcprError(
-        HttpStatus.BAD_REQUEST,
-        "Cannot book appointment in the past",
+      const patient = await ScheduleAppointmentService.ensurePatientBelongsToCaregiver(
+        caregiver.id,
+        payload.patientId,
       );
-    }
+      WRITE.debug("Patient validated", { operationId, patientId: patient.id, patientName: patient.fullName });
 
-    await ScheduleAppointmentService.ensureProviderExists(payload.providerId);
-
-    const createdAppointment = await prisma.$transaction(async (tx) => {
-      const { dayOfWeek, time } =
-        ScheduleAppointmentService.getDateTimeParts(appointmentDate);
-
-      const providerAvailability = await tx.providerAvailability.findFirst({
-        where: {
-          providerId: payload.providerId,
-          dayOfWeek,
-          startTime: { lte: time },
-          endTime: { gte: time },
-        },
-        select: { id: true },
-      });
-
-      if (!providerAvailability) {
+      const appointmentDate = new Date(payload.appointmentDate);
+      if (isNaN(appointmentDate.getTime())) {
+        WRITE.warn("Invalid appointment date", { operationId, providedDate: payload.appointmentDate });
+        throw new gcprError(HttpStatus.BAD_REQUEST, "Invalid appointment date");
+      }
+      
+      const now = new Date();
+      if (appointmentDate < now) {
+        WRITE.warn("Appointment date in past", { operationId, appointmentDate, currentDate: now });
         throw new gcprError(
-          HttpStatus.UNPROCESSABLE_ENTITY,
-          "Provider is not available at the selected date and time",
+          HttpStatus.BAD_REQUEST,
+          "Cannot book appointment in the past",
         );
       }
 
-      const startOfMinute = new Date(appointmentDate);
-      const endOfMinute = new Date(appointmentDate);
-      endOfMinute.setSeconds(59);
-      endOfMinute.setMilliseconds(999);
+      const provider = await ScheduleAppointmentService.ensureProviderExists(payload.providerId);
+      WRITE.debug("Provider verified", { operationId, providerId: provider.id, providerName: provider.user.fullName });
 
-      const existingAppointment = await tx.appointment.findFirst({
-        where: {
-          providerId: payload.providerId,
-          appointmentDate: {
-            gte: startOfMinute,
-            lte: endOfMinute,
+      const createdAppointment = await prisma.$transaction(async (tx) => {
+        const { dayOfWeek, time } =
+          ScheduleAppointmentService.getDateTimeParts(appointmentDate);
+
+        const providerAvailability = await tx.providerAvailability.findFirst({
+          where: {
+            providerId: payload.providerId,
+            dayOfWeek,
+            startTime: { lte: time },
+            endTime: { gte: time },
           },
-        },
-        select: { id: true },
-      });
+          select: { id: true },
+        });
 
-      if (existingAppointment) {
-        throw new gcprError(
-          HttpStatus.CONFLICT,
-          "Provider already has an appointment at this time slot",
-        );
-      }
+        if (!providerAvailability) {
+          WRITE.warn("Provider not available at requested time", {
+            operationId,
+            providerId: payload.providerId,
+            dayOfWeek,
+            time,
+          });
+          throw new gcprError(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "Provider is not available at the selected date and time",
+          );
+        }
 
-      const appointment = await tx.appointment.create({
-        data: {
-          patientId: payload.patientId,
-          providerId: payload.providerId,
-          appointmentDate,
-          reasonText: payload.reasonText ?? payload.reason ?? null,
-          reasonAudio: payload.reasonAudio ?? null,
-          status: "PENDING",
-        },
-        include: {
-          patient: {
-            select: { id: true, fullName: true },
+        const startOfMinute = new Date(appointmentDate);
+        const endOfMinute = new Date(appointmentDate);
+        endOfMinute.setSeconds(59);
+        endOfMinute.setMilliseconds(999);
+
+        const existingAppointment = await tx.appointment.findFirst({
+          where: {
+            providerId: payload.providerId,
+            appointmentDate: {
+              gte: startOfMinute,
+              lte: endOfMinute,
+            },
           },
-          provider: {
-            select: {
-              id: true,
-              profession: true,
-              facilityName: true,
-              facilityAddress: true,
-              user: {
-                select: {
-                  id: true,
-                  fullName: true,
-                  phoneNumber: true,
-                  email: true,
+          select: { id: true },
+        });
+
+        if (existingAppointment) {
+          WRITE.warn("Time slot already booked", {
+            operationId,
+            providerId: payload.providerId,
+            appointmentDate,
+            existingAppointmentId: existingAppointment.id,
+          });
+          throw new gcprError(
+            HttpStatus.CONFLICT,
+            "Provider already has an appointment at this time slot",
+          );
+        }
+
+        const appointment = await tx.appointment.create({
+          data: {
+            patientId: payload.patientId,
+            providerId: payload.providerId,
+            appointmentDate,
+            reasonText: payload.reasonText ?? payload.reason ?? null,
+            reasonAudio: payload.reasonAudio ?? null,
+            status: "PENDING",
+          },
+          include: {
+            patient: {
+              select: { id: true, fullName: true },
+            },
+            provider: {
+              select: {
+                id: true,
+                profession: true,
+                facilityName: true,
+                facilityAddress: true,
+                user: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    phoneNumber: true,
+                    email: true,
+                  },
                 },
               },
             },
           },
-        },
+        });
+
+        WRITE.info("Appointment created in database", {
+          operationId,
+          appointmentId: appointment.id,
+          patientId: appointment.patientId,
+          providerId: appointment.providerId,
+          appointmentDate: appointment.appointmentDate,
+        });
+
+        try {
+          // Notify patient
+          await NotificationService.createNotification({
+            userId: appointment.patientId,
+            type: "IN_APP",
+            category: "APPOINTMENT_REMINDER",
+            title: "Appointment Scheduled",
+            content: `Your appointment is scheduled for ${appointment.appointmentDate}.`,
+            relatedId: appointment.id,
+            relatedModel: "Appointment"
+          });
+          WRITE.debug("Patient notification sent", { operationId, appointmentId: appointment.id });
+
+          // Notify provider
+          await NotificationService.createNotification({
+            userId: appointment.provider.user.id,
+            type: "IN_APP",
+            category: "APPOINTMENT_REMINDER",
+            title: "New Appointment",
+            content: `You have a new appointment scheduled for ${appointment.appointmentDate}.`,
+            relatedId: appointment.id,
+            relatedModel: "Appointment"
+          });
+          WRITE.debug("Provider notification sent", { operationId, appointmentId: appointment.id });
+        } catch (notificationError) {
+          WRITE.warn("Failed to send appointment notifications", {
+            operationId,
+            appointmentId: appointment.id,
+            error: notificationError.message,
+          });
+          // Don't throw - notifications should not block appointment creation
+        }
+
+        return appointment;
       });
 
-      // Notify patient
-      await NotificationService.createNotification({
-        userId: appointment.patientId,
-        type: "IN_APP",
-        category: "APPOINTMENT_REMINDER",
-        title: "Appointment Scheduled",
-        content: `Your appointment is scheduled for ${appointment.appointmentDate}.`,
-        relatedId: appointment.id,
-        relatedModel: "Appointment"
+      WRITE.info("Appointment creation completed successfully", {
+        operationId,
+        appointmentId: createdAppointment.id,
+        caregiverId: caregiver.id,
       });
-      // Notify provider
-      await NotificationService.createNotification({
-        userId: appointment.provider.user.id,
-        type: "IN_APP",
-        category: "APPOINTMENT_REMINDER",
-        title: "New Appointment",
-        content: `You have a new appointment scheduled for ${appointment.appointmentDate}.`,
-        relatedId: appointment.id,
-        relatedModel: "Appointment"
-      });
-      return appointment;
-    });
 
-    return createdAppointment;
+      return createdAppointment;
+    } catch (error) {
+      WRITE.error("Appointment creation failed", {
+        operationId,
+        userId,
+        error: error.message,
+        errorCode: error.status,
+      });
+      throw error;
+    }
   }
 
   static async getProviderAvailability(providerId, date) {

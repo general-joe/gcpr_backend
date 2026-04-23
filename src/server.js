@@ -83,26 +83,62 @@ app.get('/', (req, res) => {
 })
 
 app.use((err, req, res, next) => {
+  const errorTimestamp = new Date().toISOString();
+  const errorId = `ERR-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  
+  // Log error context
+  const errorContext = {
+    errorId,
+    method: req.method,
+    path: req.path,
+    query: req.query,
+    userId: res.locals?.user?.id,
+    ip: req.ip,
+    userAgent: req.get('user-agent'),
+    timestamp: errorTimestamp,
+    errorMessage: err.message,
+    errorStack: err.stack,
+    errorName: err.name,
+  };
+
   // Known HTTP errors (your custom errors)
   if (err instanceof gcprError) {
+    WRITE.warn(`Handled Error: ${err.message}`, {
+      ...errorContext,
+      statusCode: err.status || 400,
+    });
     return res.status(err.status || 400).json({
       status: err.status || 400,
       message: err.message,
+      errorId,
     });
   }
 
   // Prisma errors
   if (err?.name?.includes('Prisma')) {
+    WRITE.error(`Database Error: ${err.message}`, {
+      ...errorContext,
+      prismaCode: err.code,
+      statusCode: 500,
+    });
     return res.status(500).json({
       status: 500,
-      message: 'Database error',
+      message: 'Database operation failed',
+      errorId,
     });
   }
+
+  // Unexpected errors
+  WRITE.error(`Unhandled Error: ${err.message || 'Unknown error'}`, {
+    ...errorContext,
+    statusCode: 500,
+  });
 
   // Fallback (unknown errors)
   return res.status(500).json({
     status: 500,
-    message: err.message || 'Internal server error',
+    message: 'Internal server error',
+    errorId,
   });
 });
 

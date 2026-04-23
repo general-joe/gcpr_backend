@@ -29,8 +29,14 @@ export function Auth(rq, rs, next) {
       is_guest,
     };
 
+    WRITE.debug("User authenticated", { userId: decoded.id, role });
     return next();
   } catch (err) {
+    WRITE.warn("Invalid authorization token", {
+      error: err.message,
+      ip: rq.ip,
+      timestamp: new Date().toISOString(),
+    });
     return UtilFunctions.outputError(
       rs,
       "The authorization token is invalid",
@@ -52,6 +58,12 @@ export function authorize(allowedRoles = []) {
     const client = rq.headers["x-client"] || "web";
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      WRITE.warn("Missing or invalid authorization header", {
+        method: rq.method,
+        path: rq.path,
+        ip: rq.ip,
+        timestamp: new Date().toISOString(),
+      });
       return UtilFunctions.outputError(
         rs,
         "Authorization token is required",
@@ -67,9 +79,22 @@ export function authorize(allowedRoles = []) {
       const decoded = jwt.verify(token, process.env.JWT);
 
       if (!decoded?.id || !decoded?.role) {
+        WRITE.warn("Invalid token payload", {
+          ip: rq.ip,
+          path: rq.path,
+          timestamp: new Date().toISOString(),
+        });
         throw new Error("Invalid token payload");
       }
       if (!allowedRoles.includes(decoded.role)) {
+        WRITE.warn("Insufficient permissions", {
+          userId: decoded.id,
+          userRole: decoded.role,
+          requiredRoles: allowedRoles,
+          method: rq.method,
+          path: rq.path,
+          timestamp: new Date().toISOString(),
+        });
         return UtilFunctions.outputError(
           rs,
           "You do not have permission to access this resource",
