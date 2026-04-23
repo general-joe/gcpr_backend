@@ -39,7 +39,6 @@ authRouter.post(
 authRouter.post(
   "/reset-password",
   authController.resetPassword,
-  authController.resetPassword,
 );
 
 authRouter.post("/refresh-token", authRateLimiter, authController.refreshToken);

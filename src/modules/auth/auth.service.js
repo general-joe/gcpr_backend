@@ -73,7 +73,6 @@ class AuthService {
     userData.email = normalizedEmail;
     userData.phoneNumber = normalizedPhone;
 
-
     const newUser = await prisma.user.create({
       data: {
         ...userData,
@@ -92,12 +91,24 @@ class AuthService {
       title: "Welcome!",
       content: "Your account has been created successfully.",
       relatedId: newUser.id,
-      relatedModel: "User"
+      relatedModel: "User",
     });
 
     if (otpMode === constants.OTP_MODES.SMS) {
+      // normalize Ghana numbers before SendOTP / SendSMS
+
       const otpResponse = await SendOTP(newUser.phoneNumber);
-      const otpData = extractOtpPayload(otpResponse);
+   
+    WRITE.info("Hubtel raw OTP response", { otpResponse });
+
+    const otpData = extractOtpPayload(otpResponse);
+
+    if (!otpData?.requestId || !otpData?.prefix) {
+      throw new Error(
+        `Hubtel OTP response missing requestId or prefix: ${JSON.stringify(otpResponse)}`
+      );
+    }
+    
 
       await prisma.otp.create({
         data: {
@@ -127,9 +138,19 @@ class AuthService {
         name: newUser.fullName,
       });
       if (!emailResult.success) {
-        console.error("OTP EMAIL FAILED for", newUser.email, ":", emailResult.error);
+        console.error(
+          "OTP EMAIL FAILED for",
+          newUser.email,
+          ":",
+          emailResult.error,
+        );
       } else {
-        console.log("OTP EMAIL SENT to", newUser.email, "messageId:", emailResult.messageId);
+        console.log(
+          "OTP EMAIL SENT to",
+          newUser.email,
+          "messageId:",
+          emailResult.messageId,
+        );
       }
     }
 
@@ -137,98 +158,297 @@ class AuthService {
   }
 
   static async verifyOtp(identifier, otp) {
-    const user = await prisma.user.findFirst({
-      where: {
-        OR: [{ email: identifier }, { phoneNumber: identifier }],
-      },
-      include: { otp: true },
-    });
+    const operationId = `OP-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const maxAttempts = 5;
 
-    if (!user || !user.otp) {
-      throw new gcprError(HttpStatus.NOT_FOUND, "User or OTP not found");
-    }
+    try {
+      WRITE.debug("OTP verification started", {
+        operationId,
+        identifier,
+        timestamp: new Date().toISOString(),
+      });
 
-    if (user.otp.expiresAt < new Date()) {
-      throw new gcprError(HttpStatus.GONE, "OTP has expired");
-    }
+      // Initial check - user and OTP existence
+      const user = await prisma.user.findFirst({
+        where: {
+          OR: [{ email: identifier }, { phoneNumber: identifier }],
+        },
+        include: { otp: true },
+      });
 
-    // Handle SMS OTP verification (Hubtel)
-    if (user.otp.requestId && user.otp.prefix) {
-      const isValid = await VerifyOTP(user.otp.requestId, user.otp.prefix, otp);
-      if (!isValid) {
-        await prisma.otp.update({
-          where: { id: user.otp.id },
-          data: { attempts: { increment: 1 } },
+      if (!user || !user.otp) {
+        WRITE.warn("OTP verification failed: User or OTP not found", {
+          operationId,
+          identifier,
+          timestamp: new Date().toISOString(),
         });
-        throw new gcprError(HttpStatus.UNAUTHORIZED, "Invalid OTP");
+        throw new gcprError(HttpStatus.NOT_FOUND, "User or OTP not found");
       }
-    }
 
-    // Handle EMAIL OTP verification (Database)
-    else if (user.otp.codeHash) {
-      const validOtp = await compare(otp, user.otp.codeHash);
-      if (!validOtp) {
-        await prisma.otp.update({
-          where: { id: user.otp.id },
-          data: { attempts: { increment: 1 } },
-        });
-        throw new gcprError(HttpStatus.UNAUTHORIZED, "Invalid OTP");
-      }
-    } else {
-      throw new gcprError(HttpStatus.UNAUTHORIZED, "Invalid OTP configuration");
-    }
-
-
-    const updatedUser = await prisma.user.update({
-      where: { id: user.id },
-      data: { verified: true },
-    });
-
-    // Notify user of verification
-    await NotificationService.createNotification({
-      userId: user.id,
-      type: "IN_APP",
-      category: "SYSTEM",
-      title: "Account Verified",
-      content: "Your account has been verified.",
-      relatedId: user.id,
-      relatedModel: "User"
-    });
-
-    await prisma.otp.delete({ where: { id: user.otp.id } });
-
-    const accessToken = UtilFunctions.generateAccessToken({
-      id: user.id,
-      email: user.email,
-      role: user.role,
-    });
-
-    const refreshToken = UtilFunctions.generateRefreshToken();
-
-    await prisma.refreshToken.create({
-      data: {
-        tokenHash: await hash(refreshToken, 10),
+      WRITE.debug("User and OTP found", {
+        operationId,
         userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      },
-    });
+        otpId: user.otp.id,
+        attempts: user.otp.attempts,
+      });
 
-    if (user.email) {
-      // fire-and-forget — don't block the response on a confirmation email
-      sendEmail(user.email, "success", {
-        name: user.fullName,
-        message: `${user.fullName}, your account has been verified.`,
-      }).catch((err) => console.error("Success email failed:", err.message));
+      // Check max attempts
+      if (user.otp.attempts >= maxAttempts) {
+        WRITE.warn("OTP verification failed: Max attempts exceeded", {
+          operationId,
+          userId: user.id,
+          attempts: user.otp.attempts,
+          maxAttempts,
+          timestamp: new Date().toISOString(),
+        });
+        throw new gcprError(
+          HttpStatus.TOO_MANY_REQUESTS,
+          `Too many failed attempts. Please request a new OTP.`,
+        );
+      }
+
+      // Check OTP expiration
+      if (user.otp.expiresAt < new Date()) {
+        WRITE.warn("OTP verification failed: OTP expired", {
+          operationId,
+          userId: user.id,
+          expiresAt: user.otp.expiresAt,
+          timestamp: new Date().toISOString(),
+        });
+        throw new gcprError(HttpStatus.GONE, "OTP has expired");
+      }
+
+      // Verify OTP with external service or local hash (BEFORE transaction)
+      let isValid = false;
+
+      // Handle SMS OTP verification (Hubtel)
+      if (user.otp.requestId && user.otp.prefix) {
+        WRITE.debug("Verifying SMS OTP with Hubtel", {
+          operationId,
+          userId: user.id,
+          requestId: user.otp.requestId,
+        });
+
+        isValid = await VerifyOTP(user.otp.requestId, user.otp.prefix, otp);
+
+        if (!isValid) {
+          WRITE.debug("Hubtel OTP verification failed", {
+            operationId,
+            userId: user.id,
+            attempts: user.otp.attempts + 1,
+          });
+        }
+      }
+      // Handle EMAIL OTP verification (Database)
+      else if (user.otp.codeHash) {
+        WRITE.debug("Verifying email OTP locally", {
+          operationId,
+          userId: user.id,
+        });
+
+        isValid = await compare(otp, user.otp.codeHash);
+
+        if (!isValid) {
+          WRITE.debug("Email OTP verification failed", {
+            operationId,
+            userId: user.id,
+            attempts: user.otp.attempts + 1,
+          });
+        }
+      } else {
+        WRITE.error("OTP verification failed: Invalid OTP configuration", {
+          operationId,
+          userId: user.id,
+          timestamp: new Date().toISOString(),
+        });
+        throw new gcprError(
+          HttpStatus.UNAUTHORIZED,
+          "Invalid OTP configuration",
+        );
+      }
+
+      // If OTP is invalid, increment attempts and fail
+      if (!isValid) {
+        // Increment attempts (non-critical, don't block if it fails)
+        try {
+          await prisma.otp.update({
+            where: { id: user.otp.id },
+            data: { attempts: { increment: 1 } },
+          });
+        } catch (incrementError) {
+          WRITE.warn("Failed to increment OTP attempts", {
+            operationId,
+            userId: user.id,
+            error: incrementError.message,
+          });
+        }
+
+        WRITE.warn("OTP verification failed: Invalid OTP code", {
+          operationId,
+          userId: user.id,
+          timestamp: new Date().toISOString(),
+        });
+        throw new gcprError(HttpStatus.UNAUTHORIZED, "Invalid OTP");
+      }
+
+      // OTP is valid - now use database transaction for all state changes
+      // This prevents race conditions when multiple requests arrive simultaneously
+      WRITE.debug("OTP code is valid, starting database transaction", {
+        operationId,
+        userId: user.id,
+      });
+
+      const result = await prisma.$transaction(async (tx) => {
+        // Re-fetch the OTP record to ensure it still exists (another request might delete it)
+        const currentOtp = await tx.otp.findUnique({
+          where: { id: user.otp.id },
+        });
+
+        if (!currentOtp) {
+          WRITE.warn(
+            "OTP record was deleted by another request (race condition handled)",
+            {
+              operationId,
+              userId: user.id,
+            },
+          );
+          throw new gcprError(
+            HttpStatus.CONFLICT,
+            "OTP verification was already completed. Please log in.",
+          );
+        }
+
+        // Update user as verified
+        const updatedUser = await tx.user.update({
+          where: { id: user.id },
+          data: { verified: true },
+        });
+
+        WRITE.debug("User marked as verified in transaction", {
+          operationId,
+          userId: user.id,
+        });
+
+        // Delete OTP
+        await tx.otp.delete({
+          where: { id: user.otp.id },
+        });
+
+        WRITE.debug("OTP deleted from database", {
+          operationId,
+          userId: user.id,
+        });
+
+        // Create refresh token
+        const refreshToken = UtilFunctions.generateRefreshToken();
+        await tx.refreshToken.create({
+          data: {
+            tokenHash: await hash(refreshToken, 10),
+            userId: user.id,
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          },
+        });
+
+        WRITE.debug("Refresh token created", {
+          operationId,
+          userId: user.id,
+        });
+
+        return {
+          user: updatedUser,
+          refreshToken,
+        };
+      });
+
+      // All critical database operations succeeded
+      const accessToken = UtilFunctions.generateAccessToken({
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      });
+
+      WRITE.info("OTP verification completed successfully", {
+        operationId,
+        userId: user.id,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Notify user of verification (fire-and-forget, don't block response)
+      try {
+        await NotificationService.createNotification({
+          userId: user.id,
+          type: "IN_APP",
+          category: "SYSTEM",
+          title: "Account Verified",
+          content: "Your account has been verified.",
+          relatedId: user.id,
+          relatedModel: "User",
+        });
+        WRITE.debug("Verification notification created", {
+          operationId,
+          userId: user.id,
+        });
+      } catch (notificationError) {
+        WRITE.warn("Failed to create verification notification", {
+          operationId,
+          userId: user.id,
+          error: notificationError.message,
+        });
+      }
+
+      // Send confirmation emails/SMS (fire-and-forget)
+      if (user.email) {
+        sendEmail(user.email, "success", {
+          name: user.fullName,
+          message: `${user.fullName}, your account has been verified.`,
+        }).catch((err) => {
+          WRITE.warn("Verification email failed", {
+            operationId,
+            userId: user.id,
+            email: user.email,
+            error: err.message,
+          });
+        });
+      }
+
+      if (user.phoneNumber) {
+        SendSMS(
+          user.phoneNumber,
+          `Hello ${user.fullName}, your account has been verified successfully.`,
+        ).catch((err) => {
+          WRITE.warn("Verification SMS failed", {
+            operationId,
+            userId: user.id,
+            phoneNumber: user.phoneNumber,
+            error: err.message,
+          });
+        });
+      }
+
+      return {
+        accessToken,
+        refreshToken: result.refreshToken,
+        user: result.user,
+      };
+    } catch (error) {
+      if (error instanceof gcprError) {
+        WRITE.warn(`OTP verification error: ${error.message}`, {
+          operationId,
+          identifier,
+          statusCode: error.status,
+          timestamp: new Date().toISOString(),
+        });
+      } else {
+        WRITE.error("Unexpected error during OTP verification", {
+          operationId,
+          identifier,
+          error: error.message,
+          errorStack: error.stack,
+          timestamp: new Date().toISOString(),
+        });
+      }
+      throw error;
     }
-
-    if (user.phoneNumber) {
-      await SendSMS(
-        user.phoneNumber,
-        `Hello ${user.fullName}, your account has been verified successfully.`,
-      );
-    }
-
-    return { accessToken, refreshToken, user: updatedUser };
   }
 
   static async forgotPassword(identifier) {
@@ -303,7 +523,7 @@ class AuthService {
       title: "Password Reset",
       content: "Your password has been reset successfully.",
       relatedId: user.id,
-      relatedModel: "User"
+      relatedModel: "User",
     });
 
     return { message: "Password reset successful" };
@@ -498,14 +718,14 @@ class AuthService {
     // Clean up old tokens - keep only the 5 most recent tokens per user
     const allUserTokens = await prisma.refreshToken.findMany({
       where: { userId: user.id },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
     if (allUserTokens.length > 5) {
       const tokensToDelete = allUserTokens.slice(5);
       await prisma.refreshToken.deleteMany({
         where: {
-          id: { in: tokensToDelete.map(t => t.id) },
+          id: { in: tokensToDelete.map((t) => t.id) },
         },
       });
     }
