@@ -57,10 +57,6 @@ app.use(cors({
     credentials: true,
     exposedHeaders: ['x-auth-token']
 }))
-app.options("*",cors({
-  origin:true,
-  credentials:true
-}))
 
 
 app.use(express.json({ limit: '50mb' }))
