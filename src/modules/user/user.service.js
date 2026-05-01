@@ -8,6 +8,110 @@ import NotificationService from "../notification/notification.service.js";
  */
 class UserService {
   /**
+   * Curated videos not on the YouTube channel
+   * These are manually added videos for the resource library
+   */
+  static getCuratedVideos() {
+    return [
+      {
+        id: "vUTMPm4rh7k",
+        title: "REALIGN PHYSIO- Dr Babita [MPT NEURO]",
+        description:
+          "Quadriplegic cerebral palsy # active assisted # sitting practice",
+        videoUrl: "https://youtube.com/shorts/vUTMPm4rh7k",
+      },
+      {
+        id: "e3jbUnDcCPM",
+        title: "Cerebral Palsy Rehabilitation",
+        description:
+          "Using speech therapy to ease swallowing and feeding problems in children",
+        videoUrl: "https://youtube.com/shorts/e3jbUnDcCPM",
+      },
+      {
+        id: "yp-JA7rLJaw",
+        title: "VALIANT PHYSIO - Dr. KAMAL KUMAR(PT)",
+        description:
+          "Cerebral Palsy kid treatment#hand exercise in CP child #fine motor",
+        videoUrl: "https://youtube.com/shorts/yp-JA7rLJaw",
+      },
+      {
+        id: "ooQM2D0z-SY",
+        title: "Kavya Speech Therapy, Hearing Care & Autism Centre",
+        description: "Occupational therapy session with Cerebral Palsy",
+        videoUrl: "https://youtube.com/shorts/ooQM2D0z-SY",
+      },
+      {
+        id: "X0DwySoutw8",
+        title: "Cerebral Palsy Rehabilitation",
+        description:
+          "Speech therapy help children living with cerebral palsy control key functions",
+        videoUrl: "https://youtube.com/shorts/X0DwySoutw8",
+      },
+      {
+        id: "WYyJgLR0B_Q",
+        title: "Cerebral Palsy Rehabilitation",
+        description: "Speech therapy session with a cerebral palsy warrior",
+        videoUrl: "https://youtube.com/shorts/WYyJgLR0B_Q",
+      },
+      {
+        id: "U-NjgMTYU1I",
+        title: "Cerebral Palsy Rehabilitation",
+        description: "Speech therapy for cerebral palsy warrior",
+        videoUrl: "https://youtube.com/shorts/U-NjgMTYU1I",
+      },
+      {
+        id: "47GUb_nFZds",
+        title: "SARKK PHYSIOTHERAPY & REHAB",
+        description: "Speech therapy for Cerebral Palsy Child CP CHILD",
+        videoUrl: "https://youtube.com/shorts/47GUb_nFZds",
+      },
+      {
+        id: "J8sAN02R6no",
+        title: "Theory of Life",
+        description: "Essential Speech Therapy Techniques",
+        videoUrl: "https://youtube.com/shorts/J8sAN02R6no",
+      },
+      {
+        id: "1LxnD0VlE50",
+        title: "Bone & Brain physiotherapy clinic : Rehab Center",
+        description: "Cerebral palsy physiotherapy | speech therapy session",
+        videoUrl: "https://youtube.com/shorts/1LxnD0VlE50",
+      },
+      {
+        id: "PR-t_hfpRF8",
+        title: "Cerebral Palsy Rehabilitation",
+        description: "Speech therapy for 9 years old with cerebral palsy",
+        videoUrl: "https://youtube.com/shorts/PR-t_hfpRF8",
+      },
+      {
+        id: "8FAlnXX5ehY",
+        title: "BLESSINGS",
+        description:
+          "Speech Therapy Session Part-1 || Speech Delay || Non-Verbal Child",
+        videoUrl: "https://youtube.com/shorts/8FAlnXX5ehY",
+      },
+      {
+        id: "1rLHpmRmWOE",
+        title: "Samal Physio Care",
+        description: "Oral Motor Therapy for better Speech & Pronunciation",
+        videoUrl: "https://youtube.com/shorts/1rLHpmRmWOE",
+      },
+      {
+        id: "LlYvfq4QxNE",
+        title: "Cerebral Palsy Rehabilitation",
+        description: "Therapy",
+        videoUrl: "https://youtube.com/shorts/LlYvfq4QxNE",
+      },
+      {
+        id: "Q5sNxLmH3DU",
+        title: "International Parenting Health Institute",
+        description: "Parenting guidance and support",
+        videoUrl: "https://youtube.com/shorts/Q5sNxLmH3DU",
+      },
+    ];
+  }
+
+  /**
    * Get user profile with all related data
    * @param {string} userId - The ID of the user
    * @returns {Promise<Object>} User profile with caregiver and serviceProvider data
@@ -22,6 +126,7 @@ class UserService {
   /**
    * List all videos from the YouTube channel with database caching
    * Available to: ALL USERS (SERVICE_PROVIDER and CAREGIVER)
+   * Includes both YouTube channel videos and curated videos
    *
    * @param {Object} options - Query options
    * @param {number} options.pageSize - Number of videos per page (default: 25)
@@ -57,9 +162,13 @@ class UserService {
           console.log(
             `[Cache HIT] Returning cached videos for key: ${cacheKey}`,
           );
+          const curatedVideos = this.getCuratedVideos();
           return {
             success: true,
-            videos: cachedEntry.cachedData.videos || [],
+            videos: [
+              ...(cachedEntry.cachedData.videos || []),
+              ...curatedVideos,
+            ],
             pageInfo: cachedEntry.pageInfo || {},
             fromCache: true,
           };
@@ -103,7 +212,11 @@ class UserService {
         // Continue even if cache storage fails - API data is still valid
       }
 
-      return videoList;
+      const curatedVideos = this.getCuratedVideos();
+      return {
+        ...videoList,
+        videos: [...(videoList.videos || []), ...curatedVideos],
+      };
     } catch (error) {
       // If API call fails, try to return expired cache as fallback
       try {
@@ -115,9 +228,13 @@ class UserService {
           console.warn(
             `[Cache FALLBACK] API call failed, returning expired cache for key: ${cacheKey}`,
           );
+          const curatedVideos = this.getCuratedVideos();
           return {
             success: true,
-            videos: fallbackCache.cachedData.videos || [],
+            videos: [
+              ...(fallbackCache.cachedData.videos || []),
+              ...curatedVideos,
+            ],
             pageInfo: fallbackCache.pageInfo || {},
             fromCache: true,
             isExpired: true,
@@ -140,8 +257,8 @@ class UserService {
     const user = await prisma.user.update({
       where: { id: userId },
       data: {
-        accountStatus: "DEACTIVATED"
-      }
+        accountStatus: "DEACTIVATED",
+      },
     });
 
     // Notify user on account deactivation
@@ -151,13 +268,17 @@ class UserService {
         type: "IN_APP",
         category: "SYSTEM",
         title: "Account Deactivated",
-        content: "Your account has been deactivated. If this was not you, please contact support immediately.",
+        content:
+          "Your account has been deactivated. If this was not you, please contact support immediately.",
         relatedId: userId,
         relatedModel: "User",
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       });
     } catch (e) {
-      console.error("[Notification] Account deactivation notification failed:", e.message);
+      console.error(
+        "[Notification] Account deactivation notification failed:",
+        e.message,
+      );
     }
 
     return user;
@@ -165,7 +286,7 @@ class UserService {
   static async deleteUserAccount(userId) {
     // Soft delete: Mark the account as deleted without removing data
     const user = await prisma.user.delete({
-      where: { id: userId }
+      where: { id: userId },
     });
 
     // Notify user on account deletion
@@ -175,13 +296,17 @@ class UserService {
         type: "IN_APP",
         category: "SYSTEM",
         title: "Account Deleted",
-        content: "Your account has been deleted. If this was not you, please contact support immediately.",
+        content:
+          "Your account has been deleted. If this was not you, please contact support immediately.",
         relatedId: userId,
         relatedModel: "User",
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       });
     } catch (e) {
-      console.error("[Notification] Account deletion notification failed:", e.message);
+      console.error(
+        "[Notification] Account deletion notification failed:",
+        e.message,
+      );
     }
 
     return user;
