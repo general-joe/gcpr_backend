@@ -1,0 +1,334 @@
+import prisma from "../../config/database.js";
+import HttpStatus from "../../utils/http-status.js";
+import NotificationService from "../notification/notification.service.js";
+import MetricsService from "../metrics/metrics.service.js";
+
+class AdminService {
+  // ── User Management ──────────────────────────────────────────────────────────
+
+  static async listUsers(query = {}) {
+    const { role, status, page = 1, limit = 20, search } = query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
+
+    const where = {};
+    if (role) where.role = role;
+    if (status) where.accountStatus = status;
+    if (search) {
+      where.OR = [
+        { fullName: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+        { phoneNumber: { contains: search, mode: "insensitive" } }
+      ];
+    }
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phoneNumber: true,
+          role: true,
+          accountStatus: true,
+          verified: true,
+          profileCompleted: true,
+          createdAt: true
+        }
+      }),
+      prisma.user.count({ where })
+    ]);
+
+    return {
+      data: users,
+      pagination: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) }
+    };
+  }
+
+  static async getUserById(userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        serviceProvider: true,
+        caregiver: true
+      }
+    });
+    if (!user) throw new gcprError(HttpStatus.NOT_FOUND, "User not found");
+    return user;
+  }
+
+  static async updateUserStatus(userId, status) {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!user) throw new gcprError(HttpStatus.NOT_FOUND, "User not found");
+
+    return prisma.user.update({
+      where: { id: userId },
+      data: { accountStatus: status }
+    });
+  }
+
+  static async deleteUser(userId) {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!user) throw new gcprError(HttpStatus.NOT_FOUND, "User not found");
+    await prisma.user.delete({ where: { id: userId } });
+  }
+
+  // ── Service Provider Management ──────────────────────────────────────────────
+
+  static async listProviders(query = {}) {
+    const { page = 1, limit = 20 } = query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
+
+    const [providers, total] = await Promise.all([
+      prisma.serviceProvider.findMany({
+        skip,
+        take,
+        orderBy: { createdAt: "desc" },
+        include: {
+          user: {
+            select: { id: true, fullName: true, email: true, phoneNumber: true, accountStatus: true }
+          }
+        }
+      }),
+      prisma.serviceProvider.count()
+    ]);
+
+    return {
+      data: providers,
+      pagination: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) }
+    };
+  }
+
+  static async verifyProvider(providerId, data) {
+    const provider = await prisma.serviceProvider.findUnique({
+      where: { id: providerId },
+      include: { user: { select: { id: true } } }
+    });
+    if (!provider) throw new gcprError(HttpStatus.NOT_FOUND, "Service provider not found");
+
+    const updated = await prisma.serviceProvider.update({
+      where: { id: providerId },
+      data: {
+        licenseStatus: data.licenseStatus || "ACTIVE",
+        verificationStatus: "VERIFIED",
+        verifiedAt: new Date()
+      }
+    });
+
+    // Send notification
+    try {
+      await NotificationService.createNotification({
+        userId: provider.user.id,
+        type: "IN_APP",
+        category: "SYSTEM",
+        title: "License Verified",
+        content: "Your license has been verified by an administrator.",
+        relatedId: providerId,
+        relatedModel: "ServiceProvider"
+      });
+    } catch (e) {
+      WRITE.warn("[Admin] Verification notification failed", { error: e.message });
+    }
+
+    return updated;
+  }
+
+  static async getProviderById(providerId) {
+    const provider = await prisma.serviceProvider.findUnique({
+      where: { id: providerId },
+      include: {
+        user: true,
+        clinicalAssessments: { take: 5, orderBy: { createdAt: "desc" } },
+        rehabTasks: { take: 5, orderBy: { createdAt: "desc" } }
+      }
+    });
+    if (!provider) throw new gcprError(HttpStatus.NOT_FOUND, "Service provider not found");
+    return provider;
+  }
+
+  // ── Patient Management ────────────────────────────────────────────────────────
+
+  static async listPatients(query = {}) {
+    const { page = 1, limit = 20, search } = query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
+
+    const where = {};
+    if (search) {
+      where.fullName = { contains: search, mode: "insensitive" };
+    }
+
+    const [patients, total] = await Promise.all([
+      prisma.cpPatient.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: "desc" },
+        include: {
+          caregiver: {
+            select: { id: true, user: { select: { fullName: true } } }
+          }
+        }
+      }),
+      prisma.cpPatient.count({ where })
+    ]);
+
+    return {
+      data: patients,
+      pagination: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) }
+    };
+  }
+
+  static async getPatientById(patientId) {
+    const patient = await prisma.cpPatient.findUnique({
+      where: { id: patientId },
+      include: {
+        caregiver: true,
+        clinicalAssessments: { take: 5, orderBy: { createdAt: "desc" } },
+        rehabTasks: { take: 5, orderBy: { createdAt: "desc" } },
+        enrollmentRecord: true,
+        motorFunctionOutcomes: { take: 5, orderBy: { reviewDate: "desc" } }
+      }
+    });
+    if (!patient) throw new gcprError(HttpStatus.NOT_FOUND, "Patient not found");
+    return patient;
+  }
+
+  // ── System Metrics ────────────────────────────────────────────────────────────
+
+  static async getSystemMetrics() {
+    return MetricsService.getSystemMetrics();
+  }
+
+  static async getProviderMetricsComparison(query = {}) {
+    const { page = 1, limit = 20 } = query;
+    const providers = await prisma.serviceProvider.findMany({
+      take: parseInt(limit),
+      skip: (parseInt(page) - 1) * parseInt(limit),
+      select: { id: true, profession: true, user: { select: { fullName: true } } }
+    });
+
+    const snapshots = await Promise.all(
+      providers.map(async (sp) => {
+        try {
+          const snapshot = await MetricsService.computeProviderSnapshot(sp.id, new Date(), "MONTHLY");
+          return { provider: sp, metrics: snapshot };
+        } catch (e) {
+          return { provider: sp, metrics: null };
+        }
+      })
+    );
+
+    return snapshots;
+  }
+
+  // ── Community Moderation ──────────────────────────────────────────────────────
+
+  static async listCommunities(query = {}) {
+    const { page = 1, limit = 20 } = query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
+
+    const [communities, total] = await Promise.all([
+      prisma.community.findMany({
+        skip,
+        take,
+        orderBy: { createdAt: "desc" },
+        include: {
+          _count: { select: { members: true } },
+          creator: { select: { id: true, fullName: true } }
+        }
+      }),
+      prisma.community.count()
+    ]);
+
+    return {
+      data: communities,
+      pagination: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) }
+    };
+  }
+
+  static async deleteCommunity(communityId) {
+    const community = await prisma.community.findUnique({ where: { id: communityId } });
+    if (!community) throw new gcprError(HttpStatus.NOT_FOUND, "Community not found");
+    await prisma.community.delete({ where: { id: communityId } });
+  }
+
+  static async removeCommunityMember(communityId, userId) {
+    const member = await prisma.communityMember.findFirst({
+      where: { communityId, userId }
+    });
+    if (!member) throw new gcprError(HttpStatus.NOT_FOUND, "Member not found in community");
+    await prisma.communityMember.delete({ where: { id: member.id } });
+  }
+
+  // ── Assessment Tools ──────────────────────────────────────────────────────────
+
+  static async listAssessmentTools(query = {}) {
+    const { page = 1, limit = 20 } = query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
+
+    const [tools, total] = await Promise.all([
+      prisma.assessmentTool.findMany({
+        skip,
+        take,
+        orderBy: { createdAt: "desc" },
+        include: { professions: true }
+      }),
+      prisma.assessmentTool.count()
+    ]);
+
+    return {
+      data: tools,
+      pagination: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) }
+    };
+  }
+
+  static async createAssessmentTool(data) {
+    const existing = await prisma.assessmentTool.findUnique({ where: { toolCode: data.toolCode } });
+    if (existing) throw new gcprError(HttpStatus.CONFLICT, "Tool code already exists");
+
+    const tool = await prisma.assessmentTool.create({
+      data: {
+        toolCode: data.toolCode,
+        toolName: data.toolName,
+        version: data.version || "1.0",
+        description: data.description || null,
+        schema: data.schema || null,
+        isActive: true,
+        ...(data.professions && data.professions.length > 0 && {
+          professions: {
+            create: data.professions.map(profession => ({ profession }))
+          }
+        })
+      },
+      include: { professions: true }
+    });
+
+    return tool;
+  }
+
+  static async updateAssessmentTool(toolId, data) {
+    const tool = await prisma.assessmentTool.findUnique({ where: { id: toolId } });
+    if (!tool) throw new gcprError(HttpStatus.NOT_FOUND, "Assessment tool not found");
+
+    const updateData = {};
+    if (data.isActive !== undefined) updateData.isActive = data.isActive;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.schema !== undefined) updateData.schema = data.schema;
+
+    return prisma.assessmentTool.update({
+      where: { id: toolId },
+      data: updateData,
+      include: { professions: true }
+    });
+  }
+}
+
+export default AdminService;
