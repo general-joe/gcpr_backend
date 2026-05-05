@@ -14,6 +14,9 @@ import '../modules/resource/resource.swagger.js';
 import '../modules/user/user.swagger.js';
 import '../modules/serviceProvider/serviceProvider.swagger.js';
 import '../modules/notification/notification.swagger.js';
+import '../modules/chat/chat.swagger.js';
+import '../modules/functionalClassification/functionalClassification.swagger.js';
+import '../modules/metrics/metrics.swagger.js';
 
 const getServerUrls = () => {
 	return [

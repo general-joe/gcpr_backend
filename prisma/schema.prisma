@@ -25,6 +25,7 @@ enum Relationship {
 enum Role {
   SERVICE_PROVIDER
   CAREGIVER
+  ADMIN
 }
 
 enum CaregiverType {
@@ -104,6 +105,22 @@ enum RehabTaskStatus {
   PENDING
   ASSIGNED
   COMPLETED
+}
+
+enum VerificationStatus {
+  PENDING_REVIEW
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum FunctionalClassifierType {
+  GMFCS
+  MACS
+  CFCS
+  EDACS
+  VIKING_SPEECH_SCALE
+  OTHER
 }
 
 enum AppointmentStatus {
@@ -343,6 +360,9 @@ model User {
   // Game relations
   uploadedGames         GameResource[]         @relation("UserUploadedGames")
   telehealthInvitations TelehealthInvitation[]
+
+  // Chatbot
+  chatSessions ChatSession[]
 }
 
 model Otp {
@@ -396,6 +416,12 @@ model ServiceProvider {
   licensePin        String
   experience        Int
 
+  // Verification
+  verificationStatus VerificationStatus @default(PENDING_REVIEW)
+  verificationNote   String?
+  verifiedAt         DateTime?
+  verifiedBy         String?            // userId of the admin who verified
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -424,6 +450,7 @@ model ServiceProvider {
   motorFunctionOutcomes MotorFunctionOutcome[]
   providerMetrics       ProviderMetricsSnapshot[]
 
+  @@index([verificationStatus])
   @@map("serviceProvider")
 }
 
@@ -510,7 +537,7 @@ model FunctionalClassification {
   patientId String
   patient   CpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
-  classifier String
+  classifier FunctionalClassifierType
   level      Int
   assessedAt DateTime
 
@@ -524,6 +551,7 @@ model FunctionalClassification {
 
   @@index([patientId])
   @@index([assessorId])
+  @@index([classifier])
 }
 
 model ClinicalAssessment {
@@ -1600,3 +1628,40 @@ model PatientMetricsSnapshot {
   @@unique([patientId, snapshotDate, period])
   @@index([patientId, period])
 }
+
+
+// ==================== CHATBOT MODELS ====================
+
+enum ChatRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model ChatSession {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String?                              // Auto-set from first user message
+  context   String?                              // Serialised context summary for long sessions
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  messages  ChatMessage[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model ChatMessage {
+  id        String      @id @default(uuid())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      ChatRole
+  content   String
+  tokens    Int?        // LLM token count for this message (optional usage tracking)
+  createdAt DateTime    @default(now())
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
