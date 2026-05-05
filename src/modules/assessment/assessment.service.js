@@ -780,6 +780,14 @@ class AssessmentService {
 
     // Notify patient/caregiver on rehab task assignment
     try {
+      const { default: AdherenceService } = await import("./adherence.service.js");
+      await AdherenceService.generateAdherenceLogs(task);
+    } catch (e) {
+      console.error("[AdherenceLogs] Auto-generation failed:", e.message);
+    }
+
+    // Notify patient/caregiver on rehab task assignment
+    try {
       const patient = await prisma.cpPatient.findUnique({
         where: { id: referral.patientId },
         select: { userId: true }
