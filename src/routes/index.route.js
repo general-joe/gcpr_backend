@@ -16,6 +16,12 @@ import notificationRouter from "../modules/notification/notification.route.js";
 import fcRouter from "../modules/functionalClassification/functionalClassification.route.js";
 import metricsRouter from "../modules/metrics/metrics.route.js";
 import chatRouter from "../modules/chat/chat.route.js";
+import telehealthRouter from "../modules/telehealth/telehealth.route.js";
+import gameRouter from "../modules/game/game.route.js";
+import enrollmentRouter from "../modules/cpPatient/enrollment.route.js";
+import outcomesRouter from "../modules/assessment/outcomes.route.js";
+import adminRouter from "../modules/admin/admin.route.js";
+import adherenceRouter from "../modules/assessment/adherence.route.js";
 
 
 router.use("/auth", authRouter);
@@ -34,6 +40,12 @@ router.use("/notification", notificationRouter);
 router.use("/functional-classification", fcRouter);
 router.use("/metrics", metricsRouter);
 router.use("/chat", chatRouter);
+router.use("/telehealth", telehealthRouter);
+router.use("/game", gameRouter);
+router.use("/enrollment", enrollmentRouter);
+router.use("/outcomes", outcomesRouter);
+router.use("/admin", adminRouter);
+router.use("/adherence", adherenceRouter);
 
 
 export default router;
