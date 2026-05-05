@@ -22,6 +22,10 @@ import enrollmentRouter from "../modules/cpPatient/enrollment.route.js";
 import outcomesRouter from "../modules/assessment/outcomes.route.js";
 import adminRouter from "../modules/admin/admin.route.js";
 import adherenceRouter from "../modules/assessment/adherence.route.js";
+import reportRouter, { adminReportRouter } from "../modules/report/report.route.js";
+import supportRouter, { adminSupportRouter } from "../modules/support/support.route.js";
+import faqRouter, { adminFaqRouter } from "../modules/support/faq.route.js";
+import rbacRouter, { rbacCheckRouter } from "../modules/admin/rbac.route.js";
 
 
 router.use("/auth", authRouter);
@@ -46,6 +50,14 @@ router.use("/enrollment", enrollmentRouter);
 router.use("/outcomes", outcomesRouter);
 router.use("/admin", adminRouter);
 router.use("/adherence", adherenceRouter);
+router.use("/report", reportRouter);
+router.use("/admin/reports", adminReportRouter);
+router.use("/support", supportRouter);
+router.use("/admin/support", adminSupportRouter);
+router.use("/faq", faqRouter);
+router.use("/admin/faq", adminFaqRouter);
+router.use("/admin/rbac", rbacRouter);
+router.use("/rbac", rbacCheckRouter);
 
 
 export default router;

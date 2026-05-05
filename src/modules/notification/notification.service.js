@@ -149,10 +149,9 @@ export default class NotificationService {
       });
     }
 
-    // Send push notification if user has push tokens
-    if (notificationData.type === "PUSH" || notificationData.type === "IN_APP") {
-      await this.sendPushNotificationToUser(notificationData.userId, notification);
-    }
+    // Always attempt push notification delivery — type field is stored in DB
+    // but real-time push is always attempted for all user-facing notifications
+    await this.sendPushNotificationToUser(notificationData.userId, notification);
 
     return notification;
   }
@@ -263,6 +262,15 @@ export default class NotificationService {
           });
         }
       }
+
+      // Send bulk push notifications to all affected users
+      await this.sendBulkPushNotifications(userIds, {
+        title: "New Community Message",
+        content: truncatedContent,
+        category: "COMMUNITY_MESSAGE",
+        relatedId: message.id,
+        relatedModel: "CommunityMessage"
+      });
     }
   }
 
@@ -313,6 +321,48 @@ export default class NotificationService {
           });
         }
       }
+
+      // Send bulk push notifications to all affected users
+      await this.sendBulkPushNotifications(userIds, {
+        title,
+        content: announcement.title,
+        category: "COMMUNITY_ANNOUNCEMENT",
+        relatedId: announcement.id,
+        relatedModel: "CommunityAnnouncement"
+      });
+    }
+  }
+
+  static async sendBulkPushNotifications(userIds, payload) {
+    try {
+      if (!userIds || userIds.length === 0) return;
+
+      const tokenRecords = await prisma.pushNotificationToken.findMany({
+        where: { userId: { in: userIds }, isActive: true },
+        select: { token: true }
+      });
+
+      if (!tokenRecords.length) return;
+
+      const tokens = tokenRecords.map(r => r.token);
+      const pushPayload = {
+        title: payload.title || "GCPR Notification",
+        body: payload.content || "You have a new notification",
+        data: {
+          notificationId: "",
+          category: payload.category || "",
+          relatedId: payload.relatedId || "",
+          relatedModel: payload.relatedModel || ""
+        }
+      };
+
+      if (tokens.length === 1) {
+        await sendPushNotification(tokens[0], pushPayload);
+      } else {
+        await sendMulticastPushNotification(tokens, pushPayload);
+      }
+    } catch (error) {
+      console.error(`Failed to send bulk push notifications:`, error.message);
     }
   }
 
