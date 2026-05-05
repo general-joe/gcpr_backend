@@ -26,7 +26,7 @@ const REGION_CODES = {
  * Expected format: AB-123-4567 (2-letter region code, 3 digits, 4 digits)
  */
 export function isValidDigitalAddress(address) {
-  return /^[A-Za-z]{2}-\d{3,4}-\d{4}$/i.test((address ?? "").trim());
+  return /^[A-Za-z]{2}-\d{3}-\d{4}$/i.test((address ?? "").trim());
 }
 
 /**

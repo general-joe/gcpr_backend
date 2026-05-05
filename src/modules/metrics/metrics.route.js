@@ -10,48 +10,48 @@ const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
 // GET /metrics/provider — authenticated provider's own metrics
 metricsRouter.get(
   "/provider",
-  authorize(["SERVICE_PROVIDER"]),
   limiter,
+  authorize(["SERVICE_PROVIDER"]),
   MetricsController.getProviderMetrics
 );
 
 // GET /metrics/patient/:patientId — patient metrics (provider or caregiver)
 metricsRouter.get(
   "/patient/:patientId",
-  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
   limiter,
+  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
   MetricsController.getPatientMetrics
 );
 
 // GET /metrics/system — system-wide dashboard (admin only)
 metricsRouter.get(
   "/system",
-  authorize(["ADMIN"]),
   limiter,
+  authorize(["ADMIN"]),
   MetricsController.getSystemMetrics
 );
 
 // POST /metrics/compute/provider — trigger on-demand snapshot (admin)
 metricsRouter.post(
   "/compute/provider",
-  authorize(["ADMIN"]),
   limiter,
+  authorize(["ADMIN"]),
   MetricsController.computeProviderSnapshot
 );
 
 // POST /metrics/compute/system — trigger system snapshot (admin)
 metricsRouter.post(
   "/compute/system",
-  authorize(["ADMIN"]),
   limiter,
+  authorize(["ADMIN"]),
   MetricsController.computeSystemSnapshot
 );
 
 // POST /metrics/compute/all — full batch computation (admin)
 metricsRouter.post(
   "/compute/all",
-  authorize(["ADMIN"]),
   limiter,
+  authorize(["ADMIN"]),
   MetricsController.computeAll
 );
 

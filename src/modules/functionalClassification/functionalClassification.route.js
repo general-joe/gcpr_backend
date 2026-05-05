@@ -15,50 +15,50 @@ const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 60 });
 // POST /functional-classification — record a new classification
 fcRouter.post(
   "/",
+  limiter,
   authorize(["SERVICE_PROVIDER"]),
   validate(createFunctionalClassificationSchema),
-  limiter,
   FunctionalClassificationController.create
 );
 
 // GET /functional-classification/patient/:patientId — list all for a patient
 fcRouter.get(
   "/patient/:patientId",
-  authorize(["SERVICE_PROVIDER"]),
   limiter,
+  authorize(["SERVICE_PROVIDER"]),
   FunctionalClassificationController.getByPatient
 );
 
 // GET /functional-classification/patient/:patientId/summary — progress summary
 fcRouter.get(
   "/patient/:patientId/summary",
-  authorize(["SERVICE_PROVIDER"]),
   limiter,
+  authorize(["SERVICE_PROVIDER"]),
   FunctionalClassificationController.getProgressSummary
 );
 
 // GET /functional-classification/:id — single record
 fcRouter.get(
   "/:id",
-  authorize(["SERVICE_PROVIDER"]),
   limiter,
+  authorize(["SERVICE_PROVIDER"]),
   FunctionalClassificationController.getOne
 );
 
 // PATCH /functional-classification/:id — update a record
 fcRouter.patch(
   "/:id",
+  limiter,
   authorize(["SERVICE_PROVIDER"]),
   validate(updateFunctionalClassificationSchema),
-  limiter,
   FunctionalClassificationController.update
 );
 
 // DELETE /functional-classification/:id — delete a record
 fcRouter.delete(
   "/:id",
-  authorize(["SERVICE_PROVIDER"]),
   limiter,
+  authorize(["SERVICE_PROVIDER"]),
   FunctionalClassificationController.delete
 );
 
