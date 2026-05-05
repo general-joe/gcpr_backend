@@ -25,6 +25,7 @@ enum Relationship {
 enum Role {
   SERVICE_PROVIDER
   CAREGIVER
+  ADMIN
 }
 
 enum CaregiverType {
@@ -104,6 +105,22 @@ enum RehabTaskStatus {
   PENDING
   ASSIGNED
   COMPLETED
+}
+
+enum VerificationStatus {
+  PENDING_REVIEW
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum FunctionalClassifierType {
+  GMFCS
+  MACS
+  CFCS
+  EDACS
+  VIKING_SPEECH_SCALE
+  OTHER
 }
 
 enum AppointmentStatus {
@@ -396,6 +413,12 @@ model ServiceProvider {
   licensePin        String
   experience        Int
 
+  // Verification
+  verificationStatus VerificationStatus @default(PENDING_REVIEW)
+  verificationNote   String?
+  verifiedAt         DateTime?
+  verifiedBy         String?            // userId of the admin who verified
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -424,6 +447,7 @@ model ServiceProvider {
   motorFunctionOutcomes MotorFunctionOutcome[]
   providerMetrics       ProviderMetricsSnapshot[]
 
+  @@index([verificationStatus])
   @@map("serviceProvider")
 }
 
@@ -510,7 +534,7 @@ model FunctionalClassification {
   patientId String
   patient   CpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
-  classifier String
+  classifier FunctionalClassifierType
   level      Int
   assessedAt DateTime
 
@@ -524,6 +548,7 @@ model FunctionalClassification {
 
   @@index([patientId])
   @@index([assessorId])
+  @@index([classifier])
 }
 
 model ClinicalAssessment {
