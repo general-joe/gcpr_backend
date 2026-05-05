@@ -363,6 +363,14 @@ model User {
 
   // Chatbot
   chatSessions ChatSession[]
+
+  // Reports
+  submittedReports Report[] @relation("UserReports")
+  reportedBy       Report[] @relation("ReportedUsers")
+
+  // Support
+  supportTickets SupportTicket[] @relation("UserTickets")
+  ticketMessages TicketMessage[] @relation("TicketMessageSender")
 }
 
 model Otp {
@@ -1665,3 +1673,140 @@ model ChatMessage {
   @@index([createdAt])
 }
 
+// ==================== REPORT MODELS ====================
+
+enum ReportType {
+  SERVICE_PROVIDER
+  SYSTEM_ISSUE
+  BUG_REPORT
+  CONTENT
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+model Report {
+  id           String       @id @default(uuid())
+  reporterId   String
+  reporter     User         @relation("UserReports", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportType   ReportType
+  targetUserId String?
+  targetUser   User?        @relation("ReportedUsers", fields: [targetUserId], references: [id], onDelete: SetNull)
+  subject      String
+  description  String
+  evidence     String[]     @default([])
+  status       ReportStatus @default(PENDING)
+  adminNotes   String?
+  resolvedBy   String?
+  resolvedAt   DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([reporterId])
+  @@index([targetUserId])
+  @@index([status])
+  @@index([reportType])
+}
+
+// ==================== SUPPORT TICKET MODELS ====================
+
+enum TicketCategory {
+  ACCOUNT
+  APPOINTMENT
+  TECHNICAL
+  BILLING
+  CAREGIVER_SUPPORT
+  PROVIDER_SUPPORT
+  OTHER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_ON_USER
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model SupportTicket {
+  id           String         @id @default(uuid())
+  ticketNumber String         @unique
+  userId       String
+  user         User           @relation("UserTickets", fields: [userId], references: [id], onDelete: Cascade)
+  category     TicketCategory
+  subject      String
+  description  String
+  attachments  String[]       @default([])
+  status       TicketStatus   @default(OPEN)
+  priority     TicketPriority @default(MEDIUM)
+  assignedTo   String?
+  resolvedAt   DateTime?
+  closedAt     DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  messages TicketMessage[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([priority])
+  @@index([ticketNumber])
+}
+
+model TicketMessage {
+  id           String        @id @default(uuid())
+  ticketId     String
+  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderId     String
+  sender       User          @relation("TicketMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  content      String
+  isAdminReply Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+
+  @@index([ticketId])
+}
+
+// ==================== FAQ MODELS ====================
+
+model FaqCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  faqs Faq[]
+}
+
+model Faq {
+  id           String      @id @default(uuid())
+  categoryId   String
+  category     FaqCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  question     String
+  answer       String
+  tags         String[]    @default([])
+  targetRoles  String[]    @default([])
+  sortOrder    Int         @default(0)
+  isPublished  Boolean     @default(false)
+  viewCount    Int         @default(0)
+  helpfulCount Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([categoryId])
+  @@index([isPublished])
+}
