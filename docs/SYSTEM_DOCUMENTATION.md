@@ -1,6 +1,6 @@
 # GCPR Backend — Full System Documentation
 
-> Version: 1.0 · Stack: Node.js · Express 5 · Prisma 7 · PostgreSQL · Socket.IO · Firebase
+> Version: 1.1 · Stack: Node.js · Express 5 · Prisma 7 · PostgreSQL · Socket.IO · Firebase · OpenAI
 
 ---
 
@@ -11,7 +11,7 @@
 3. [Repository Structure](#3-repository-structure)
 4. [Environment Variables](#4-environment-variables)
 5. [Authentication & Authorization](#5-authentication--authorization)
-6. [User Roles](#6-user-roles)
+6. [User Roles & Admin Model](#6-user-roles--admin-model)
 7. [Service Provider Verification Flow](#7-service-provider-verification-flow)
 8. [Module Reference (API)](#8-module-reference-api)
    - 8.1 Auth
@@ -19,15 +19,16 @@
    - 8.3 CareGiver
    - 8.4 CpPatient
    - 8.5 Assessment
-   - 8.6 FunctionalClassification *(new)*
+   - 8.6 FunctionalClassification
    - 8.7 ScheduleAppointment
-   - 8.8 Metrics *(new)*
-   - 8.9 Location / Ghana GPS *(new)*
+   - 8.8 Metrics
+   - 8.9 Location / Ghana GPS
    - 8.10 Notification
-   - 8.11 Community
-   - 8.12 Direct Message
-   - 8.13 Resource
-   - 8.14 User
+   - 8.11 **Caregiver Chatbot** *(new)*
+   - 8.12 Community
+   - 8.13 Direct Message
+   - 8.14 Resource
+   - 8.15 User
 9. [Clinical Workflow End-to-End](#9-clinical-workflow-end-to-end)
 10. [Automation & Background Jobs](#10-automation--background-jobs)
 11. [Metrics & Adherence System](#11-metrics--adherence-system)
@@ -203,6 +204,10 @@ STORAGE_SECRET_KEY=secret
 # ─── Ghana Post GPS (OPTIONAL — enables full coordinate lookup) ──
 GHANA_GPS_API_KEY=your_ghana_post_gps_bearer_token
 
+# ─── OpenAI / Caregiver Chatbot ──────────────────────────────────
+OPENAI_API_KEY=sk-your_openai_api_key_here
+OPENAI_MODEL=gpt-4o-mini   # optional — defaults to gpt-4o-mini
+
 # ─── X-API-KEY guard (optional) ──────────────────────────
 API_KEY=your_x_api_key_for_client_auth
 ```
@@ -253,15 +258,57 @@ Signed with `HS256`, expires in **4 hours**. A refresh token (256-char random) i
 
 ---
 
-## 6. User Roles
+## 6. User Roles & Admin Model
 
 | Role | Description |
 |---|---|
 | `SERVICE_PROVIDER` | Licensed clinician (physiotherapist, OT, speech therapist, etc.) |
 | `CAREGIVER` | Parent/guardian or group organisation managing a CP child |
-| `ADMIN` | Platform administrator (verify SPs, view system metrics) |
+| `ADMIN` | Platform administrator — a service provider with superuser access |
 
-**Admin accounts** must be created directly in the database (or via a seed script). There is no self-signup for admins. Once created, the admin can log in normally and will receive admin JWT tokens.
+### Admin = Service Provider with ADMIN Role
+
+An Admin **is** a service provider. They:
+1. Register via `POST /auth/register` with `role: ADMIN`
+2. Complete their service provider profile with their professional licence details (same as any SP)
+3. Are automatically **VERIFIED** for clinical actions (they don't need to verify themselves)
+4. Have access to **all** endpoints across **all** roles — the `authorize()` middleware treats `ADMIN` as a superuser that bypasses any role restriction
+
+This means a single admin account can:
+- Verify / reject / suspend other service providers
+- View all patient data, metrics, assessments
+- Access caregiver chatbot
+- Perform any clinical action a service provider can do
+- View system-wide metrics dashboard
+
+### Creating an Admin Account
+
+```json
+POST /auth/register
+{
+  "fullName": "Dr. Admin User",
+  "password": "SecurePass123!",
+  "phoneNumber": "0244000001",
+  "gender": "MALE",
+  "role": "ADMIN",
+  "otpChannel": "sms"
+}
+```
+
+After OTP verification, they can immediately complete their SP profile and start managing the platform.
+
+### How `authorize()` works for ADMIN
+
+```
+authorize(["SERVICE_PROVIDER"])   →  ADMIN passes ✓
+authorize(["CAREGIVER"])          →  ADMIN passes ✓
+authorize(["ADMIN"])              →  ADMIN passes ✓
+authorize(["SERVICE_PROVIDER",
+           "CAREGIVER"])          →  ADMIN passes ✓
+```
+
+The JWT payload for all roles is: `{ id, email, role }`. For admins, `role` is `"ADMIN"`.
+
 
 ---
 
@@ -724,7 +771,88 @@ In-app notifications are automatically created by service methods (assessment, t
 
 ---
 
-### 8.11 Community, Groups, Announcements
+### 8.11 Caregiver Chatbot — `/chat` *(NEW)*
+
+An AI-powered support chatbot backed by OpenAI GPT-4o-mini, designed to assist caregivers of children with Cerebral Palsy. The chatbot maintains **per-session conversation history** stored in the database, so conversations can be resumed.
+
+**Roles:** CAREGIVER, SERVICE_PROVIDER, ADMIN (all authenticated users)
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/chat/quick` | **Quickstart** — create a new session AND send the first message in one call |
+| POST | `/chat/sessions` | Create an empty chat session |
+| GET | `/chat/sessions` | List all sessions for current user (paginated) |
+| GET | `/chat/sessions/:sessionId` | Get session metadata + message count |
+| GET | `/chat/sessions/:sessionId/messages` | Paginated message history for a session |
+| POST | `/chat/sessions/:sessionId/messages` | Send a message in an existing session |
+| DELETE | `/chat/sessions/:sessionId` | Delete a session and all its messages |
+
+**Rate limits:**
+- 20 messages per minute per IP (prevents LLM API abuse)
+- 100 requests per 15 minutes for session management endpoints
+
+**Quickstart example:**
+```
+POST /chat/quick
+Authorization: Bearer xxxxxxx
+Content-Type: application/json
+
+{ "message": "My child is 6 and has GMFCS Level 3. What exercises can help?" }
+```
+
+**Response:**
+```json
+{
+  "status": "SUCCESS",
+  "data": {
+    "userMessage": {
+      "id": "uuid",
+      "role": "USER",
+      "content": "My child is 6 and has GMFCS Level 3. What exercises can help?",
+      "createdAt": "2026-05-05T17:30:00.000Z"
+    },
+    "response": {
+      "id": "uuid",
+      "role": "ASSISTANT",
+      "content": "At GMFCS Level III, your child can walk with assistive devices... Here are some exercises your physiotherapist might include:\n\n- **Trunk strengthening**: ...\n- **Gait training**: ...\n- **Balance activities**: ...\n\nAlways check with your assigned physiotherapist before starting any new exercises. 😊",
+      "createdAt": "2026-05-05T17:30:01.500Z",
+      "model": "gpt-4o-mini",
+      "tokensUsed": { "prompt": 540, "completion": 180, "total": 720 }
+    }
+  }
+}
+```
+
+**Send a follow-up message in the same session:**
+```
+POST /chat/sessions/:sessionId/messages
+{ "message": "How many times a day should we do these?" }
+```
+
+The chatbot remembers the full conversation context and gives a contextually relevant answer.
+
+**What the chatbot knows:**
+- Cerebral Palsy types, causes, and management
+- GMFCS, MACS, CFCS, EDACS, VIKING classification levels (all levels explained simply)
+- Physiotherapy, OT, and SLT rehab approaches for CP
+- How to use the GCPR app features (tasks, appointments, notifications, metrics)
+- Emotional support and caregiver coping strategies
+- Ghana context (regional care, resource constraints)
+- Can understand and respond in Ghanaian languages (Twi, Ga, Ewe) in addition to English
+
+**What the chatbot will NOT do:**
+- Prescribe medication or suggest dosages
+- Replace clinical judgment
+- Discuss unrelated topics (entertainment, politics)
+- Provide crisis intervention (redirects to emergency services)
+
+**Model used:** `gpt-4o-mini` by default. Override with `OPENAI_MODEL` env var (e.g. `gpt-4o`).
+
+**Required env variable:** `OPENAI_API_KEY=sk-...`
+
+---
+
+### 8.12 Community, Groups, Announcements
 
 ```
 GET/POST  /community                        — create / list communities
@@ -739,7 +867,7 @@ GET/POST  /community/:id/announcements      — community announcements
 
 ---
 
-### 8.12 Direct Message — `/direct-message`
+### 8.13 Direct Message — `/direct-message`
 
 ```
 POST /direct-message/:receiverId            — send a DM
@@ -749,7 +877,7 @@ GET  /direct-message/:userId                — messages with a specific user
 
 ---
 
-### 8.13 Resource — `/resource`
+### 8.14 Resource — `/resource`
 
 ```
 POST /resource                              — upload PDF/resource (SERVICE_PROVIDER)
@@ -760,7 +888,7 @@ DELETE /resource/:id                        — delete own resource
 
 ---
 
-### 8.14 User — `/user`
+### 8.15 User — `/user`
 
 ```
 GET    /user/profile                        — own profile
@@ -1001,9 +1129,11 @@ Every major action sends an in-app notification via `NotificationService.createN
 
 ---
 
-## 16. AI Feature Blueprint (Future)
+## 16. AI Feature Blueprint
 
-> **Status:** Design only. Not implemented. This section documents the planned AI features for a future sprint.
+> **Status (updated v1.1):**
+> - ✅ **16.4 Caregiver Chatbot** — **IMPLEMENTED** (see section 8.11)
+> - 📋 16.1, 16.2, 16.3 — Designed but not yet implemented
 
 ### 16.1 AI-Powered Assessment Analysis
 
@@ -1055,18 +1185,17 @@ POST /assessment/:id/smart-referral-match
 
 **Proposed model:** Gradient boosting or simple threshold model trained on `TaskAdherenceLog` patterns. Runs as part of the nightly cron job.
 
-### 16.4 Caregiver Support Chatbot
+### 16.4 Caregiver Support Chatbot ✅ IMPLEMENTED
 
-**Goal:** An in-app chatbot (powered by GPT-4o with RAG over GCPR knowledge base) to help caregivers:
-- Understand their child's diagnosis and classification levels
-- Learn how to perform prescribed rehab exercises
-- Get answers to common questions without waiting for a provider
+> **See section 8.11** for full API reference and usage examples.
 
-**Infrastructure needed:**
-- Embeddings database (Pinecone or pg_vector)
-- Knowledge base: GMFCS level descriptions, exercise guides, FAQ
-- LLM API key (OpenAI or Anthropic)
-- Chat history stored in `DirectMessage` or new `ChatSession` model
+**Implementation summary:**
+- Backed by OpenAI GPT-4o-mini (configurable via `OPENAI_MODEL`)
+- Full conversation history stored per session in `ChatSession` + `ChatMessage` tables
+- GCPR-specific system prompt covering CP types, GMFCS/MACS/CFCS/EDACS/VIKING, rehab tasks, Ghana context
+- Emotional support + app navigation guidance built in
+- Supports Twi, Ga, Ewe + English
+- Rate limited (20 messages/min) to control OpenAI costs
 
 ---
 

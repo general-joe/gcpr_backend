@@ -360,6 +360,9 @@ model User {
   // Game relations
   uploadedGames         GameResource[]         @relation("UserUploadedGames")
   telehealthInvitations TelehealthInvitation[]
+
+  // Chatbot
+  chatSessions ChatSession[]
 }
 
 model Otp {
@@ -1625,3 +1628,40 @@ model PatientMetricsSnapshot {
   @@unique([patientId, snapshotDate, period])
   @@index([patientId, period])
 }
+
+
+// ==================== CHATBOT MODELS ====================
+
+enum ChatRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model ChatSession {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String?                              // Auto-set from first user message
+  context   String?                              // Serialised context summary for long sessions
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  messages  ChatMessage[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model ChatMessage {
+  id        String      @id @default(uuid())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      ChatRole
+  content   String
+  tokens    Int?        // LLM token count for this message (optional usage tracking)
+  createdAt DateTime    @default(now())
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
