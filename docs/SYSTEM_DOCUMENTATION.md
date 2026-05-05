@@ -22,23 +22,21 @@
    - 8.6 FunctionalClassification
    - 8.7 ScheduleAppointment
    - 8.8 Metrics
-   - 8.9 Location / Ghana GPS
-   - 8.10 Notification
-   - 8.11 **Caregiver Chatbot** *(new)*
-   - 8.12 Community
-   - 8.13 Direct Message
-   - 8.14 Resource
-   - 8.15 User
+   - 8.9 Notification
+   - 8.10 **Caregiver Chatbot** *(new)*
+   - 8.11 Community
+   - 8.12 Direct Message
+   - 8.13 Resource
+   - 8.14 User
 9. [Clinical Workflow End-to-End](#9-clinical-workflow-end-to-end)
 10. [Automation & Background Jobs](#10-automation--background-jobs)
 11. [Metrics & Adherence System](#11-metrics--adherence-system)
-12. [Ghana GPS / Location Services](#12-ghana-gps--location-services)
-13. [Real-time Events (Socket.IO)](#13-real-time-events-socketio)
-14. [Notifications](#14-notifications)
-15. [Data Models Glossary](#15-data-models-glossary)
-16. [AI Feature Blueprint (Future)](#16-ai-feature-blueprint-future)
-17. [Voice Assistant Blueprint (Future)](#17-voice-assistant-blueprint-future)
-18. [Deployment & Production Checklist](#18-deployment--production-checklist)
+12. [Real-time Events (Socket.IO)](#12-real-time-events-socketio)
+13. [Notifications](#13-notifications)
+14. [Data Models Glossary](#14-data-models-glossary)
+15. [AI Feature Blueprint (Future)](#15-ai-feature-blueprint-future)
+16. [Voice Assistant Blueprint (Future)](#16-voice-assistant-blueprint-future)
+17. [Deployment & Production Checklist](#17-deployment--production-checklist)
 
 ---
 
@@ -141,7 +139,6 @@ gcpr_backend/
 │   │   ├── cpPatient/
 │   │   ├── directMessage/
 │   │   ├── functionalClassification/   ← NEW
-│   │   ├── location/                   ← NEW
 │   │   ├── metrics/                    ← NEW
 │   │   ├── notification/
 │   │   ├── resource/
@@ -156,7 +153,6 @@ gcpr_backend/
 │       ├── constants.js, logger.js, http-status.js, http-error.js
 │       ├── UtilFunctions.js, password.js, responseCodes.js
 │       ├── emailSmtp.js, hubtel-sms.js, firebaseService.js
-│       ├── ghanaGPS.js                 ← NEW
 │       └── uploadService.js, youtube-api.js
 └── docs/
     └── SYSTEM_DOCUMENTATION.md  ← This file
@@ -201,9 +197,6 @@ STORAGE_ENDPOINT=https://your-storage.com
 STORAGE_ACCESS_KEY=key
 STORAGE_SECRET_KEY=secret
 
-# ─── Ghana Post GPS (OPTIONAL — enables full coordinate lookup) ──
-GHANA_GPS_API_KEY=your_ghana_post_gps_bearer_token
-
 # ─── OpenAI / Caregiver Chatbot ──────────────────────────────────
 OPENAI_API_KEY=sk-your_openai_api_key_here
 OPENAI_MODEL=gpt-4o-mini   # optional — defaults to gpt-4o-mini
@@ -225,7 +218,6 @@ API_KEY=your_x_api_key_for_client_auth
 
 | Variable | Effect if missing |
 |---|---|
-| `GHANA_GPS_API_KEY` | Location lookup returns region info only, no coordinates |
 | `SENDGRID_API_KEY` | Email OTP and reset-password won't send |
 
 ---
@@ -709,52 +701,7 @@ Snapshots are computed once by the cron job and cached. Subsequent requests for 
 
 ---
 
-### 8.9 Location / Ghana GPS — `/location` *(NEW)*
-
-| Method | Path | Role | Description |
-|---|---|---|---|
-| GET | `/lookup?digitalAddress=GA-184-6424` | SP \| CG \| ADMIN | Look up coordinates from a Ghana Post GPS digital address |
-| GET | `/reverse?lat=5.60&lng=-0.19` | SP \| CG \| ADMIN | Reverse geocode coordinates to address |
-| GET | `/validate?digitalAddress=GA-184-6424` | SP \| CG \| ADMIN | Validate format and get region info (no API call) |
-
-**Lookup response (with API key):**
-```json
-{
-  "digitalAddress": "GA-184-6424",
-  "region": "Greater Accra",
-  "district": "Accra Metropolitan",
-  "area": "Osu",
-  "street": "Oxford Street",
-  "postCode": "GA0000",
-  "coordinates": { "lat": 5.5602, "lng": -0.1731 }
-}
-```
-
-**Lookup response (without API key):**
-```json
-{
-  "digitalAddress": "GA-184-6424",
-  "region": "Greater Accra",
-  "coordinates": null,
-  "note": "Set GHANA_GPS_API_KEY environment variable for full coordinate lookup."
-}
-```
-
-**Validate response (always works, no API):**
-```json
-{
-  "digitalAddress": "GA-184-6424",
-  "valid": true,
-  "region": "Greater Accra",
-  "format": "AB-123-4567 (region code – 3 digits – 4 digits)"
-}
-```
-
-**Setup:** Request a token from [https://ghanapostgps.speakingdata.com](https://ghanapostgps.speakingdata.com) and set `GHANA_GPS_API_KEY` in `.env`.
-
----
-
-### 8.10 Notification — `/notification`
+### 8.9 Notification — `/notification`
 
 In-app notifications are automatically created by service methods (assessment, tasks, appointments, verification). Clients connect via Socket.IO to receive them in real-time.
 
@@ -771,7 +718,7 @@ In-app notifications are automatically created by service methods (assessment, t
 
 ---
 
-### 8.11 Caregiver Chatbot — `/chat` *(NEW)*
+### 8.10 Caregiver Chatbot — `/chat` *(NEW)*
 
 An AI-powered support chatbot backed by OpenAI GPT-4o-mini, designed to assist caregivers of children with Cerebral Palsy. The chatbot maintains **per-session conversation history** stored in the database, so conversations can be resumed.
 
@@ -852,7 +799,7 @@ The chatbot remembers the full conversation context and gives a contextually rel
 
 ---
 
-### 8.12 Community, Groups, Announcements
+### 8.11 Community, Groups, Announcements
 
 ```
 GET/POST  /community                        — create / list communities
@@ -867,7 +814,7 @@ GET/POST  /community/:id/announcements      — community announcements
 
 ---
 
-### 8.13 Direct Message — `/direct-message`
+### 8.12 Direct Message — `/direct-message`
 
 ```
 POST /direct-message/:receiverId            — send a DM
@@ -877,7 +824,7 @@ GET  /direct-message/:userId                — messages with a specific user
 
 ---
 
-### 8.14 Resource — `/resource`
+### 8.13 Resource — `/resource`
 
 ```
 POST /resource                              — upload PDF/resource (SERVICE_PROVIDER)
@@ -888,7 +835,7 @@ DELETE /resource/:id                        — delete own resource
 
 ---
 
-### 8.15 User — `/user`
+### 8.14 User — `/user`
 
 ```
 GET    /user/profile                        — own profile
@@ -1015,46 +962,7 @@ MotorFunctionOutcome
 
 ---
 
-## 12. Ghana GPS / Location Services
-
-### How it works
-
-Ghana Post GPS assigns every 5×5 metre cell in Ghana a unique digital address in the format `AB-NNN-NNNN` where `AB` is a two-letter region code.
-
-```
-GA → Greater Accra      AK → Ashanti       VO → Volta
-EP → Eastern            CP → Central       WE → Western
-NO → Northern           UE → Upper East    UW → Upper West
-NE → North East         SA → Savannah      OT → Oti
-```
-
-### API usage
-
-```js
-// 1. Validate format without any API call (always available)
-GET /location/validate?digitalAddress=GA-184-6424
-→ { valid: true, region: "Greater Accra" }
-
-// 2. Look up coordinates (requires GHANA_GPS_API_KEY)
-GET /location/lookup?digitalAddress=GA-184-6424
-→ { coordinates: { lat: 5.5602, lng: -0.1731 }, district: "Accra Metropolitan" }
-
-// 3. Reverse geocode any lat/lng → address (free, uses OpenStreetMap)
-GET /location/reverse?lat=5.5602&lng=-0.1731
-→ { displayName: "Oxford Street, Osu, Accra, Greater Accra, Ghana", address: {...} }
-```
-
-### Getting the Ghana Post GPS API key
-
-1. Register at [https://ghanapostgps.speakingdata.com](https://ghanapostgps.speakingdata.com)
-2. Obtain a bearer token
-3. Set `GHANA_GPS_API_KEY=<token>` in `.env`
-
-Without the key, `/lookup` still works — it returns the region inferred from the two-letter prefix but no coordinates.
-
----
-
-## 13. Real-time Events (Socket.IO)
+## 12. Real-time Events (Socket.IO)
 
 The server initialises Socket.IO on the same HTTP server. Clients join a room `user-{userId}` after authentication.
 
@@ -1081,7 +989,7 @@ socket.emit("join-room", { userId: "uuid" });
 
 ---
 
-## 14. Notifications
+## 13. Notifications
 
 Every major action sends an in-app notification via `NotificationService.createNotification()`. The service:
 1. Persists the notification to `Notification` table
@@ -1105,7 +1013,7 @@ Every major action sends an in-app notification via `NotificationService.createN
 
 ---
 
-## 15. Data Models Glossary
+## 14. Data Models Glossary
 
 | Model | Key fields |
 |---|---|
@@ -1129,7 +1037,7 @@ Every major action sends an in-app notification via `NotificationService.createN
 
 ---
 
-## 16. AI Feature Blueprint
+## 15. AI Feature Blueprint
 
 > **Status (updated v1.1):**
 > - ✅ **16.4 Caregiver Chatbot** — **IMPLEMENTED** (see section 8.11)
@@ -1199,7 +1107,7 @@ POST /assessment/:id/smart-referral-match
 
 ---
 
-## 17. Voice Assistant Blueprint (Future)
+## 16. Voice Assistant Blueprint (Future)
 
 > **Status:** Design only. Not implemented.
 
@@ -1242,7 +1150,7 @@ User speaks ──► Device STT ──► Intent classifier ──► API actio
 
 ---
 
-## 18. Deployment & Production Checklist
+## 17. Deployment & Production Checklist
 
 ### Database
 
@@ -1293,7 +1201,6 @@ const hashed = await hash('YourAdminPassword123');
 - [ ] `JWT` secret is at least 32 random characters
 - [ ] Firebase Admin credentials configured
 - [ ] Hubtel SMS credentials configured for OTP
-- [ ] `GHANA_GPS_API_KEY` configured (optional but recommended)
 - [ ] File storage (S3/MinIO) configured for license images and PDFs
 - [ ] Rate limiting reviewed for your expected load (default: 50 req/15min per IP)
 - [ ] At least one ADMIN user created in the database

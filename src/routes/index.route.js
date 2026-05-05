@@ -15,7 +15,6 @@ import resourceRouter from "../modules/resource/resource.route.js";
 import notificationRouter from "../modules/notification/notification.route.js";
 import fcRouter from "../modules/functionalClassification/functionalClassification.route.js";
 import metricsRouter from "../modules/metrics/metrics.route.js";
-import locationRouter from "../modules/location/location.route.js";
 import chatRouter from "../modules/chat/chat.route.js";
 
 
@@ -34,7 +33,6 @@ router.use("/resource", resourceRouter);
 router.use("/notification", notificationRouter);
 router.use("/functional-classification", fcRouter);
 router.use("/metrics", metricsRouter);
-router.use("/location", locationRouter);
 router.use("/chat", chatRouter);
 
 
