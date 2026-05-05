@@ -204,4 +204,55 @@ export default class ServiceProviderController {
       "Service provider availability updated successfully",
     );
   });
+
+  // ─── Admin verification actions ──────────────────────────────────────────
+
+  static verifyProvider = catchAsync(async (req, res) => {
+    const adminUserId = res.locals.user.id;
+    const { id } = req.params;
+    const { note } = req.body;
+    const result = await ServiceProviderService.verifyServiceProvider(
+      id,
+      adminUserId,
+      note
+    );
+    UtilFunctions.outputSuccess(res, result, "Service provider verified successfully");
+  });
+
+  static rejectProvider = catchAsync(async (req, res) => {
+    const adminUserId = res.locals.user.id;
+    const { id } = req.params;
+    const { reason } = req.body;
+    const result = await ServiceProviderService.rejectServiceProvider(
+      id,
+      adminUserId,
+      reason
+    );
+    UtilFunctions.outputSuccess(res, result, "Service provider verification rejected");
+  });
+
+  static suspendProvider = catchAsync(async (req, res) => {
+    const adminUserId = res.locals.user.id;
+    const { id } = req.params;
+    const { reason } = req.body;
+    const result = await ServiceProviderService.suspendServiceProvider(
+      id,
+      adminUserId,
+      reason
+    );
+    UtilFunctions.outputSuccess(res, result, "Service provider suspended");
+  });
+
+  static getPendingVerification = catchAsync(async (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const result = await ServiceProviderService.getPendingVerification(page, limit);
+    UtilFunctions.outputSuccess(res, result, "Pending verification list retrieved");
+  });
+
+  static getVerificationStatus = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const result = await ServiceProviderService.getVerificationStatus(id);
+    UtilFunctions.outputSuccess(res, result, "Verification status retrieved");
+  });
 }

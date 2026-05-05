@@ -293,6 +293,20 @@ class AssessmentService {
     return serviceProvider;
   }
 
+  // Requires profile AND verified status — use for clinical write actions
+  static async requireVerifiedServiceProvider(userId) {
+    const serviceProvider = await AssessmentService.requireServiceProvider(userId);
+
+    if (serviceProvider.verificationStatus !== "VERIFIED") {
+      throw new gcprError(
+        HttpStatus.FORBIDDEN,
+        "Your account is pending verification. Contact admin to complete verification before performing clinical actions."
+      );
+    }
+
+    return serviceProvider;
+  }
+
   static async ensurePatientExists(patientId) {
     const patient = await prisma.cpPatient.findUnique({
       where: { id: patientId },
@@ -305,7 +319,7 @@ class AssessmentService {
   }
 
   static async submitAssessment(user, data) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user.id);
+    const serviceProvider = await AssessmentService.requireVerifiedServiceProvider(user.id);
     await AssessmentService.ensurePatientExists(data.patientId);
 
     const normalizedToolCode = normalizeToolCode(data.toolCode);
@@ -402,7 +416,7 @@ class AssessmentService {
   }
 
   static async createReferral(user, data) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user.id);
+    const serviceProvider = await AssessmentService.requireVerifiedServiceProvider(user.id);
     await AssessmentService.ensurePatientExists(data.patientId);
 
     if (serviceProvider.profession !== "PHYSIOTHERAPIST") {
@@ -702,7 +716,7 @@ class AssessmentService {
   }
 
   static async createRehabTaskFromReferral(user, referralId, data) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user.id);
+    const serviceProvider = await AssessmentService.requireVerifiedServiceProvider(user.id);
 
     const referral = await prisma.clinicalReferral.findUnique({
       where: { id: referralId },

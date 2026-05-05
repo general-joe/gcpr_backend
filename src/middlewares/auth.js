@@ -87,21 +87,24 @@ export function authorize(allowedRoles = []) {
         throw new Error("Invalid token payload");
       }
       if (!allowedRoles.includes(decoded.role)) {
-        WRITE.warn("Insufficient permissions", {
-          userId: decoded.id,
-          userRole: decoded.role,
-          requiredRoles: allowedRoles,
-          method: rq.method,
-          path: rq.path,
-          timestamp: new Date().toISOString(),
-        });
-        return UtilFunctions.outputError(
-          rs,
-          "You do not have permission to access this resource",
-          {},
-          ResponseCodes.FORBIDDEN,
-          HttpStatus.FORBIDDEN,
-        );
+        // ADMIN is a superuser and bypasses role restrictions on all endpoints
+        if (decoded.role !== "ADMIN") {
+          WRITE.warn("Insufficient permissions", {
+            userId: decoded.id,
+            userRole: decoded.role,
+            requiredRoles: allowedRoles,
+            method: rq.method,
+            path: rq.path,
+            timestamp: new Date().toISOString(),
+          });
+          return UtilFunctions.outputError(
+            rs,
+            "You do not have permission to access this resource",
+            {},
+            ResponseCodes.FORBIDDEN,
+            HttpStatus.FORBIDDEN,
+          );
+        }
       }
 
       rs.locals.user = {

@@ -13,6 +13,9 @@ import communityAnnouncementRouter from "../modules/community/communityAnnouncem
 import directMessageRouter from "../modules/directMessage/directMessage.route.js";
 import resourceRouter from "../modules/resource/resource.route.js";
 import notificationRouter from "../modules/notification/notification.route.js";
+import fcRouter from "../modules/functionalClassification/functionalClassification.route.js";
+import metricsRouter from "../modules/metrics/metrics.route.js";
+import chatRouter from "../modules/chat/chat.route.js";
 
 
 router.use("/auth", authRouter);
@@ -28,6 +31,9 @@ router.use("/community/:communityId/announcements", communityAnnouncementRouter)
 router.use("/direct-message", directMessageRouter);
 router.use("/resource", resourceRouter);
 router.use("/notification", notificationRouter);
+router.use("/functional-classification", fcRouter);
+router.use("/metrics", metricsRouter);
+router.use("/chat", chatRouter);
 
 
 export default router;

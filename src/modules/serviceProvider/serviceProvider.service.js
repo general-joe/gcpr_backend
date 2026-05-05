@@ -364,4 +364,192 @@ export class ServiceProviderService {
 
     return deletedServiceProvider;
   }
+
+  // ─── Admin verification actions ──────────────────────────────────────────
+
+  static async verifyServiceProvider(id, adminUserId, note) {
+    const sp = await prisma.serviceProvider.findUnique({
+      where: { id },
+      select: { id: true, userId: true, verificationStatus: true },
+    });
+
+    if (!sp) {
+      throw new gcprError(404, "Service provider not found");
+    }
+
+    const updated = await prisma.serviceProvider.update({
+      where: { id },
+      data: {
+        verificationStatus: "VERIFIED",
+        verificationNote: note ?? null,
+        verifiedAt: new Date(),
+        verifiedBy: adminUserId,
+      },
+    });
+
+    try {
+      await NotificationService.createNotification({
+        userId: sp.userId,
+        type: "IN_APP",
+        category: "SYSTEM",
+        title: "Account Verified",
+        content:
+          "Your service provider account has been verified. You can now perform clinical actions.",
+        relatedId: sp.id,
+        relatedModel: "ServiceProvider",
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      });
+    } catch (e) {
+      console.error(
+        "[Notification] SP verification notification failed:",
+        e.message
+      );
+    }
+
+    const io = getIO();
+    if (io) {
+      io.to(`user-${sp.userId}`).emit("account-verified", {
+        verificationStatus: "VERIFIED",
+      });
+    }
+
+    return updated;
+  }
+
+  static async rejectServiceProvider(id, adminUserId, reason) {
+    const sp = await prisma.serviceProvider.findUnique({
+      where: { id },
+      select: { id: true, userId: true },
+    });
+
+    if (!sp) {
+      throw new gcprError(404, "Service provider not found");
+    }
+
+    if (!reason || reason.trim().length < 10) {
+      throw new gcprError(
+        400,
+        "A rejection reason of at least 10 characters is required"
+      );
+    }
+
+    const updated = await prisma.serviceProvider.update({
+      where: { id },
+      data: {
+        verificationStatus: "REJECTED",
+        verificationNote: reason,
+        verifiedBy: adminUserId,
+      },
+    });
+
+    try {
+      await NotificationService.createNotification({
+        userId: sp.userId,
+        type: "IN_APP",
+        category: "SYSTEM",
+        title: "Account Verification Rejected",
+        content: `Your service provider verification was not approved. Reason: ${reason}`,
+        relatedId: sp.id,
+        relatedModel: "ServiceProvider",
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      });
+    } catch (e) {
+      console.error(
+        "[Notification] SP rejection notification failed:",
+        e.message
+      );
+    }
+
+    const io = getIO();
+    if (io) {
+      io.to(`user-${sp.userId}`).emit("account-verified", {
+        verificationStatus: "REJECTED",
+        reason,
+      });
+    }
+
+    return updated;
+  }
+
+  static async suspendServiceProvider(id, adminUserId, reason) {
+    const sp = await prisma.serviceProvider.findUnique({
+      where: { id },
+      select: { id: true, userId: true },
+    });
+
+    if (!sp) {
+      throw new gcprError(404, "Service provider not found");
+    }
+
+    const updated = await prisma.serviceProvider.update({
+      where: { id },
+      data: {
+        verificationStatus: "SUSPENDED",
+        verificationNote: reason ?? null,
+        verifiedBy: adminUserId,
+      },
+    });
+
+    try {
+      await NotificationService.createNotification({
+        userId: sp.userId,
+        type: "IN_APP",
+        category: "SYSTEM",
+        title: "Account Suspended",
+        content: `Your service provider account has been suspended.${reason ? ` Reason: ${reason}` : ""}`,
+        relatedId: sp.id,
+        relatedModel: "ServiceProvider",
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      });
+    } catch (e) {
+      console.error("[Notification] SP suspension notification failed:", e.message);
+    }
+
+    return updated;
+  }
+
+  static async getPendingVerification(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      prisma.serviceProvider.findMany({
+        where: { verificationStatus: "PENDING_REVIEW" },
+        skip,
+        take: limit,
+        include: { user: { select: SAFE_USER_SELECT } },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.serviceProvider.count({
+        where: { verificationStatus: "PENDING_REVIEW" },
+      }),
+    ]);
+
+    return {
+      data,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  static async getVerificationStatus(id) {
+    const sp = await prisma.serviceProvider.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        verificationStatus: true,
+        verificationNote: true,
+        verifiedAt: true,
+        user: { select: { id: true, fullName: true, email: true } },
+      },
+    });
+
+    if (!sp) {
+      throw new gcprError(404, "Service provider not found");
+    }
+
+    return sp;
+  }
 }

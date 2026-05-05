@@ -107,6 +107,23 @@ class CpPatientService {
       console.error("[Notification] Patient creation notification failed:", e.message);
     }
 
+    // Auto-enroll patient in the CP programme
+    try {
+      await prisma.patientEnrollmentRecord.create({
+        data: {
+          patientId: patient.id,
+          enrolledByUserId: userId,
+          status: "ACTIVE",
+          programName: "GCPR Cerebral Palsy Rehabilitation Programme",
+        },
+      });
+    } catch (e) {
+      WRITE.warn("[Enrollment] Auto-enrollment failed", {
+        patientId: patient.id,
+        err: e.message,
+      });
+    }
+
     return patient;
   }
 
@@ -283,6 +300,34 @@ class CpPatientService {
       }
     } catch (e) {
       console.error("[Notification] Rehab task progress notification failed:", e.message);
+    }
+
+    // Record adherence log entry for this day
+    try {
+      const logDate = new Date(completionDate);
+      logDate.setHours(0, 0, 0, 0);
+      await prisma.taskAdherenceLog.upsert({
+        where: { taskId_logDate: { taskId: task.id, logDate } },
+        update: {
+          status: "COMPLETED",
+          markedById: userId,
+          markedAt: new Date(),
+        },
+        create: {
+          taskId: task.id,
+          patientId,
+          providerId: updatedTask.providerId,
+          logDate,
+          status: "COMPLETED",
+          markedById: userId,
+          markedAt: new Date(),
+        },
+      });
+    } catch (e) {
+      WRITE.warn("[Adherence] TaskAdherenceLog upsert failed", {
+        taskId: task.id,
+        err: e.message,
+      });
     }
 
     return updatedTask;

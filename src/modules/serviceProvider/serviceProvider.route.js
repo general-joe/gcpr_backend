@@ -73,4 +73,41 @@ serviceProviderRouter.delete(
   ServiceProviderController.deleteServiceProvider,
 );
 
+// ─── Admin verification routes ───────────────────────────────────────────────
+
+serviceProviderRouter.get(
+  "/admin/pending-verification",
+  authRateLimiter,
+  authorize(["ADMIN"]),
+  ServiceProviderController.getPendingVerification,
+);
+
+serviceProviderRouter.get(
+  "/:id/verification-status",
+  authRateLimiter,
+  authorize(["ADMIN", "SERVICE_PROVIDER"]),
+  ServiceProviderController.getVerificationStatus,
+);
+
+serviceProviderRouter.patch(
+  "/:id/verify",
+  authRateLimiter,
+  authorize(["ADMIN"]),
+  ServiceProviderController.verifyProvider,
+);
+
+serviceProviderRouter.patch(
+  "/:id/reject",
+  authRateLimiter,
+  authorize(["ADMIN"]),
+  ServiceProviderController.rejectProvider,
+);
+
+serviceProviderRouter.patch(
+  "/:id/suspend",
+  authRateLimiter,
+  authorize(["ADMIN"]),
+  ServiceProviderController.suspendProvider,
+);
+
 export default serviceProviderRouter;
