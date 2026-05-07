@@ -149,7 +149,7 @@ class TelehealthService {
 
     let where = {};
 
-    if (user.role === "SERVICE_PROVIDER") {
+    if (user.userType === "SERVICE_PROVIDER") {
       const sp = await TelehealthService.requireServiceProvider(user.id);
       where = {
         OR: [
@@ -267,7 +267,7 @@ class TelehealthService {
     if (!room) throw new gcprError(HttpStatus.NOT_FOUND, "Telehealth room not found");
 
     // Only SP can invite
-    if (user.role !== "SERVICE_PROVIDER") throw new gcprError(HttpStatus.FORBIDDEN, "Only service providers can invite users");
+    if (user.userType !== "SERVICE_PROVIDER") throw new gcprError(HttpStatus.FORBIDDEN, "Only service providers can invite users");
 
     await TelehealthService.inviteUsers(user, room, userIds, room.joinUrl);
 
@@ -296,7 +296,7 @@ class TelehealthService {
     // Upsert participant as joined
     await prisma.telehealthParticipant.upsert({
       where: { roomId_userId: { roomId, userId: user.id } },
-      create: { roomId, userId: user.id, role: user.role === "SERVICE_PROVIDER" ? "provider" : "caregiver", status: "joined", joinedAt: new Date() },
+      create: { roomId, userId: user.id, role: user.userType === "SERVICE_PROVIDER" ? "provider" : "caregiver", status: "joined", joinedAt: new Date() },
       update: { status: "joined", joinedAt: new Date() }
     });
 
@@ -324,7 +324,7 @@ class TelehealthService {
   }
 
   static async updateRoomStatus(user, roomId, status) {
-    if (user.role !== "SERVICE_PROVIDER") throw new gcprError(HttpStatus.FORBIDDEN, "Only service providers can update room status");
+    if (user.userType !== "SERVICE_PROVIDER") throw new gcprError(HttpStatus.FORBIDDEN, "Only service providers can update room status");
     const room = await prisma.telehealthRoom.findUnique({ where: { id: roomId } });
     if (!room) throw new gcprError(HttpStatus.NOT_FOUND, "Telehealth room not found");
 

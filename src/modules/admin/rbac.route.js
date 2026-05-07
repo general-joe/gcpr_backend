@@ -1,6 +1,6 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
-import { authorize } from "../../middlewares/auth.js";
+import { authorize, requireRbacRole } from "../../middlewares/auth.js";
 import RbacController from "./rbac.controller.js";
 
 const rbacRouter = express.Router();
@@ -9,6 +9,12 @@ const rbacCheckRouter = express.Router();
 const rbacLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
+  message: "Too many requests. Please try again later."
+});
+
+const rbacAdminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
   message: "Too many requests. Please try again later."
 });
 
@@ -21,46 +27,50 @@ rbacCheckRouter.get(
 );
 
 // ─── Role Management ──────────────────────────────────────────────────────────
-rbacRouter.get("/roles", authorize(["ADMIN"]), RbacController.listRoles);
-rbacRouter.post("/roles", authorize(["ADMIN"]), RbacController.createRole);
-rbacRouter.get("/roles/:roleId", authorize(["ADMIN"]), RbacController.getRole);
-rbacRouter.patch("/roles/:roleId", authorize(["ADMIN"]), RbacController.updateRole);
-rbacRouter.delete("/roles/:roleId", authorize(["ADMIN"]), RbacController.deleteRole);
+rbacRouter.get("/roles", rbacAdminLimiter, requireRbacRole(["ADMIN"]), RbacController.listRoles);
+rbacRouter.post("/roles", rbacAdminLimiter, requireRbacRole(["ADMIN"]), RbacController.createRole);
+rbacRouter.get("/roles/:roleId", rbacAdminLimiter, requireRbacRole(["ADMIN"]), RbacController.getRole);
+rbacRouter.patch("/roles/:roleId", rbacAdminLimiter, requireRbacRole(["ADMIN"]), RbacController.updateRole);
+rbacRouter.delete("/roles/:roleId", rbacAdminLimiter, requireRbacRole(["ADMIN"]), RbacController.deleteRole);
 
 // ─── Permission Management ────────────────────────────────────────────────────
-rbacRouter.get("/permissions", authorize(["ADMIN"]), RbacController.listPermissions);
-rbacRouter.post("/permissions", authorize(["ADMIN"]), RbacController.createPermission);
-rbacRouter.patch("/permissions/:permissionId", authorize(["ADMIN"]), RbacController.updatePermission);
-rbacRouter.delete("/permissions/:permissionId", authorize(["ADMIN"]), RbacController.deletePermission);
+rbacRouter.get("/permissions", rbacAdminLimiter, requireRbacRole(["ADMIN"]), RbacController.listPermissions);
+rbacRouter.post("/permissions", rbacAdminLimiter, requireRbacRole(["ADMIN"]), RbacController.createPermission);
+rbacRouter.patch("/permissions/:permissionId", rbacAdminLimiter, requireRbacRole(["ADMIN"]), RbacController.updatePermission);
+rbacRouter.delete("/permissions/:permissionId", rbacAdminLimiter, requireRbacRole(["ADMIN"]), RbacController.deletePermission);
 
 // ─── Role ↔ Permission Toggle ─────────────────────────────────────────────────
 rbacRouter.post(
   "/roles/:roleId/permissions/:permissionId",
-  authorize(["ADMIN"]),
+  rbacAdminLimiter,
+  requireRbacRole(["ADMIN"]),
   RbacController.assignPermissionToRole
 );
 rbacRouter.delete(
   "/roles/:roleId/permissions/:permissionId",
-  authorize(["ADMIN"]),
+  rbacAdminLimiter,
+  requireRbacRole(["ADMIN"]),
   RbacController.removePermissionFromRole
 );
 rbacRouter.put(
   "/roles/:roleId/permissions",
-  authorize(["ADMIN"]),
+  rbacAdminLimiter,
+  requireRbacRole(["ADMIN"]),
   RbacController.setRolePermissions
 );
 
 // ─── User Role Assignment ─────────────────────────────────────────────────────
-rbacRouter.get("/users/:userId/roles", authorize(["ADMIN"]), RbacController.getUserRoles);
-rbacRouter.post("/users/:userId/roles", authorize(["ADMIN"]), RbacController.assignRoleToUser);
-rbacRouter.delete("/users/:userId/roles/:roleId", authorize(["ADMIN"]), RbacController.revokeRoleFromUser);
+rbacRouter.get("/users/:userId/roles", rbacAdminLimiter, requireRbacRole(["ADMIN"]), RbacController.getUserRoles);
+rbacRouter.post("/users/:userId/roles", rbacAdminLimiter, requireRbacRole(["ADMIN"]), RbacController.assignRoleToUser);
+rbacRouter.delete("/users/:userId/roles/:roleId", rbacAdminLimiter, requireRbacRole(["ADMIN"]), RbacController.revokeRoleFromUser);
 
 // ─── User Permission Overrides ────────────────────────────────────────────────
-rbacRouter.get("/users/:userId/permissions", authorize(["ADMIN"]), RbacController.getUserEffectivePermissions);
-rbacRouter.post("/users/:userId/permissions", authorize(["ADMIN"]), RbacController.grantUserPermission);
+rbacRouter.get("/users/:userId/permissions", rbacAdminLimiter, requireRbacRole(["ADMIN"]), RbacController.getUserEffectivePermissions);
+rbacRouter.post("/users/:userId/permissions", rbacAdminLimiter, requireRbacRole(["ADMIN"]), RbacController.grantUserPermission);
 rbacRouter.delete(
   "/users/:userId/permissions/:permissionId",
-  authorize(["ADMIN"]),
+  rbacAdminLimiter,
+  requireRbacRole(["ADMIN"]),
   RbacController.removeUserPermission
 );
 

@@ -100,7 +100,7 @@ class AdherenceService {
   }
 
   static async updateLog(user, taskId, logId, data) {
-    if (user.role !== "SERVICE_PROVIDER") throw new gcprError(HttpStatus.FORBIDDEN, "Only service providers can update logs");
+    if (user.userType !== "SERVICE_PROVIDER") throw new gcprError(HttpStatus.FORBIDDEN, "Only service providers can update logs");
 
     const log = await prisma.taskAdherenceLog.findFirst({ where: { id: logId, taskId } });
     if (!log) throw new gcprError(HttpStatus.NOT_FOUND, "Adherence log not found");

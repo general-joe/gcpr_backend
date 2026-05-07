@@ -19,13 +19,6 @@ const extractOtpPayload = (otpResponse) =>
 
 class AuthService {
   static async registerUser(rq, userData) {
-    if (userData.role === "ADMIN") {
-      throw new gcprError(
-        HttpStatus.FORBIDDEN,
-        "Admin accounts cannot be created through public registration",
-      );
-    }
-
     if (rq.files?.profileImage) {
       const fileName = `${userData.id}.jpg`;
       userData.profileImage = await UploadService.saveFile(
@@ -371,7 +364,7 @@ class AuthService {
       const accessToken = UtilFunctions.generateAccessToken({
         id: user.id,
         email: user.email,
-        role: user.role,
+        userType: user.userType,
       });
 
       WRITE.info("OTP verification completed successfully", {
@@ -555,7 +548,7 @@ class AuthService {
     const accessToken = UtilFunctions.generateAccessToken({
       id: user.id,
       email: user.email,
-      role: user.role,
+      userType: user.userType,
     });
 
     const refreshToken = UtilFunctions.generateRefreshToken();
@@ -705,7 +698,7 @@ class AuthService {
     const newAccessToken = UtilFunctions.generateAccessToken({
       id: user.id,
       email: user.email,
-      role: user.role,
+      userType: user.userType,
     });
 
     const newRefreshToken = UtilFunctions.generateRefreshToken();

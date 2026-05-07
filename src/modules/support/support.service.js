@@ -45,7 +45,13 @@ export default class SupportService {
 
     // Notify all admins of new ticket
     try {
-      const admins = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });
+      const adminRole = await prisma.appRole.findUnique({ where: { slug: 'ADMIN' } });
+      const admins = adminRole
+        ? await prisma.user.findMany({
+            where: { userRoles: { some: { roleId: adminRole.id, active: true } } },
+            select: { id: true }
+          })
+        : [];
       for (const admin of admins) {
         await NotificationService.createNotification({
           userId: admin.id,
@@ -136,7 +142,13 @@ export default class SupportService {
 
     // Notify admins
     try {
-      const admins = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });
+      const adminRole = await prisma.appRole.findUnique({ where: { slug: 'ADMIN' } });
+      const admins = adminRole
+        ? await prisma.user.findMany({
+            where: { userRoles: { some: { roleId: adminRole.id, active: true } } },
+            select: { id: true }
+          })
+        : [];
       for (const admin of admins) {
         await NotificationService.createNotification({
           userId: admin.id,
