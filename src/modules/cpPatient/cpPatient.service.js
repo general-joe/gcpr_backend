@@ -127,17 +127,35 @@ class CpPatientService {
     return patient;
   }
 
-  static async fetchPatients(userId) {
+  static async fetchPatients(userId, page = 1, limit = 10) {
     const caregiver = await CpPatientService.requireCaregiver(userId);
+    const skip = (page - 1) * limit;
 
-    const patients = await prisma.cpPatient.findMany({
-      where: {
-        caregiverId: caregiver.id,
+    const [patients, total] = await Promise.all([
+      prisma.cpPatient.findMany({
+        where: {
+          caregiverId: caregiver.id,
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.cpPatient.count({
+        where: {
+          caregiverId: caregiver.id,
+        },
+      }),
+    ]);
+
+    return {
+      data: patients,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
       },
-      orderBy: { createdAt: "desc" },
-    });
-
-    return patients;
+    };
   }
 
   static async getAssignedTasks(userId, patientId) {

@@ -63,6 +63,10 @@ class TelehealthService {
       });
     } catch (e) {
       WRITE.error("[Telehealth] Google Meet creation failed", { error: e.message });
+      throw new gcprError(
+        HttpStatus.BAD_GATEWAY,
+        "Unable to provision Google Meet for this telehealth room",
+      );
     }
 
     const reminders = TelehealthService.buildReminders(data.scheduledStart);

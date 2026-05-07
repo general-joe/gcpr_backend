@@ -410,7 +410,7 @@ model ServiceProvider {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  licenseNumber     String?
+  licenseNumber     String
   licenseImage      String?
   licenseExpiry     DateTime
   licenseIssuedBy   String?
