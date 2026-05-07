@@ -76,6 +76,25 @@
 
 /**
  * @swagger
+ * /report/{id}:
+ *   get:
+ *     summary: Get a submitted report by ID (owner only)
+ *     tags: [Report]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Report retrieved
+ */
+
+/**
+ * @swagger
  * /admin/reports:
  *   get:
  *     summary: List all reports (admin)
@@ -94,6 +113,25 @@
  *     responses:
  *       200:
  *         description: Reports retrieved
+ */
+
+/**
+ * @swagger
+ * /admin/reports/{id}:
+ *   get:
+ *     summary: Get report details (admin)
+ *     tags: [Admin Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Report retrieved
  */
 
 /**
