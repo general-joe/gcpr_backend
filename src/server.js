@@ -6,7 +6,6 @@ import morgan from 'morgan'
 import cors from 'cors'
 import { Server } from 'socket.io'
 import http from 'http'
-import jwt from 'jsonwebtoken'
 
 // Global Variables
 import WRITE from './utils/logger.js'
@@ -20,6 +19,7 @@ import swaggerUi from 'swagger-ui-express'
 import swaggerSpec from './config/swagger.js'
 import filesRouter from './modules/files/files.route.js'
 import prisma from './config/database.js'
+import { auditRequest } from './middlewares/audit.js'
 
 // ROUTING
 
@@ -49,21 +49,6 @@ initializeSocketIO(io);
 // Eagerly initialize Firebase so errors surface at startup
 import { initializeFirebase } from './utils/firebaseService.js';
 initializeFirebase();
-
-const getSocketToken = (socket) => {
-  const authToken = socket.handshake.auth?.token;
-  const headerToken = socket.handshake.headers?.authorization;
-  const queryToken = socket.handshake.query?.token;
-  const rawToken = authToken || headerToken || queryToken;
-
-  if (typeof rawToken !== 'string' || rawToken.trim().length === 0) {
-    return null;
-  }
-
-  return rawToken.startsWith('Bearer ')
-    ? rawToken.slice(7).trim()
-    : rawToken.trim();
-};
 
 const socketError = (socket, message) => {
   socket.emit('socket-error', { message });
@@ -98,38 +83,6 @@ const ensureGroupMembership = async (userId, groupId) => {
   });
 };
 
-io.use(async (socket, next) => {
-  const token = getSocketToken(socket);
-
-  if (!token) {
-    return next(new Error('Authentication required'));
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT);
-
-    if (!decoded?.id || !decoded?.role) {
-      throw new Error('Invalid token payload');
-    }
-
-    socket.data.user = {
-      id: decoded.id,
-      role: decoded.role,
-    };
-
-    return next();
-  } catch (error) {
-    WRITE.warn('Socket authentication failed', {
-      socketId: socket.id,
-      error: error.message,
-      timestamp: new Date().toISOString(),
-    });
-    return next(new Error('Invalid or expired token'));
-  }
-});
-
-
-
 app.use(compression())
 app.use(cors({
     origin: true,
@@ -143,6 +96,7 @@ app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ limit: '50mb', extended: true }))
 app.use(cookieParser())
 app.use(morgan("dev"));
+app.use(auditRequest());
 
 // Serve Swagger docs
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
