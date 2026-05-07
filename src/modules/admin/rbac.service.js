@@ -185,6 +185,13 @@ export default class RbacService {
     if (!user) throw new gcprError(HttpStatus.NOT_FOUND, "User not found");
     if (!role) throw new gcprError(HttpStatus.NOT_FOUND, "Role not found");
 
+    if (user.userType === "CAREGIVER") {
+      throw new gcprError(
+        HttpStatus.FORBIDDEN,
+        "RBAC roles cannot be assigned to caregivers. Only SERVICE_PROVIDER users and staff may receive operational roles."
+      );
+    }
+
     return prisma.userRole.upsert({
       where: {
         userId_roleId_scopeType_scopeId: {
@@ -277,6 +284,13 @@ export default class RbacService {
     ]);
     if (!user) throw new gcprError(HttpStatus.NOT_FOUND, "User not found");
     if (!perm) throw new gcprError(HttpStatus.NOT_FOUND, "Permission not found");
+
+    if (user.userType === "CAREGIVER") {
+      throw new gcprError(
+        HttpStatus.FORBIDDEN,
+        "Permissions cannot be granted directly to caregivers. Only SERVICE_PROVIDER users and staff may receive permission overrides."
+      );
+    }
 
     return prisma.userPermission.upsert({
       where: {

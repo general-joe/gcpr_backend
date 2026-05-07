@@ -33,13 +33,13 @@ const configureSocketAuthentication = (io) => {
     try {
       const decoded = jwt.verify(token, process.env.JWT);
 
-      if (!decoded?.id || !decoded?.role) {
+      if (!decoded?.id || !decoded?.userType) {
         throw new Error("Invalid token payload");
       }
 
       socket.data.user = {
         id: decoded.id,
-        role: decoded.role,
+        userType: decoded.userType,
       };
 
       return next();

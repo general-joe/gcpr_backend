@@ -1,6 +1,6 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
-import { authorize } from "../../middlewares/auth.js";
+import { authorize, requireRbacRole } from "../../middlewares/auth.js";
 import { validate } from "../../middlewares/validation.js";
 import ReportController from "./report.controller.js";
 import { createReportSchema, adminUpdateReportSchema } from "./report.validator.js";
@@ -36,11 +36,11 @@ reportRouter.get(
 );
 
 // ─── Admin Report Routes ───────────────────────────────────────────────────────
-adminReportRouter.get("/", authorize(["ADMIN"]), ReportController.adminListReports);
-adminReportRouter.get("/:id", authorize(["ADMIN"]), ReportController.adminGetReport);
+adminReportRouter.get("/", requireRbacRole(["ADMIN"]), ReportController.adminListReports);
+adminReportRouter.get("/:id", requireRbacRole(["ADMIN"]), ReportController.adminGetReport);
 adminReportRouter.patch(
   "/:id",
-  authorize(["ADMIN"]),
+  requireRbacRole(["ADMIN"]),
   validate(adminUpdateReportSchema),
   ReportController.adminUpdateReport
 );

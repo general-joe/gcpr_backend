@@ -2,17 +2,76 @@ import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
 import NotificationService from "../notification/notification.service.js";
 import MetricsService from "../metrics/metrics.service.js";
+import { seedRbac } from "../../utils/rbacSeed.js";
 
 class AdminService {
+  // ── Bootstrap ────────────────────────────────────────────────────────────────
+
+  /**
+   * Seeds default RBAC roles/permissions and optionally assigns the ADMIN role
+   * to a specified user. Protected by BOOTSTRAP_SECRET env var.
+   *
+   * Body: { secret: string, userId?: string }
+   */
+  static async bootstrap(body) {
+    const { secret, userId } = body ?? {};
+    const expected = process.env.BOOTSTRAP_SECRET;
+
+    if (!expected || secret !== expected) {
+      throw new gcprError(HttpStatus.FORBIDDEN, "Invalid or missing bootstrap secret");
+    }
+
+    const seedResult = await seedRbac();
+
+    let roleAssignment = null;
+    if (userId) {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) throw new gcprError(HttpStatus.NOT_FOUND, "User not found");
+
+      if (user.userType === "CAREGIVER") {
+        throw new gcprError(
+          HttpStatus.FORBIDDEN,
+          "ADMIN role cannot be assigned to a CAREGIVER user. Use a SERVICE_PROVIDER user."
+        );
+      }
+
+      const adminRole = await prisma.appRole.findUnique({ where: { slug: "ADMIN" } });
+      if (adminRole) {
+        roleAssignment = await prisma.userRole.upsert({
+          where: {
+            userId_roleId_scopeType_scopeId: {
+              userId,
+              roleId: adminRole.id,
+              scopeType: "GLOBAL",
+              scopeId: null,
+            },
+          },
+          update: { active: true },
+          create: { userId, roleId: adminRole.id, scopeType: "GLOBAL", active: true },
+        });
+      }
+    }
+
+    return { seed: seedResult, roleAssignment };
+  }
+
+  /**
+   * Re-seeds the default RBAC roles and permissions (idempotent).
+   * Safe to call multiple times.
+   */
+  static async seedRbac() {
+    return seedRbac();
+  }
+
   // ── User Management ──────────────────────────────────────────────────────────
 
   static async listUsers(query = {}) {
-    const { role, status, page = 1, limit = 20, search } = query;
+    const { userType, status, page = 1, limit = 20, search } = query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const take = parseInt(limit);
 
     const where = {};
-    if (role) where.role = role;
+    if (userType) where.userType = userType;
     if (status) where.accountStatus = status;
     if (search) {
       where.OR = [
@@ -33,7 +92,7 @@ class AdminService {
           fullName: true,
           email: true,
           phoneNumber: true,
-          role: true,
+          userType: true,
           accountStatus: true,
           verified: true,
           profileCompleted: true,

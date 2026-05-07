@@ -3,6 +3,18 @@ import UtilFunctions from "../../utils/UtilFunctions.js";
 import AdminService from "./admin.service.js";
 
 class AdminController {
+  // Bootstrap — seed RBAC and optionally assign ADMIN role to a first user
+  static bootstrap = catchAsync(async (req, res) => {
+    const result = await AdminService.bootstrap(req.body);
+    UtilFunctions.outputSuccess(res, result, "Bootstrap completed");
+  });
+
+  // Seed default RBAC roles / permissions (idempotent)
+  static seedRbac = catchAsync(async (req, res) => {
+    const result = await AdminService.seedRbac();
+    UtilFunctions.outputSuccess(res, result, "RBAC seeded successfully");
+  });
+  
   // User Management
   static listUsers = catchAsync(async (req, res) => {
     const result = await AdminService.listUsers(req.query);

@@ -184,7 +184,7 @@ io.on('connection', (socket) => {
 
   WRITE.info(`User connected: ${socket.id}`, {
     userId: authenticatedUser.id,
-    role: authenticatedUser.role,
+    userType: authenticatedUser.userType,
   });
 
   socket.join(`user-${authenticatedUser.id}`);

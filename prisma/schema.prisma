@@ -22,10 +22,9 @@ enum Relationship {
   OTHER
 }
 
-enum Role {
-  SERVICE_PROVIDER
+enum UserType {
   CAREGIVER
-  ADMIN
+  SERVICE_PROVIDER
 }
 
 enum CaregiverType {
@@ -315,7 +314,7 @@ model User {
   password            String
   phoneNumber         String               @unique
   gender              Gender
-  role                Role
+  userType            UserType
   profileImage        String?
   verified            Boolean              @default(false)
   profileCompleted    Boolean              @default(false)

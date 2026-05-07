@@ -20,8 +20,8 @@ const messageLimiter = rateLimit({
 // General chat rate limiter
 const chatLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
 
-// All chat endpoints are accessible by CAREGIVER, SERVICE_PROVIDER, and ADMIN
-const chatRoles = ["CAREGIVER", "SERVICE_PROVIDER", "ADMIN"];
+// All chat endpoints are accessible by CAREGIVER and SERVICE_PROVIDER
+const chatRoles = ["CAREGIVER", "SERVICE_PROVIDER"];
 
 // POST /chat/quick — one-shot: create session + first message
 chatRouter.post(

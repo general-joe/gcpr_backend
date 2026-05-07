@@ -1,6 +1,6 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
-import { authorize } from "../../middlewares/auth.js";
+import { authorize, requireRbacRole } from "../../middlewares/auth.js";
 import { validate } from "../../middlewares/validation.js";
 import SupportController from "./support.controller.js";
 import {
@@ -62,26 +62,26 @@ supportRouter.patch(
 // ─── Admin Support Routes ──────────────────────────────────────────────────────
 adminSupportRouter.get(
   "/tickets",
-  authorize(["ADMIN"]),
+  requireRbacRole(["ADMIN"]),
   SupportController.adminListTickets
 );
 
 adminSupportRouter.get(
   "/tickets/:ticketId",
-  authorize(["ADMIN"]),
+  requireRbacRole(["ADMIN"]),
   SupportController.adminGetTicket
 );
 
 adminSupportRouter.patch(
   "/tickets/:ticketId",
-  authorize(["ADMIN"]),
+  requireRbacRole(["ADMIN"]),
   validate(adminUpdateTicketSchema),
   SupportController.adminUpdateTicket
 );
 
 adminSupportRouter.post(
   "/tickets/:ticketId/messages",
-  authorize(["ADMIN"]),
+  requireRbacRole(["ADMIN"]),
   messageLimiter,
   validate(addMessageSchema),
   SupportController.adminAddMessage
