@@ -11,7 +11,7 @@ export const signUpSchema = z.object({
   digitalAddress: z.string().optional(),
   phoneNumber: z.string().min(1, 'Phone number is required'),
   gender: z.enum(['MALE', 'FEMALE'], 'Gender must be MALE or FEMALE'),
-  role: z.enum(['SERVICE_PROVIDER', 'CAREGIVER', 'ADMIN']),
+  role: z.enum(['SERVICE_PROVIDER', 'CAREGIVER']),
   profileImage: z.string().optional(),
   otpChannel:z.enum(['sms','email'])
 });

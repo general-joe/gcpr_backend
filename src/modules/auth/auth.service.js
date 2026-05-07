@@ -19,6 +19,13 @@ const extractOtpPayload = (otpResponse) =>
 
 class AuthService {
   static async registerUser(rq, userData) {
+    if (userData.role === "ADMIN") {
+      throw new gcprError(
+        HttpStatus.FORBIDDEN,
+        "Admin accounts cannot be created through public registration",
+      );
+    }
+
     if (rq.files?.profileImage) {
       const fileName = `${userData.id}.jpg`;
       userData.profileImage = await UploadService.saveFile(

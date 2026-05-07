@@ -56,6 +56,12 @@ export class ServiceProviderService {
       throw new gcprError(409, "Service provider profile already exists");
     }
 
+    const licenseNumber = `${serviceProviderData.licenseNumber ?? ""}`.trim();
+    if (!licenseNumber) {
+      throw new gcprError(400, "License number is required");
+    }
+    serviceProviderData.licenseNumber = licenseNumber;
+
     if (!_.isEmpty(rq.files)) {
       if (_.has(rq.files, "licenseImage")) {
         const fileName = `${serviceProviderData.userId}.jpg`;

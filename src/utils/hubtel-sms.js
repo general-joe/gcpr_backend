@@ -50,7 +50,7 @@ export const SendSMS = async (To, Content) => {
       } else {
         WRITE.warn("SMS send failed after retries (non-critical)", {
           phoneNumber: To,
-          attempts: maxRetrToies,
+          attempts: maxRetries,
           error: error.message,
         });
         // Don't throw - SMS is informational, not critical
