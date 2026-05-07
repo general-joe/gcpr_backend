@@ -124,12 +124,17 @@ export class ServiceProviderService {
     return completeProfile;
   }
 
-  static async getAllServiceProviders(page = 1, limit = 10) {
+  static async getAllServiceProviders(page = 1, limit = 10, requesterRole = null) {
     await ServiceProviderService.syncLicenseStatuses();
 
     const skip = (page - 1) * limit;
+    const where = requesterRole === "CAREGIVER"
+      ? { verificationStatus: "VERIFIED" }
+      : undefined;
+
     const [serviceProviders, total] = await Promise.all([
       prisma.serviceProvider.findMany({
+        where,
         skip,
         take: limit,
         include: {
@@ -141,7 +146,7 @@ export class ServiceProviderService {
           createdAt: "desc",
         },
       }),
-      prisma.serviceProvider.count(),
+      prisma.serviceProvider.count({ where }),
     ]);
 
     return {
@@ -155,11 +160,13 @@ export class ServiceProviderService {
     };
   }
 
-  static async getServiceProviderById(id) {
+  static async getServiceProviderById(id, requesterRole = null) {
     await ServiceProviderService.syncLicenseStatuses();
 
-    const serviceProvider = await prisma.serviceProvider.findUnique({
-      where: { id },
+    const serviceProvider = await prisma.serviceProvider.findFirst({
+      where: requesterRole === "CAREGIVER"
+        ? { id, verificationStatus: "VERIFIED" }
+        : { id },
       include: {
         user: {
           select: SAFE_USER_SELECT
@@ -183,6 +190,7 @@ export class ServiceProviderService {
     filters = {},
     page = 1,
     limit = 10,
+    requesterRole = null,
   ) {
     await ServiceProviderService.syncLicenseStatuses();
 
@@ -196,6 +204,10 @@ export class ServiceProviderService {
         { user: { fullName: { contains: searchTerm, mode: "insensitive" } } },
       ],
     };
+
+    if (requesterRole === "CAREGIVER") {
+      whereConditions.verificationStatus = "VERIFIED";
+    }
 
     if (filters.licenseType) {
       whereConditions.licenseType = filters.licenseType;

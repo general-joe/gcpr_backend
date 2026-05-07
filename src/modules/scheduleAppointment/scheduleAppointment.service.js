@@ -69,6 +69,33 @@ class ScheduleAppointmentService {
     return provider;
   }
 
+  static async ensureVerifiedProvider(providerId) {
+    const provider = await prisma.serviceProvider.findUnique({
+      where: { id: providerId },
+      select: {
+        id: true,
+        verificationStatus: true,
+        profession: true,
+        facilityName: true,
+        facilityAddress: true,
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            phoneNumber: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!provider || provider.verificationStatus !== "VERIFIED") {
+      throw new gcprError(HttpStatus.NOT_FOUND, "Service provider not found");
+    }
+
+    return provider;
+  }
+
   static getDateTimeParts(date) {
     const hours = String(date.getHours()).padStart(2, "0");
     const minutes = String(date.getMinutes()).padStart(2, "0");
@@ -99,6 +126,7 @@ class ScheduleAppointmentService {
 
     const providers = await prisma.serviceProvider.findMany({
       where: {
+        verificationStatus: "VERIFIED",
         availabilities: {
           some: {
             dayOfWeek,
@@ -175,7 +203,7 @@ class ScheduleAppointmentService {
         );
       }
 
-      const provider = await ScheduleAppointmentService.ensureProviderExists(payload.providerId);
+      const provider = await ScheduleAppointmentService.ensureVerifiedProvider(payload.providerId);
       WRITE.debug("Provider verified", { operationId, providerId: provider.id, providerName: provider.user.fullName });
 
       const createdAppointment = await prisma.$transaction(async (tx) => {
@@ -328,11 +356,17 @@ class ScheduleAppointmentService {
     }
   }
 
-  static async getProviderAvailability(providerId, date) {
+  static async getProviderAvailability(providerId, date, requesterRole = null) {
     const parsedDate = new Date(date);
 
     if (isNaN(parsedDate.getTime())) {
       throw new gcprError(HttpStatus.BAD_REQUEST, "Invalid date");
+    }
+
+    if (requesterRole === "CAREGIVER") {
+      await ScheduleAppointmentService.ensureVerifiedProvider(providerId);
+    } else {
+      await ScheduleAppointmentService.ensureProviderExists(providerId);
     }
 
     const dayOfWeek = parsedDate.getDay();
