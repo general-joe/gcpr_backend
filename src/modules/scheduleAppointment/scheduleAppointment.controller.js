@@ -93,6 +93,7 @@ class ScheduleAppointmentController {
   static getProviderAvailability = catchAsync(async (req, res) => {
     const requestId = `REQ-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const userId = res.locals.user?.id;
+    const requesterRole = res.locals.user?.role;
     const { providerId, date } = req.query;
 
     WRITE.debug("GET /provider-availability started", {
@@ -106,6 +107,7 @@ class ScheduleAppointmentController {
     const result = await ScheduleAppointmentService.getProviderAvailability(
       providerId,
       date,
+      requesterRole,
     );
 
     WRITE.info("GET /provider-availability completed successfully", {

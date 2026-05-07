@@ -26,10 +26,12 @@ export default class ServiceProviderController {
   static getAllServiceProviders = catchAsync(async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
+    const requesterRole = res.locals.user?.role;
 
     const result = await ServiceProviderService.getAllServiceProviders(
       page,
       limit,
+      requesterRole,
     );
     UtilFunctions.outputSuccess(
       res,
@@ -40,8 +42,9 @@ export default class ServiceProviderController {
 
   static getServiceProviderById = catchAsync(async (req, res) => {
     const { id } = req.params;
+    const requesterRole = res.locals.user?.role;
     const serviceProvider =
-      await ServiceProviderService.getServiceProviderById(id);
+      await ServiceProviderService.getServiceProviderById(id, requesterRole);
 
     if (!serviceProvider) {
       return UtilFunctions.outputError(
@@ -74,12 +77,14 @@ export default class ServiceProviderController {
       facilityType: req.query.facilityType,
       licenseStatus: req.query.licenseStatus,
     };
+    const requesterRole = res.locals.user?.role;
 
     const result = await ServiceProviderService.searchServiceProviders(
       search,
       filters,
       page,
       limit,
+      requesterRole,
     );
     UtilFunctions.outputSuccess(
       res,
