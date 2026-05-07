@@ -1,6 +1,6 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
-import { authorize } from "../../middlewares/auth.js";
+import { authorize, requireRbacRole } from "../../middlewares/auth.js";
 import MetricsController from "./metrics.controller.js";
 
 const metricsRouter = express.Router();
@@ -27,7 +27,7 @@ metricsRouter.get(
 metricsRouter.get(
   "/system",
   limiter,
-  authorize(["ADMIN"]),
+  requireRbacRole(["ADMIN"]),
   MetricsController.getSystemMetrics
 );
 
@@ -35,7 +35,7 @@ metricsRouter.get(
 metricsRouter.post(
   "/compute/provider",
   limiter,
-  authorize(["ADMIN"]),
+  requireRbacRole(["ADMIN"]),
   MetricsController.computeProviderSnapshot
 );
 
@@ -43,7 +43,7 @@ metricsRouter.post(
 metricsRouter.post(
   "/compute/system",
   limiter,
-  authorize(["ADMIN"]),
+  requireRbacRole(["ADMIN"]),
   MetricsController.computeSystemSnapshot
 );
 
@@ -51,7 +51,7 @@ metricsRouter.post(
 metricsRouter.post(
   "/compute/all",
   limiter,
-  authorize(["ADMIN"]),
+  requireRbacRole(["ADMIN"]),
   MetricsController.computeAll
 );
 

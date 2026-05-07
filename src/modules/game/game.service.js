@@ -86,7 +86,7 @@ class GameService {
 
     const where = { removedAt: null };
 
-    if (user.role === "CAREGIVER") {
+    if (user.userType === "CAREGIVER") {
       where.isPublished = true;
     }
 
@@ -111,7 +111,7 @@ class GameService {
 
   static async getGameById(user, gameId) {
     const where = { id: gameId, removedAt: null };
-    if (user.role === "CAREGIVER") where.isPublished = true;
+    if (user.userType === "CAREGIVER") where.isPublished = true;
 
     const game = await prisma.gameResource.findFirst({ where });
     if (!game) throw new gcprError(HttpStatus.NOT_FOUND, "Game resource not found");

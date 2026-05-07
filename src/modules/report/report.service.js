@@ -10,15 +10,15 @@ export default class ReportService {
       }
       const target = await prisma.user.findUnique({
         where: { id: data.targetUserId },
-        select: { id: true, role: true }
+        select: { id: true, userType: true }
       });
       if (!target) {
         throw new gcprError(HttpStatus.NOT_FOUND, "Target user not found");
       }
-      if (target.role !== "SERVICE_PROVIDER") {
+      if (target.userType !== "SERVICE_PROVIDER") {
         throw new gcprError(
           HttpStatus.UNPROCESSABLE_ENTITY,
-          "Target user must have the SERVICE_PROVIDER role"
+          "Target user must have the SERVICE_PROVIDER user type"
         );
       }
     }
@@ -40,10 +40,13 @@ export default class ReportService {
 
     // Notify all admin users
     try {
-      const admins = await prisma.user.findMany({
-        where: { role: "ADMIN" },
-        select: { id: true }
-      });
+      const adminRole = await prisma.appRole.findUnique({ where: { slug: "ADMIN" } });
+      const admins = adminRole
+        ? await prisma.user.findMany({
+            where: { userRoles: { some: { roleId: adminRole.id, active: true } } },
+            select: { id: true }
+          })
+        : [];
       for (const admin of admins) {
         await NotificationService.createNotification({
           userId: admin.id,

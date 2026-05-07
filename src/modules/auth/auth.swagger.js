@@ -24,9 +24,10 @@
  *         gender:
  *           type: string
  *           enum: [MALE, FEMALE]
- *         role:
+ *         userType:
  *           type: string
  *           enum: [SERVICE_PROVIDER, CAREGIVER]
+ *           description: Primary user type (ADMIN is an RBAC role, not a user type)
  *         profileImage:
  *           type: string
  *           nullable: true
@@ -40,7 +41,7 @@
  *         - password
  *         - phoneNumber
  *         - gender
- *         - role
+ *         - userType
  *         - otpChannel
  *       properties:
  *         fullName:
@@ -57,10 +58,11 @@
  *         gender:
  *           type: string
  *           enum: [MALE, FEMALE]
- *         role:
+ *         userType:
  *           type: string
  *           enum: [SERVICE_PROVIDER, CAREGIVER]
- *         dateOfBirth:
+ *           description: Primary user type. ADMIN is an RBAC role assigned separately, not a user type.
+ *         profileImage:
  *           type: string
  *           format: date
  *           nullable: true

@@ -1,6 +1,6 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
-import { authorize } from "../../middlewares/auth.js";
+import { authorize, requireRbacRole } from "../../middlewares/auth.js";
 import { validate } from "../../middlewares/validation.js";
 import SupportController from "./support.controller.js";
 import {
@@ -22,6 +22,12 @@ const messageLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 60,
   message: "Too many messages. Please try again later."
+});
+
+const adminSupportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  message: "Too many requests. Please try again later."
 });
 
 // ─── User Support Routes ───────────────────────────────────────────────────────
@@ -62,26 +68,30 @@ supportRouter.patch(
 // ─── Admin Support Routes ──────────────────────────────────────────────────────
 adminSupportRouter.get(
   "/tickets",
-  authorize(["ADMIN"]),
+  adminSupportLimiter,
+  requireRbacRole(["ADMIN"]),
   SupportController.adminListTickets
 );
 
 adminSupportRouter.get(
   "/tickets/:ticketId",
-  authorize(["ADMIN"]),
+  adminSupportLimiter,
+  requireRbacRole(["ADMIN"]),
   SupportController.adminGetTicket
 );
 
 adminSupportRouter.patch(
   "/tickets/:ticketId",
-  authorize(["ADMIN"]),
+  adminSupportLimiter,
+  requireRbacRole(["ADMIN"]),
   validate(adminUpdateTicketSchema),
   SupportController.adminUpdateTicket
 );
 
 adminSupportRouter.post(
   "/tickets/:ticketId/messages",
-  authorize(["ADMIN"]),
+  adminSupportLimiter,
+  requireRbacRole(["ADMIN"]),
   messageLimiter,
   validate(addMessageSchema),
   SupportController.adminAddMessage

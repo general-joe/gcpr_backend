@@ -53,7 +53,7 @@ class EnrollmentService {
   }
 
   static async updateEnrollment(user, enrollmentId, data) {
-    if (user.role !== "SERVICE_PROVIDER") throw new gcprError(HttpStatus.FORBIDDEN, "Only service providers can update enrollment status");
+    if (user.userType !== "SERVICE_PROVIDER") throw new gcprError(HttpStatus.FORBIDDEN, "Only service providers can update enrollment status");
 
     const record = await prisma.patientEnrollmentRecord.findUnique({ where: { id: enrollmentId } });
     if (!record) throw new gcprError(HttpStatus.NOT_FOUND, "Enrollment record not found");
@@ -66,7 +66,7 @@ class EnrollmentService {
   }
 
   static async getEnrollmentStats(user) {
-    if (user.role !== "SERVICE_PROVIDER") throw new gcprError(HttpStatus.FORBIDDEN, "Only service providers can view enrollment stats");
+    if (user.userType !== "SERVICE_PROVIDER") throw new gcprError(HttpStatus.FORBIDDEN, "Only service providers can view enrollment stats");
 
     const sp = await prisma.serviceProvider.findUnique({ where: { userId: user.id }, select: { id: true } });
     if (!sp) throw new gcprError(HttpStatus.NOT_FOUND, "Service provider profile not found");
