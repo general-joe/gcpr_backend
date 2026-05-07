@@ -17,6 +17,16 @@ import '../modules/notification/notification.swagger.js';
 import '../modules/chat/chat.swagger.js';
 import '../modules/functionalClassification/functionalClassification.swagger.js';
 import '../modules/metrics/metrics.swagger.js';
+import '../modules/telehealth/telehealth.swagger.js';
+import '../modules/game/game.swagger.js';
+import '../modules/report/report.swagger.js';
+import '../modules/support/support.swagger.js';
+import '../modules/support/faq.swagger.js';
+import '../modules/cpPatient/enrollment.swagger.js';
+import '../modules/assessment/outcomes.swagger.js';
+import '../modules/assessment/adherence.swagger.js';
+import '../modules/admin/admin.swagger.js';
+import '../modules/admin/rbac.swagger.js';
 
 const getServerUrls = () => {
 	return [
