@@ -6,6 +6,7 @@ import morgan from 'morgan'
 import cors from 'cors'
 import { Server } from 'socket.io'
 import http from 'http'
+import jwt from 'jsonwebtoken'
 
 // Global Variables
 import WRITE from './utils/logger.js'
@@ -18,6 +19,7 @@ import router from './routes/index.route.js'
 import swaggerUi from 'swagger-ui-express'
 import swaggerSpec from './config/swagger.js'
 import filesRouter from './modules/files/files.route.js'
+import prisma from './config/database.js'
 
 // ROUTING
 
@@ -47,6 +49,84 @@ initializeSocketIO(io);
 // Eagerly initialize Firebase so errors surface at startup
 import { initializeFirebase } from './utils/firebaseService.js';
 initializeFirebase();
+
+const getSocketToken = (socket) => {
+  const authToken = socket.handshake.auth?.token;
+  const headerToken = socket.handshake.headers?.authorization;
+  const queryToken = socket.handshake.query?.token;
+  const rawToken = authToken || headerToken || queryToken;
+
+  if (typeof rawToken !== 'string' || rawToken.trim().length === 0) {
+    return null;
+  }
+
+  return rawToken.startsWith('Bearer ')
+    ? rawToken.slice(7).trim()
+    : rawToken.trim();
+};
+
+const socketError = (socket, message) => {
+  socket.emit('socket-error', { message });
+};
+
+const ensureCommunityMembership = async (userId, communityId) => {
+  return prisma.communityMember.findUnique({
+    where: {
+      communityId_userId: {
+        communityId,
+        userId,
+      },
+    },
+    select: {
+      id: true,
+      status: true,
+    },
+  });
+};
+
+const ensureGroupMembership = async (userId, groupId) => {
+  return prisma.communityGroupMember.findUnique({
+    where: {
+      groupId_userId: {
+        groupId,
+        userId,
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+};
+
+io.use(async (socket, next) => {
+  const token = getSocketToken(socket);
+
+  if (!token) {
+    return next(new Error('Authentication required'));
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT);
+
+    if (!decoded?.id || !decoded?.role) {
+      throw new Error('Invalid token payload');
+    }
+
+    socket.data.user = {
+      id: decoded.id,
+      role: decoded.role,
+    };
+
+    return next();
+  } catch (error) {
+    WRITE.warn('Socket authentication failed', {
+      socketId: socket.id,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+    return next(new Error('Invalid or expired token'));
+  }
+});
 
 
 
@@ -146,44 +226,90 @@ app.use((err, req, res, next) => {
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
-  WRITE.info(`User connected: ${socket.id}`);
+  const authenticatedUser = socket.data.user;
+
+  WRITE.info(`User connected: ${socket.id}`, {
+    userId: authenticatedUser.id,
+    role: authenticatedUser.role,
+  });
+
+  socket.join(`user-${authenticatedUser.id}`);
 
   // Join user-specific room for direct messages
   socket.on('join-user-room', (userId) => {
-    socket.join(`user-${userId}`);
-    WRITE.info(`User ${userId} joined room user-${userId}`);
+    if (userId && userId !== authenticatedUser.id) {
+      return socketError(socket, 'Forbidden room join');
+    }
+
+    socket.join(`user-${authenticatedUser.id}`);
+    WRITE.info(`User ${authenticatedUser.id} joined room user-${authenticatedUser.id}`);
   });
 
   // Join community room
-  socket.on('join-community-room', (communityId) => {
+  socket.on('join-community-room', async (communityId) => {
+    const membership = await ensureCommunityMembership(
+      authenticatedUser.id,
+      communityId,
+    );
+
+    if (!membership || membership.status !== 'ACTIVE') {
+      return socketError(socket, 'Forbidden community room join');
+    }
+
     socket.join(`community-${communityId}`);
-    WRITE.info(`User joined community room community-${communityId}`);
+    WRITE.info(`User joined community room community-${communityId}`, {
+      userId: authenticatedUser.id,
+    });
   });
 
   // Join community group room
-  socket.on('join-community-group-room', (groupId) => {
+  socket.on('join-community-group-room', async (groupId) => {
+    const membership = await ensureGroupMembership(authenticatedUser.id, groupId);
+
+    if (!membership) {
+      return socketError(socket, 'Forbidden community group room join');
+    }
+
     socket.join(`community-group-${groupId}`);
-    WRITE.info(`User joined community group room community-group-${groupId}`);
+    WRITE.info(`User joined community group room community-group-${groupId}`, {
+      userId: authenticatedUser.id,
+    });
   });
 
   // Handle typing indicators for direct messages
-  socket.on('typing-start', ({ roomId, userId, isTyping }) => {
-    socket.to(roomId).emit('typing-start', { userId, isTyping });
+  socket.on('typing-start', ({ roomId, isTyping }) => {
+    socket.to(roomId).emit('typing-start', {
+      userId: authenticatedUser.id,
+      isTyping,
+    });
   });
 
-  socket.on('typing-stop', ({ roomId, userId, isTyping }) => {
-    socket.to(roomId).emit('typing-stop', { userId, isTyping });
+  socket.on('typing-stop', ({ roomId, isTyping }) => {
+    socket.to(roomId).emit('typing-stop', {
+      userId: authenticatedUser.id,
+      isTyping,
+    });
   });
 
   // Handle typing indicators for community messages
-  socket.on('community-typing-start', ({ communityId, groupId, userId, isTyping }) => {
+  socket.on('community-typing-start', ({ communityId, groupId, isTyping }) => {
     const roomId = groupId ? `community-group-${groupId}` : `community-${communityId}`;
-    socket.to(roomId).emit('community-typing-start', { userId, isTyping, communityId, groupId });
+    socket.to(roomId).emit('community-typing-start', {
+      userId: authenticatedUser.id,
+      isTyping,
+      communityId,
+      groupId,
+    });
   });
 
-  socket.on('community-typing-stop', ({ communityId, groupId, userId, isTyping }) => {
+  socket.on('community-typing-stop', ({ communityId, groupId, isTyping }) => {
     const roomId = groupId ? `community-group-${groupId}` : `community-${communityId}`;
-    socket.to(roomId).emit('community-typing-stop', { userId, isTyping, communityId, groupId });
+    socket.to(roomId).emit('community-typing-stop', {
+      userId: authenticatedUser.id,
+      isTyping,
+      communityId,
+      groupId,
+    });
   });
 
   // Handle new direct message
@@ -208,7 +334,9 @@ io.on('connection', (socket) => {
 
   // Handle disconnection
   socket.on('disconnect', () => {
-    WRITE.info(`User disconnected: ${socket.id}`);
+    WRITE.info(`User disconnected: ${socket.id}`, {
+      userId: authenticatedUser.id,
+    });
   });
 });
 

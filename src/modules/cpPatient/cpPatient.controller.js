@@ -12,7 +12,9 @@ class CpPatientController {
 
   static getPatients = catchAsync(async (req, res) => {
     const userId = res.locals.user?.id;
-    const patients = await CpPatientService.fetchPatients(userId);
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const patients = await CpPatientService.fetchPatients(userId, page, limit);
 
     UtilFunctions.outputSuccess(res, patients, "Patients fetched successfully");
   });
