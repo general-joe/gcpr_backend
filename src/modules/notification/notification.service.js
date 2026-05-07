@@ -4,6 +4,11 @@ import {
   sendPushNotification,
   sendMulticastPushNotification,
 } from "../../utils/firebaseService.js";
+import { enqueueJob } from "../../services/queue/queue.service.js";
+import {
+  NOTIFICATION_JOB_NAMES,
+  QUEUE_NAMES,
+} from "../../services/queue/queue.jobs.js";
 
 export default class NotificationService {
   static async getUserNotifications(userId, page = 1, limit = 20, unreadOnly = false) {
@@ -149,14 +154,27 @@ export default class NotificationService {
       });
     }
 
-    // Always attempt push notification delivery — type field is stored in DB
-    // but real-time push is always attempted for all user-facing notifications
-    await this.sendPushNotificationToUser(notificationData.userId, notification);
+    await this.dispatchPushNotification(notificationData.userId, notification);
 
     return notification;
   }
 
-  static async sendPushNotificationToUser(userId, notification) {
+  static async dispatchPushNotification(userId, notification) {
+    const queueResult = await enqueueJob(
+      QUEUE_NAMES.NOTIFICATION,
+      NOTIFICATION_JOB_NAMES.DELIVER_PUSH,
+      { userId, notification },
+      {
+        jobId: `notification:${notification.id}`,
+      },
+    );
+
+    if (!queueResult.queued) {
+      await this.sendPushNotificationToUserNow(userId, notification);
+    }
+  }
+
+  static async sendPushNotificationToUserNow(userId, notification) {
     try {
       // Get user's active push tokens
       const tokens = await prisma.pushNotificationToken.findMany({

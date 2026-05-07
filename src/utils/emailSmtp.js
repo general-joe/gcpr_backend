@@ -4,6 +4,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import sgMail from "@sendgrid/mail";
 import dotenv from "dotenv";
+import { enqueueJob } from "../services/queue/queue.service.js";
+import { EMAIL_JOB_NAMES, QUEUE_NAMES } from "../services/queue/queue.jobs.js";
 
 dotenv.config();
 
@@ -33,6 +35,23 @@ const subjectMap = {
  * Send email using a mapped template
  */
 export async function sendEmail(to, templateName, variables = {}) {
+  const queueResult = await enqueueJob(
+    QUEUE_NAMES.EMAIL,
+    EMAIL_JOB_NAMES.SEND_TEMPLATE,
+    { to, templateName, variables },
+    {
+      jobId: `${templateName}:${to}:${Date.now()}`,
+    },
+  );
+
+  if (queueResult.queued) {
+    return { success: true, queued: true, jobId: queueResult.jobId };
+  }
+
+  return sendEmailNow(to, templateName, variables);
+}
+
+export async function sendEmailNow(to, templateName, variables = {}) {
   const fileName = templateMap[templateName];
   if (!fileName) {
     throw new Error(`Template "${templateName}" not found`);
