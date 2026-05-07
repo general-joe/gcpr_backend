@@ -14,6 +14,12 @@ const reportLimiter = rateLimit({
   message: "Too many reports submitted. Please try again later."
 });
 
+const adminReportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: "Too many requests. Please try again later."
+});
+
 // ─── User Report Routes ────────────────────────────────────────────────────────
 reportRouter.post(
   "/",
@@ -36,10 +42,11 @@ reportRouter.get(
 );
 
 // ─── Admin Report Routes ───────────────────────────────────────────────────────
-adminReportRouter.get("/", requireRbacRole(["ADMIN"]), ReportController.adminListReports);
-adminReportRouter.get("/:id", requireRbacRole(["ADMIN"]), ReportController.adminGetReport);
+adminReportRouter.get("/", adminReportLimiter, requireRbacRole(["ADMIN"]), ReportController.adminListReports);
+adminReportRouter.get("/:id", adminReportLimiter, requireRbacRole(["ADMIN"]), ReportController.adminGetReport);
 adminReportRouter.patch(
   "/:id",
+  adminReportLimiter,
   requireRbacRole(["ADMIN"]),
   validate(adminUpdateReportSchema),
   ReportController.adminUpdateReport

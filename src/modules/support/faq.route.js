@@ -18,6 +18,12 @@ const helpfulLimiter = rateLimit({
   message: "Too many requests. Please try again later."
 });
 
+const adminFaqLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  message: "Too many requests. Please try again later."
+});
+
 // ─── Public / User FAQ Routes ──────────────────────────────────────────────────
 faqRouter.get("/search", faqLimiter, Auth, FaqController.searchFaqs);
 faqRouter.get("/categories", faqLimiter, Auth, FaqController.listFaqCategories);
@@ -26,17 +32,17 @@ faqRouter.get("/:id", faqLimiter, Auth, FaqController.getFaq);
 faqRouter.post("/:id/helpful", helpfulLimiter, authorize(["SERVICE_PROVIDER", "CAREGIVER"]), FaqController.markHelpful);
 
 // ─── Admin FAQ Routes ──────────────────────────────────────────────────────────
-adminFaqRouter.get("/", requireRbacRole(["ADMIN"]), FaqController.adminListFaqs);
+adminFaqRouter.get("/", adminFaqLimiter, requireRbacRole(["ADMIN"]), FaqController.adminListFaqs);
 
-adminFaqRouter.post("/categories", requireRbacRole(["ADMIN"]), FaqController.createFaqCategory);
-adminFaqRouter.patch("/categories/:id", requireRbacRole(["ADMIN"]), FaqController.updateFaqCategory);
-adminFaqRouter.delete("/categories/:id", requireRbacRole(["ADMIN"]), FaqController.deleteFaqCategory);
+adminFaqRouter.post("/categories", adminFaqLimiter, requireRbacRole(["ADMIN"]), FaqController.createFaqCategory);
+adminFaqRouter.patch("/categories/:id", adminFaqLimiter, requireRbacRole(["ADMIN"]), FaqController.updateFaqCategory);
+adminFaqRouter.delete("/categories/:id", adminFaqLimiter, requireRbacRole(["ADMIN"]), FaqController.deleteFaqCategory);
 
-adminFaqRouter.post("/", requireRbacRole(["ADMIN"]), FaqController.createFaq);
-adminFaqRouter.patch("/:id", requireRbacRole(["ADMIN"]), FaqController.updateFaq);
-adminFaqRouter.delete("/:id", requireRbacRole(["ADMIN"]), FaqController.deleteFaq);
-adminFaqRouter.post("/:id/publish", requireRbacRole(["ADMIN"]), FaqController.publishFaq);
-adminFaqRouter.post("/:id/unpublish", requireRbacRole(["ADMIN"]), FaqController.unpublishFaq);
+adminFaqRouter.post("/", adminFaqLimiter, requireRbacRole(["ADMIN"]), FaqController.createFaq);
+adminFaqRouter.patch("/:id", adminFaqLimiter, requireRbacRole(["ADMIN"]), FaqController.updateFaq);
+adminFaqRouter.delete("/:id", adminFaqLimiter, requireRbacRole(["ADMIN"]), FaqController.deleteFaq);
+adminFaqRouter.post("/:id/publish", adminFaqLimiter, requireRbacRole(["ADMIN"]), FaqController.publishFaq);
+adminFaqRouter.post("/:id/unpublish", adminFaqLimiter, requireRbacRole(["ADMIN"]), FaqController.unpublishFaq);
 
 export default faqRouter;
 export { adminFaqRouter };

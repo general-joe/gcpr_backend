@@ -24,6 +24,12 @@ const messageLimiter = rateLimit({
   message: "Too many messages. Please try again later."
 });
 
+const adminSupportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  message: "Too many requests. Please try again later."
+});
+
 // ─── User Support Routes ───────────────────────────────────────────────────────
 supportRouter.post(
   "/tickets",
@@ -62,18 +68,21 @@ supportRouter.patch(
 // ─── Admin Support Routes ──────────────────────────────────────────────────────
 adminSupportRouter.get(
   "/tickets",
+  adminSupportLimiter,
   requireRbacRole(["ADMIN"]),
   SupportController.adminListTickets
 );
 
 adminSupportRouter.get(
   "/tickets/:ticketId",
+  adminSupportLimiter,
   requireRbacRole(["ADMIN"]),
   SupportController.adminGetTicket
 );
 
 adminSupportRouter.patch(
   "/tickets/:ticketId",
+  adminSupportLimiter,
   requireRbacRole(["ADMIN"]),
   validate(adminUpdateTicketSchema),
   SupportController.adminUpdateTicket
@@ -81,6 +90,7 @@ adminSupportRouter.patch(
 
 adminSupportRouter.post(
   "/tickets/:ticketId/messages",
+  adminSupportLimiter,
   requireRbacRole(["ADMIN"]),
   messageLimiter,
   validate(addMessageSchema),

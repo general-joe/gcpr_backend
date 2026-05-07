@@ -99,42 +99,49 @@ const ROLE_PERMISSION_MAP = {
 export async function seedRbac() {
   const results = { roles: 0, permissions: 0, rolePermissions: 0 };
 
-  // Upsert permissions
-  for (const perm of DEFAULT_PERMISSIONS) {
-    await prisma.permission.upsert({
-      where: { code: perm.code },
-      update: { name: perm.name, description: perm.description },
-      create: perm,
-    });
-    results.permissions++;
-  }
+  await prisma.$transaction(async (tx) => {
+    // Upsert permissions
+    for (const perm of DEFAULT_PERMISSIONS) {
+      await tx.permission.upsert({
+        where: { code: perm.code },
+        update: { name: perm.name, description: perm.description },
+        create: perm,
+      });
+      results.permissions++;
+    }
 
-  // Upsert roles
-  for (const role of DEFAULT_ROLES) {
-    await prisma.appRole.upsert({
-      where: { slug: role.slug },
-      update: { name: role.name, description: role.description },
-      create: role,
-    });
-    results.roles++;
-  }
+    // Upsert roles
+    for (const role of DEFAULT_ROLES) {
+      await tx.appRole.upsert({
+        where: { slug: role.slug },
+        update: { name: role.name, description: role.description },
+        create: role,
+      });
+      results.roles++;
+    }
+  });
 
-  // Assign permissions to roles
+  // Assign permissions to roles (separate transaction per role for clarity)
   for (const [slug, permCodes] of Object.entries(ROLE_PERMISSION_MAP)) {
     const role = await prisma.appRole.findUnique({ where: { slug } });
     if (!role) continue;
 
-    for (const code of permCodes) {
-      const perm = await prisma.permission.findUnique({ where: { code } });
-      if (!perm) continue;
+    const perms = await prisma.permission.findMany({
+      where: { code: { in: permCodes } },
+      select: { id: true, code: true },
+    });
 
-      await prisma.rolePermission.upsert({
-        where: { roleId_permissionId: { roleId: role.id, permissionId: perm.id } },
-        update: {},
-        create: { roleId: role.id, permissionId: perm.id },
-      });
-      results.rolePermissions++;
-    }
+    await prisma.$transaction(
+      perms.map((perm) =>
+        prisma.rolePermission.upsert({
+          where: { roleId_permissionId: { roleId: role.id, permissionId: perm.id } },
+          update: {},
+          create: { roleId: role.id, permissionId: perm.id },
+        })
+      )
+    );
+
+    results.rolePermissions += perms.length;
   }
 
   return results;
