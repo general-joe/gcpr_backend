@@ -38,17 +38,23 @@ const loginRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-
-
 authRouter.post(
   "/register",
   upload.fields([{ name: "profileImage" }]),
   validate(signUpSchema),
   authController.registerUser,
 );
-authRouter.post("/verify-otp", validate(verifyOtpSchema), authController.verifyOtp);
-authRouter.post("/resend-otp", validate(resendOtpSchema), authController.resendOtp);
-authRouter.post("/login",  validate(loginSchema), authController.login);
+authRouter.post(
+  "/verify-otp",
+  validate(verifyOtpSchema),
+  authController.verifyOtp,
+);
+authRouter.post(
+  "/resend-otp",
+  validate(resendOtpSchema),
+  authController.resendOtp,
+);
+authRouter.post("/login", validate(loginSchema), authController.login);
 
 authRouter.post(
   "/forgot-password",
@@ -68,5 +74,9 @@ authRouter.post(
   validate(refreshTokenSchema),
   authController.refreshToken,
 );
+
+// Google OAuth Routes
+authRouter.get("/google", authController.googleLogin);
+authRouter.get("/google/callback", authController.googleCallback);
 
 export default authRouter;

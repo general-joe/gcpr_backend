@@ -370,6 +370,10 @@ model User {
   // Support
   supportTickets SupportTicket[] @relation("UserTickets")
   ticketMessages TicketMessage[] @relation("TicketMessageSender")
+
+  // Google OAuth
+  googleAccessToken  String?
+  googleRefreshToken String?
 }
 
 model Otp {
@@ -427,7 +431,7 @@ model ServiceProvider {
   verificationStatus VerificationStatus @default(PENDING_REVIEW)
   verificationNote   String?
   verifiedAt         DateTime?
-  verifiedBy         String?            // userId of the admin who verified
+  verifiedBy         String? // userId of the admin who verified
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1636,7 +1640,6 @@ model PatientMetricsSnapshot {
   @@index([patientId, period])
 }
 
-
 // ==================== CHATBOT MODELS ====================
 
 enum ChatRole {
@@ -1646,13 +1649,13 @@ enum ChatRole {
 }
 
 model ChatSession {
-  id        String   @id @default(uuid())
+  id        String        @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String?                              // Auto-set from first user message
-  context   String?                              // Serialised context summary for long sessions
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String? // Auto-set from first user message
+  context   String? // Serialised context summary for long sessions
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
   messages  ChatMessage[]
 
   @@index([userId])
@@ -1665,7 +1668,7 @@ model ChatMessage {
   session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   role      ChatRole
   content   String
-  tokens    Int?        // LLM token count for this message (optional usage tracking)
+  tokens    Int? // LLM token count for this message (optional usage tracking)
   createdAt DateTime    @default(now())
 
   @@index([sessionId])

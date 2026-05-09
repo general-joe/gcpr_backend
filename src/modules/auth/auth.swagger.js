@@ -295,4 +295,95 @@
  *         description: Refresh token or user ID is required
  *       401:
  *         description: Invalid or expired refresh token
+ *
+ * /auth/google:
+ *   get:
+ *     summary: Initiate Google OAuth login
+ *     security: []
+ *     description: Generates and returns the Google OAuth authorization URL for user login
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: Google OAuth URL generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: Google OAuth URL generated
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     authUrl:
+ *                       type: string
+ *                       description: Google OAuth authorization URL to redirect user to
+ *                       example: https://accounts.google.com/o/oauth2/auth?...
+ *       500:
+ *         description: Failed to generate OAuth URL
+ *
+ * /auth/google/callback:
+ *   get:
+ *     summary: Google OAuth callback handler
+ *     security: []
+ *     description: >
+ *       Handles the OAuth callback from Google. This endpoint receives the authorization code
+ *       from Google and exchanges it for tokens. If user doesn't exist, a new account is automatically created.
+ *       Redirect here from the authUrl provided by /auth/google endpoint.
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: query
+ *         name: code
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Authorization code from Google OAuth
+ *       - in: query
+ *         name: state
+ *         schema:
+ *           type: string
+ *         description: State parameter for CSRF protection (optional)
+ *     responses:
+ *       200:
+ *         description: Google authentication successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: Google authentication successful
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       $ref: '#/components/schemas/User'
+ *                     accessToken:
+ *                       type: string
+ *                       description: JWT access token for API requests
+ *                     refreshToken:
+ *                       type: string
+ *                       description: Refresh token for obtaining new access tokens
+ *                     tokens:
+ *                       type: object
+ *                       description: Google OAuth tokens
+ *                       properties:
+ *                         access_token:
+ *                           type: string
+ *                         refresh_token:
+ *                           type: string
+ *       400:
+ *         description: Authorization code is required or email not available from Google
+ *       401:
+ *         description: Failed to authenticate with Google or retrieve user information
+ *       500:
+ *         description: Internal server error during OAuth processing
  */

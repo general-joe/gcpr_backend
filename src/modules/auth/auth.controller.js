@@ -1,5 +1,6 @@
 import UtilFunctions from "../../utils/UtilFunctions.js";
 import AuthService from "./auth.service.js";
+import GoogleService from "./google.service.js";
 import catchAsync from "../../middlewares/catchAsync.js";
 import constants from "../../utils/constants.js";
 
@@ -145,6 +146,55 @@ class AuthController {
 
     return UtilFunctions.outputSuccess(res, {
       message: "Token refreshed successfully",
+      ...result,
+    });
+  });
+
+  static googleLogin = catchAsync(async (req, res) => {
+    const requestId = `REQ-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    WRITE.debug("GET /auth/google initiated", {
+      requestId,
+      timestamp: new Date().toISOString(),
+    });
+
+    const authUrl = GoogleService.generateAuthUrl();
+
+    WRITE.info("Google OAuth URL generated", {
+      requestId,
+      timestamp: new Date().toISOString(),
+    });
+
+    return UtilFunctions.outputSuccess(res, {
+      message: "Google OAuth URL generated",
+      authUrl,
+    });
+  });
+
+  static googleCallback = catchAsync(async (req, res) => {
+    const requestId = `REQ-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const { code } = req.query;
+
+    if (!code) {
+      throw new Error("Authorization code is required");
+    }
+
+    WRITE.debug("POST /auth/google/callback started", {
+      requestId,
+      timestamp: new Date().toISOString(),
+    });
+
+    const result = await GoogleService.handleGoogleCallback(code);
+
+    WRITE.info("Google OAuth callback completed successfully", {
+      requestId,
+      userId: result.user?.id,
+      email: result.user?.email,
+      timestamp: new Date().toISOString(),
+    });
+
+    return UtilFunctions.outputSuccess(res, {
+      message: "Google authentication successful",
       ...result,
     });
   });
