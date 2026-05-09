@@ -72,10 +72,6 @@
  *         digitalAddress:
  *           type: string
  *           nullable: true
- *         profileImage:
- *           type: string
- *           format: binary
- *           description: Selfie/profile image (required)
  *         otpChannel:
  *           type: string
  *           enum: [sms, email]

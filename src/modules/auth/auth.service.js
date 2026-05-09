@@ -563,7 +563,7 @@ class AuthService {
 
     const fetchedUser = await prisma.user.findUnique({
       where: { id: user.id },
-      include: { caregiver: true, serviceProvider: true },
+      include: { caregiver: true, serviceProvider: true, roles: true },
     });
 
     return { accessToken, refreshToken, user: fetchedUser };
