@@ -1,0 +1,47 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main  # Change this to 'production' if that's your production branch name
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy to DigitalOcean
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to DigitalOcean droplet
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: ${{ secrets.DO_USERNAME }}
+          key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.DO_SSH_PORT }}
+          script: |
+            cd ${{ secrets.APP_DIRECTORY }}
+            
+            # Pull latest code from production branch
+            git checkout production
+            git pull origin production
+            
+            # Install dependencies
+            pnpm install
+            
+            # Run database migrations
+            pnpm run migrate:deploy
+            
+            # Restart the application (adjust command based on your setup)
+            # If using PM2:
+            pm2 restart gcpr_backend
+            
+            # If using systemd:
+            # sudo systemctl restart gcpr_backend
+            
+            # If using Docker:
+            # docker-compose -f docker-compose.yml up -d --build
+            
+            echo "Deployment completed successfully!"
