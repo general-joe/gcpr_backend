@@ -6,8 +6,9 @@ import constants from "../../utils/constants.js";
 class AuthController {
   static registerUser = catchAsync(async (req, res) => {
     const requestId = `REQ-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const requestBody = req.validatedData ?? req.body;
     const userData = {
-      ...req.body,
+      ...requestBody,
       id: UtilFunctions.genId(),
     };
 
@@ -40,7 +41,7 @@ class AuthController {
 
   static verifyOtp = catchAsync(async (req, res) => {
     const requestId = `REQ-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const { identifier, otp } = req.body;
+    const { identifier, otp } = req.validatedData ?? req.body;
 
     WRITE.debug("POST /verify-otp started", {
       requestId,
@@ -64,7 +65,7 @@ class AuthController {
   });
 
   static login = catchAsync(async (req, res) => {
-    const { identifier, password } = req.body;
+    const { identifier, password } = req.validatedData ?? req.body;
 
     const result = await AuthService.loginUser(identifier, password);
 
@@ -76,7 +77,7 @@ class AuthController {
 
   static forgotPassword = catchAsync(async (req, res) => {
     const requestId = `REQ-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const { identifier } = req.body;
+    const { identifier } = req.validatedData ?? req.body;
 
     WRITE.debug("POST /forgot-password started", {
       requestId,
@@ -97,7 +98,7 @@ class AuthController {
 
   static resetPassword = catchAsync(async (req, res) => {
     const requestId = `REQ-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const { identifier, otp, newPassword } = req.body;
+    const { identifier, otp, newPassword } = req.validatedData ?? req.body;
 
     WRITE.debug("POST /reset-password started", {
       requestId,
@@ -118,7 +119,7 @@ class AuthController {
 
   static resendOtp = catchAsync(async (req, res) => {
     const requestId = `REQ-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const { identifier } = req.body;
+    const { identifier } = req.validatedData ?? req.body;
 
     WRITE.debug("POST /resend-otp started", {
       requestId,
@@ -138,7 +139,7 @@ class AuthController {
   });
 
   static refreshToken = catchAsync(async (req, res) => {
-    const { refreshToken, userId } = req.body;
+    const { refreshToken, userId } = req.validatedData ?? req.body;
 
     const result = await AuthService.refreshToken(refreshToken, userId);
 

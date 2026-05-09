@@ -17,6 +17,42 @@ import {
 const extractOtpPayload = (otpResponse) =>
   otpResponse?.data ?? otpResponse ?? {};
 
+const normalizeIdentifier = (identifier) => {
+  if (typeof identifier !== "string") {
+    return null;
+  }
+
+  const trimmedIdentifier = identifier.trim();
+  if (!trimmedIdentifier) {
+    return null;
+  }
+
+  return trimmedIdentifier.includes("@")
+    ? trimmedIdentifier.toLowerCase()
+    : trimmedIdentifier;
+};
+
+const buildIdentifierWhere = (identifier) => {
+  const normalizedIdentifier = normalizeIdentifier(identifier);
+
+  if (!normalizedIdentifier) {
+    throw new gcprError(
+      HttpStatus.BAD_REQUEST,
+      "Email or phone number is required",
+    );
+  }
+
+  return {
+    normalizedIdentifier,
+    where: {
+      OR: [
+        { email: normalizedIdentifier },
+        { phoneNumber: normalizedIdentifier },
+      ],
+    },
+  };
+};
+
 class AuthService {
   static async registerUser(rq, userData) {
     if (rq.files?.profileImage) {
@@ -160,26 +196,25 @@ class AuthService {
   static async verifyOtp(identifier, otp) {
     const operationId = `OP-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const maxAttempts = 5;
+    const { normalizedIdentifier, where } = buildIdentifierWhere(identifier);
 
     try {
       WRITE.debug("OTP verification started", {
         operationId,
-        identifier,
+        identifier: normalizedIdentifier,
         timestamp: new Date().toISOString(),
       });
 
       // Initial check - user and OTP existence
       const user = await prisma.user.findFirst({
-        where: {
-          OR: [{ email: identifier }, { phoneNumber: identifier }],
-        },
+        where,
         include: { otp: true },
       });
 
       if (!user || !user.otp) {
         WRITE.warn("OTP verification failed: User or OTP not found", {
           operationId,
-          identifier,
+          identifier: normalizedIdentifier,
           timestamp: new Date().toISOString(),
         });
         throw new gcprError(HttpStatus.NOT_FOUND, "User or OTP not found");
@@ -434,14 +469,14 @@ class AuthService {
       if (error instanceof gcprError) {
         WRITE.warn(`OTP verification error: ${error.message}`, {
           operationId,
-          identifier,
+          identifier: normalizedIdentifier,
           statusCode: error.status,
           timestamp: new Date().toISOString(),
         });
       } else {
         WRITE.error("Unexpected error during OTP verification", {
           operationId,
-          identifier,
+          identifier: normalizedIdentifier,
           error: error.message,
           errorStack: error.stack,
           timestamp: new Date().toISOString(),
@@ -452,10 +487,10 @@ class AuthService {
   }
 
   static async forgotPassword(identifier) {
+    const { where } = buildIdentifierWhere(identifier);
+
     const user = await prisma.user.findFirst({
-      where: {
-        OR: [{ email: identifier }, { phoneNumber: identifier }],
-      },
+      where,
     });
 
     if (!user) {
@@ -488,10 +523,10 @@ class AuthService {
   }
 
   static async resetPassword(identifier, otp, newPassword) {
+    const { where } = buildIdentifierWhere(identifier);
+
     const user = await prisma.user.findFirst({
-      where: {
-        OR: [{ email: identifier }, { phoneNumber: identifier }],
-      },
+      where,
       include: { otp: true },
     });
 
@@ -530,10 +565,10 @@ class AuthService {
   }
 
   static async loginUser(identifier, password) {
+    const { where } = buildIdentifierWhere(identifier);
+
     const user = await prisma.user.findFirst({
-      where: {
-        OR: [{ email: identifier }, { phoneNumber: identifier }],
-      },
+      where,
     });
 
     if (!user) {
@@ -570,10 +605,10 @@ class AuthService {
   }
 
   static async resendOtp(identifier) {
+    const { where } = buildIdentifierWhere(identifier);
+
     const user = await prisma.user.findFirst({
-      where: {
-        OR: [{ email: identifier }, { phoneNumber: identifier }],
-      },
+      where,
       include: { otp: true },
     });
 
