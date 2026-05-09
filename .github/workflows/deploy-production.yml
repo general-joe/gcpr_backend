@@ -3,7 +3,7 @@ name: Deploy to Production
 on:
   push:
     branches:
-      - main  # Change this to 'production' if that's your production branch name
+      - production
 
 jobs:
   deploy:
@@ -22,26 +22,32 @@ jobs:
           key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
           port: ${{ secrets.DO_SSH_PORT }}
           script: |
+            set -e
+
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+            export PATH="$HOME/.local/share/pnpm:$PATH"
+
             cd ${{ secrets.APP_DIRECTORY }}
-            
-            # Pull latest code from production branch
+
+            echo "Using Node:"
+            node -v
+
+            echo "Using PNPM:"
+            pnpm -v
+
+            echo "Using PM2:"
+            pm2 -v
+
+            git fetch origin production
             git checkout production
-            git pull origin production
-            
-            # Install dependencies
-            pnpm install
-            
-            # Run database migrations
+            git reset --hard origin/production
+
+            pnpm install --frozen-lockfile
+
             pnpm run migrate:deploy
-            
-            # Restart the application (adjust command based on your setup)
-            # If using PM2:
-            pm2 restart gcpr_backend
-            
-            # If using systemd:
-            # sudo systemctl restart gcpr_backend
-            
-            # If using Docker:
-            # docker-compose -f docker-compose.yml up -d --build
-            
+
+            pm2 restart gcpr_backend --update-env
+
             echo "Deployment completed successfully!"
