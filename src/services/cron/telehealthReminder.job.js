@@ -65,6 +65,14 @@ export async function runTelehealthReminderJob() {
       }
     }
   } catch (e) {
+    if (e?.code === "P2021" || e?.code === "P2022") {
+      WRITE.warn("[TelehealthReminder] Skipping job; telehealth schema is unavailable", {
+        code: e.code,
+        error: e.message,
+      });
+      return;
+    }
+
     WRITE.error("[TelehealthReminder] Job failed", { error: e.message });
   }
 }
