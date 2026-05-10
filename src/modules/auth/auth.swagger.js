@@ -26,8 +26,8 @@
  *           enum: [MALE, FEMALE]
  *         userType:
  *           type: string
- *           enum: [SERVICE_PROVIDER, CAREGIVER]
- *           description: Primary user type (ADMIN is an RBAC role, not a user type)
+ *           enum: [SERVICE_PROVIDER, CAREGIVER, ADMIN]
+ *           description: Primary user type
  *         profileImage:
  *           type: string
  *           nullable: true
@@ -60,8 +60,8 @@
  *           enum: [MALE, FEMALE]
  *         userType:
  *           type: string
- *           enum: [SERVICE_PROVIDER, CAREGIVER]
- *           description: Primary user type. ADMIN is an RBAC role assigned separately, not a user type.
+ *           enum: [SERVICE_PROVIDER, CAREGIVER, ADMIN]
+ *           description: Primary user type
  *         profileImage:
  *           type: string
  *           format: date
