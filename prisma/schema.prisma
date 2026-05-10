@@ -25,6 +25,7 @@ enum Relationship {
 enum UserType {
   CAREGIVER
   SERVICE_PROVIDER
+  ADMIN
 }
 
 enum CaregiverType {
