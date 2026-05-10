@@ -18,7 +18,10 @@ class AdminService {
     const expected = process.env.BOOTSTRAP_SECRET;
 
     if (!expected || secret !== expected) {
-      throw new gcprError(HttpStatus.FORBIDDEN, "Invalid or missing bootstrap secret");
+      throw new gcprError(
+        HttpStatus.FORBIDDEN,
+        "Invalid or missing bootstrap secret",
+      );
     }
 
     const seedResult = await seedRbac();
@@ -31,11 +34,13 @@ class AdminService {
       if (user.userType === "CAREGIVER") {
         throw new gcprError(
           HttpStatus.FORBIDDEN,
-          "ADMIN role cannot be assigned to a CAREGIVER user. Use a SERVICE_PROVIDER user."
+          "ADMIN role cannot be assigned to a CAREGIVER user. Use a SERVICE_PROVIDER or ADMIN user.",
         );
       }
 
-      const adminRole = await prisma.appRole.findUnique({ where: { slug: "ADMIN" } });
+      const adminRole = await prisma.appRole.findUnique({
+        where: { slug: "ADMIN" },
+      });
       if (adminRole) {
         roleAssignment = await prisma.userRole.upsert({
           where: {
@@ -47,7 +52,12 @@ class AdminService {
             },
           },
           update: { active: true },
-          create: { userId, roleId: adminRole.id, scopeType: "GLOBAL", active: true },
+          create: {
+            userId,
+            roleId: adminRole.id,
+            scopeType: "GLOBAL",
+            active: true,
+          },
         });
       }
     }
@@ -77,7 +87,7 @@ class AdminService {
       where.OR = [
         { fullName: { contains: search, mode: "insensitive" } },
         { email: { contains: search, mode: "insensitive" } },
-        { phoneNumber: { contains: search, mode: "insensitive" } }
+        { phoneNumber: { contains: search, mode: "insensitive" } },
       ];
     }
 
@@ -96,15 +106,20 @@ class AdminService {
           accountStatus: true,
           verified: true,
           profileCompleted: true,
-          createdAt: true
-        }
+          createdAt: true,
+        },
       }),
-      prisma.user.count({ where })
+      prisma.user.count({ where }),
     ]);
 
     return {
       data: users,
-      pagination: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) }
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: take,
+        totalPages: Math.ceil(total / take),
+      },
     };
   }
 
@@ -113,25 +128,31 @@ class AdminService {
       where: { id: userId },
       include: {
         serviceProvider: true,
-        caregiver: true
-      }
+        caregiver: true,
+      },
     });
     if (!user) throw new gcprError(HttpStatus.NOT_FOUND, "User not found");
     return user;
   }
 
   static async updateUserStatus(userId, status) {
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
     if (!user) throw new gcprError(HttpStatus.NOT_FOUND, "User not found");
 
     return prisma.user.update({
       where: { id: userId },
-      data: { accountStatus: status }
+      data: { accountStatus: status },
     });
   }
 
   static async deleteUser(userId) {
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
     if (!user) throw new gcprError(HttpStatus.NOT_FOUND, "User not found");
     await prisma.user.delete({ where: { id: userId } });
   }
@@ -150,33 +171,45 @@ class AdminService {
         orderBy: { createdAt: "desc" },
         include: {
           user: {
-            select: { id: true, fullName: true, email: true, phoneNumber: true, accountStatus: true }
-          }
-        }
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              phoneNumber: true,
+              accountStatus: true,
+            },
+          },
+        },
       }),
-      prisma.serviceProvider.count()
+      prisma.serviceProvider.count(),
     ]);
 
     return {
       data: providers,
-      pagination: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) }
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: take,
+        totalPages: Math.ceil(total / take),
+      },
     };
   }
 
   static async verifyProvider(providerId, data) {
     const provider = await prisma.serviceProvider.findUnique({
       where: { id: providerId },
-      include: { user: { select: { id: true } } }
+      include: { user: { select: { id: true } } },
     });
-    if (!provider) throw new gcprError(HttpStatus.NOT_FOUND, "Service provider not found");
+    if (!provider)
+      throw new gcprError(HttpStatus.NOT_FOUND, "Service provider not found");
 
     const updated = await prisma.serviceProvider.update({
       where: { id: providerId },
       data: {
         licenseStatus: data.licenseStatus || "ACTIVE",
         verificationStatus: "VERIFIED",
-        verifiedAt: new Date()
-      }
+        verifiedAt: new Date(),
+      },
     });
 
     // Send notification
@@ -188,10 +221,12 @@ class AdminService {
         title: "License Verified",
         content: "Your license has been verified by an administrator.",
         relatedId: providerId,
-        relatedModel: "ServiceProvider"
+        relatedModel: "ServiceProvider",
       });
     } catch (e) {
-      WRITE.warn("[Admin] Verification notification failed", { error: e.message });
+      WRITE.warn("[Admin] Verification notification failed", {
+        error: e.message,
+      });
     }
 
     return updated;
@@ -203,10 +238,11 @@ class AdminService {
       include: {
         user: true,
         clinicalAssessments: { take: 5, orderBy: { createdAt: "desc" } },
-        rehabTasks: { take: 5, orderBy: { createdAt: "desc" } }
-      }
+        rehabTasks: { take: 5, orderBy: { createdAt: "desc" } },
+      },
     });
-    if (!provider) throw new gcprError(HttpStatus.NOT_FOUND, "Service provider not found");
+    if (!provider)
+      throw new gcprError(HttpStatus.NOT_FOUND, "Service provider not found");
     return provider;
   }
 
@@ -230,16 +266,21 @@ class AdminService {
         orderBy: { createdAt: "desc" },
         include: {
           caregiver: {
-            select: { id: true, user: { select: { fullName: true } } }
-          }
-        }
+            select: { id: true, user: { select: { fullName: true } } },
+          },
+        },
       }),
-      prisma.cpPatient.count({ where })
+      prisma.cpPatient.count({ where }),
     ]);
 
     return {
       data: patients,
-      pagination: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) }
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: take,
+        totalPages: Math.ceil(total / take),
+      },
     };
   }
 
@@ -251,10 +292,11 @@ class AdminService {
         clinicalAssessments: { take: 5, orderBy: { createdAt: "desc" } },
         rehabTasks: { take: 5, orderBy: { createdAt: "desc" } },
         enrollmentRecord: true,
-        motorFunctionOutcomes: { take: 5, orderBy: { reviewDate: "desc" } }
-      }
+        motorFunctionOutcomes: { take: 5, orderBy: { reviewDate: "desc" } },
+      },
     });
-    if (!patient) throw new gcprError(HttpStatus.NOT_FOUND, "Patient not found");
+    if (!patient)
+      throw new gcprError(HttpStatus.NOT_FOUND, "Patient not found");
     return patient;
   }
 
@@ -269,18 +311,26 @@ class AdminService {
     const providers = await prisma.serviceProvider.findMany({
       take: parseInt(limit),
       skip: (parseInt(page) - 1) * parseInt(limit),
-      select: { id: true, profession: true, user: { select: { fullName: true } } }
+      select: {
+        id: true,
+        profession: true,
+        user: { select: { fullName: true } },
+      },
     });
 
     const snapshots = await Promise.all(
       providers.map(async (sp) => {
         try {
-          const snapshot = await MetricsService.computeProviderSnapshot(sp.id, new Date(), "MONTHLY");
+          const snapshot = await MetricsService.computeProviderSnapshot(
+            sp.id,
+            new Date(),
+            "MONTHLY",
+          );
           return { provider: sp, metrics: snapshot };
         } catch (e) {
           return { provider: sp, metrics: null };
         }
-      })
+      }),
     );
 
     return snapshots;
@@ -300,29 +350,41 @@ class AdminService {
         orderBy: { createdAt: "desc" },
         include: {
           _count: { select: { members: true } },
-          creator: { select: { id: true, fullName: true } }
-        }
+          creator: { select: { id: true, fullName: true } },
+        },
       }),
-      prisma.community.count()
+      prisma.community.count(),
     ]);
 
     return {
       data: communities,
-      pagination: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) }
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: take,
+        totalPages: Math.ceil(total / take),
+      },
     };
   }
 
   static async deleteCommunity(communityId) {
-    const community = await prisma.community.findUnique({ where: { id: communityId } });
-    if (!community) throw new gcprError(HttpStatus.NOT_FOUND, "Community not found");
+    const community = await prisma.community.findUnique({
+      where: { id: communityId },
+    });
+    if (!community)
+      throw new gcprError(HttpStatus.NOT_FOUND, "Community not found");
     await prisma.community.delete({ where: { id: communityId } });
   }
 
   static async removeCommunityMember(communityId, userId) {
     const member = await prisma.communityMember.findFirst({
-      where: { communityId, userId }
+      where: { communityId, userId },
     });
-    if (!member) throw new gcprError(HttpStatus.NOT_FOUND, "Member not found in community");
+    if (!member)
+      throw new gcprError(
+        HttpStatus.NOT_FOUND,
+        "Member not found in community",
+      );
     await prisma.communityMember.delete({ where: { id: member.id } });
   }
 
@@ -338,20 +400,28 @@ class AdminService {
         skip,
         take,
         orderBy: { createdAt: "desc" },
-        include: { professions: true }
+        include: { professions: true },
       }),
-      prisma.assessmentTool.count()
+      prisma.assessmentTool.count(),
     ]);
 
     return {
       data: tools,
-      pagination: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) }
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: take,
+        totalPages: Math.ceil(total / take),
+      },
     };
   }
 
   static async createAssessmentTool(data) {
-    const existing = await prisma.assessmentTool.findUnique({ where: { toolCode: data.toolCode } });
-    if (existing) throw new gcprError(HttpStatus.CONFLICT, "Tool code already exists");
+    const existing = await prisma.assessmentTool.findUnique({
+      where: { toolCode: data.toolCode },
+    });
+    if (existing)
+      throw new gcprError(HttpStatus.CONFLICT, "Tool code already exists");
 
     const tool = await prisma.assessmentTool.create({
       data: {
@@ -361,31 +431,36 @@ class AdminService {
         description: data.description || null,
         schema: data.schema || null,
         isActive: true,
-        ...(data.professions && data.professions.length > 0 && {
-          professions: {
-            create: data.professions.map(profession => ({ profession }))
-          }
-        })
+        ...(data.professions &&
+          data.professions.length > 0 && {
+            professions: {
+              create: data.professions.map((profession) => ({ profession })),
+            },
+          }),
       },
-      include: { professions: true }
+      include: { professions: true },
     });
 
     return tool;
   }
 
   static async updateAssessmentTool(toolId, data) {
-    const tool = await prisma.assessmentTool.findUnique({ where: { id: toolId } });
-    if (!tool) throw new gcprError(HttpStatus.NOT_FOUND, "Assessment tool not found");
+    const tool = await prisma.assessmentTool.findUnique({
+      where: { id: toolId },
+    });
+    if (!tool)
+      throw new gcprError(HttpStatus.NOT_FOUND, "Assessment tool not found");
 
     const updateData = {};
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
-    if (data.description !== undefined) updateData.description = data.description;
+    if (data.description !== undefined)
+      updateData.description = data.description;
     if (data.schema !== undefined) updateData.schema = data.schema;
 
     return prisma.assessmentTool.update({
       where: { id: toolId },
       data: updateData,
-      include: { professions: true }
+      include: { professions: true },
     });
   }
 }
