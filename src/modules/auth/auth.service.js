@@ -429,7 +429,7 @@ class AuthService {
           userId: user.id,
           error: notificationError.message,
         });
-      }https://www.getmyneurocare.org/
+      }
 
       // Send confirmation emails/SMS (fire-and-forget)
       if (user.email) {
