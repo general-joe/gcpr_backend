@@ -53,7 +53,12 @@ BEGIN
     FROM pg_type
     WHERE typname = 'Role'
   ) THEN
-    DROP TYPE "Role";
+    BEGIN
+      DROP TYPE "Role";
+    EXCEPTION
+      WHEN dependent_objects_still_exist THEN
+        NULL;
+    END;
   END IF;
 END
 $$;
