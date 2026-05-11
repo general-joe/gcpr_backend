@@ -5,12 +5,13 @@ import { z } from "zod";
  */
 export const signUpSchema = z.object({
   fullName: z.string().min(1, "Full name is required"),
+  email: z.string().email("Valid email is required").optional().nullable(),
   password: z.string().min(6, "Password must be at least 6 characters"),
   dateOfBirth: z.string().optional(),
   address: z.string().optional(),
   digitalAddress: z.string().optional(),
   phoneNumber: z.string().min(1, "Phone number is required"),
-  gender: z.enum(["MALE", "FEMALE"], "Gender must be MALE or FEMALE"),
+  gender: z.enum(["MALE", "FEMALE"]),
   userType: z.enum(["SERVICE_PROVIDER", "CAREGIVER", "ADMIN"]),
   profileImage: z.string().optional(),
   otpChannel: z.enum(["sms", "email"]),
