@@ -17,6 +17,7 @@ class AuthController {
       requestId,
       email: userData.email,
       otpChannel: userData.otpChannel,
+      userdata:userData
       timestamp: new Date().toISOString(),
     });
 
