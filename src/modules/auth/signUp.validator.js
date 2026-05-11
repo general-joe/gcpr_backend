@@ -14,4 +14,6 @@ export const signUpSchema = z.object({
   userType: z.enum(["SERVICE_PROVIDER", "CAREGIVER", "ADMIN"]),
   profileImage: z.string().optional(),
   otpChannel: z.enum(["sms", "email"]),
+  verified: z.boolean().optional().default(false),
+  profileCompleted: z.boolean().optional().default(false),
 });
