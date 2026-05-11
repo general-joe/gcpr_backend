@@ -13,6 +13,7 @@ import {
   VerifyOTP,
   ResendOTP,
 } from "../../utils/hubtel-sms.js";
+import seedRbac from "../../utils/rbacSeed.js";
 
 const extractOtpPayload = (otpResponse) =>
   otpResponse?.data ?? otpResponse ?? {};
@@ -135,17 +136,16 @@ class AuthService {
       // normalize Ghana numbers before SendOTP / SendSMS
 
       const otpResponse = await SendOTP(newUser.phoneNumber);
-   
-    WRITE.info("Hubtel raw OTP response", { otpResponse });
 
-    const otpData = extractOtpPayload(otpResponse);
+      WRITE.info("Hubtel raw OTP response", { otpResponse });
 
-    if (!otpData?.requestId || !otpData?.prefix) {
-      throw new Error(
-        `Hubtel OTP response missing requestId or prefix: ${JSON.stringify(otpResponse)}`
-      );
-    }
-    
+      const otpData = extractOtpPayload(otpResponse);
+
+      if (!otpData?.requestId || !otpData?.prefix) {
+        throw new Error(
+          `Hubtel OTP response missing requestId or prefix: ${JSON.stringify(otpResponse)}`,
+        );
+      }
 
       await prisma.otp.create({
         data: {
@@ -169,6 +169,29 @@ class AuthService {
           userId: newUser.id,
         },
       });
+
+      // In registerUser() method, after creating the user
+      if (userData.userType === "ADMIN") {
+        // Ensure RBAC is seeded
+        await seedRbac();
+
+        // Find or create ADMIN role
+        const adminRole = await prisma.appRole.findUnique({
+          where: { slug: "ADMIN" },
+        });
+
+        if (adminRole) {
+          // Assign ADMIN role to this user globally
+          await prisma.userRole.create({
+            data: {
+              userId: newUser.id,
+              roleId: adminRole.id,
+              scopeType: "GLOBAL",
+              active: true,
+            },
+          });
+        }
+      }
 
       const emailResult = await sendEmail(newUser.email, "otp", {
         otp: otpCode,
@@ -599,7 +622,7 @@ class AuthService {
 
     const fetchedUser = await prisma.user.findUnique({
       where: { id: user.id },
-      include: { caregiver: true, serviceProvider: true},
+      include: { caregiver: true, serviceProvider: true },
     });
 
     return { accessToken, refreshToken, user: fetchedUser };
