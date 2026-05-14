@@ -278,32 +278,99 @@ class AssessmentService {
     return ownAssessmentsCount > 0 || referralCount > 0 || taskCount > 0;
   }
 
-  static async requireServiceProvider(userId) {
+
+  /**
+   * Allow Admins with certain roles to bypass service provider check.
+   * @param {object|string|number} userOrUserId - user object or userId
+   * @returns {object|null} serviceProvider or null for bypass
+   */
+  static async requireServiceProvider(userOrUserId) {
+    // Accept either user object or userId
+    let user = userOrUserId;
+    let userId = userOrUserId;
+    if (typeof userOrUserId === 'object' && userOrUserId !== null) {
+      user = userOrUserId;
+      userId = user.id;
+    } else {
+      user = null;
+    }
+
+    // Canonical RBAC slugs for admin bypass
+    const ADMIN_BYPASS_SLUGS = ["ADMIN", "IT_SUPPORT", "SUPER_TESTER", "TESTER"];
+
+    // Allow bypass for Admins with specific roles (via UserRole)
+    if (user && user.userType === 'ADMIN') {
+      const match = await prisma.userRole.findFirst({
+        where: {
+          userId,
+          active: true,
+          role: { slug: { in: ADMIN_BYPASS_SLUGS } },
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+        },
+      });
+      if (match) {
+        return {
+          id: userId,
+          profession: 'ADMIN',
+          verificationStatus: 'VERIFIED',
+        };
+      }
+    }
+
+    // Default: require real service provider profile
     const serviceProvider = await prisma.serviceProvider.findUnique({
       where: { userId }
     });
-
     if (!serviceProvider) {
       throw new gcprError(
         HttpStatus.NOT_FOUND,
         "Service provider profile not found"
       );
     }
-
     return serviceProvider;
   }
 
   // Requires profile AND verified status — use for clinical write actions
-  static async requireVerifiedServiceProvider(userId) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(userId);
+  static async requireVerifiedServiceProvider(userOrUserId) {
+    // Accept either user object or userId
+    let user = userOrUserId;
+    let userId = userOrUserId;
+    if (typeof userOrUserId === 'object' && userOrUserId !== null) {
+      user = userOrUserId;
+      userId = user.id;
+    } else {
+      user = null;
+    }
 
+    // Canonical RBAC slugs for admin bypass
+    const ADMIN_BYPASS_SLUGS = ["ADMIN", "IT_SUPPORT", "SUPER_TESTER", "TESTER"];
+
+    // Allow bypass for Admins with specific roles (via UserRole)
+    if (user && user.userType === 'ADMIN') {
+      const match = await prisma.userRole.findFirst({
+        where: {
+          userId,
+          active: true,
+          role: { slug: { in: ADMIN_BYPASS_SLUGS } },
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+        },
+      });
+      if (match) {
+        return {
+          id: userId,
+          profession: 'ADMIN',
+          verificationStatus: 'VERIFIED',
+        };
+      }
+    }
+
+    const serviceProvider = await AssessmentService.requireServiceProvider(userId);
     if (serviceProvider.verificationStatus !== "VERIFIED") {
       throw new gcprError(
         HttpStatus.FORBIDDEN,
         "Your account is pending verification. Contact admin to complete verification before performing clinical actions."
       );
     }
-
     return serviceProvider;
   }
 
