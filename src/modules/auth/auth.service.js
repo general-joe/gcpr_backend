@@ -641,14 +641,10 @@ class AuthService {
       },
     });
 
-      // Map userRoles to canonical slugs
-      const roles = (fetchedUser.userRoles || [])
-        .filter((ur) => ur.active && ur.role && ur.role.slug)
-        .map((ur) => ur.role.slug);
-      // Attach canonical roles array to user object for session serialization
-      const userWithRoles = { ...fetchedUser, roles };
-      return { accessToken, refreshToken, user: userWithRoles };
-
+    // Map userRoles to canonical slugs
+    const roles = (fetchedUser.userRoles || [])
+      .filter((ur) => ur.active && ur.role && ur.role.slug)
+      .map((ur) => ur.role.slug);
     // Attach canonical roles array to user object for session serialization
     const userWithRoles = { ...fetchedUser, roles };
     return { accessToken, refreshToken, user: userWithRoles };
