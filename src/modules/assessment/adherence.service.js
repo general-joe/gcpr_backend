@@ -2,7 +2,34 @@ import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
 
 class AdherenceService {
-  static async requireServiceProvider(userId) {
+  static async requireServiceProvider(userOrUserId) {
+    let user = userOrUserId;
+    let userId = userOrUserId;
+    if (typeof userOrUserId === 'object' && userOrUserId !== null) {
+      user = userOrUserId;
+      userId = user.id;
+    } else {
+      user = null;
+    }
+
+    // Canonical RBAC slugs for admin bypass
+    const ADMIN_BYPASS_SLUGS = ["ADMIN", "IT_SUPPORT", "SUPER_TESTER", "TESTER"];
+
+    // Allow bypass for Admins with specific roles (via UserRole)
+    if (user && user.userType === 'ADMIN') {
+      const match = await prisma.userRole.findFirst({
+        where: {
+          userId,
+          active: true,
+          role: { slug: { in: ADMIN_BYPASS_SLUGS } },
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+        },
+      });
+      if (match) {
+        return { id: userId, profession: 'ADMIN', verificationStatus: 'VERIFIED' };
+      }
+    }
+
     const sp = await prisma.serviceProvider.findUnique({ where: { userId }, select: { id: true } });
     if (!sp) throw new gcprError(HttpStatus.NOT_FOUND, "Service provider profile not found");
     return sp;
