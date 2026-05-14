@@ -641,7 +641,17 @@ class AuthService {
       },
     });
 
-    return { accessToken, refreshToken, user: fetchedUser };
+      // Map userRoles to canonical slugs
+      const roles = (fetchedUser.userRoles || [])
+        .filter((ur) => ur.active && ur.role && ur.role.slug)
+        .map((ur) => ur.role.slug);
+      // Attach canonical roles array to user object for session serialization
+      const userWithRoles = { ...fetchedUser, roles };
+      return { accessToken, refreshToken, user: userWithRoles };
+
+    // Attach canonical roles array to user object for session serialization
+    const userWithRoles = { ...fetchedUser, roles };
+    return { accessToken, refreshToken, user: userWithRoles };
   }
 
   static async resendOtp(identifier) {
