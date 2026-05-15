@@ -295,8 +295,13 @@ class AssessmentService {
       user = null;
     }
 
-    // Canonical RBAC slugs for admin bypass
-    const ADMIN_BYPASS_SLUGS = ["ADMIN", "IT_SUPPORT", "SUPER_TESTER", "TESTER"];
+    // Canonical RBAC slugs for admin bypass (allow lowercase and variants)
+    const ADMIN_BYPASS_SLUGS = [
+      "ADMIN", "admin", "Admin",
+      "IT_SUPPORT", "it_support", "it-support", "It_Support", "It-Support",
+      "SUPER_TESTER", "super_tester", "super-tester", "Super_Tester", "Super-Tester",
+      "TESTER", "tester", "Tester"
+    ];
 
     // Allow bypass for Admins with specific roles (via UserRole)
     if (user && user.userType === 'ADMIN') {
@@ -342,8 +347,13 @@ class AssessmentService {
       user = null;
     }
 
-    // Canonical RBAC slugs for admin bypass
-    const ADMIN_BYPASS_SLUGS = ["ADMIN", "IT_SUPPORT", "SUPER_TESTER", "TESTER"];
+    // Canonical RBAC slugs for admin bypass (allow lowercase and variants)
+    const ADMIN_BYPASS_SLUGS = [
+      "ADMIN", "admin", "Admin",
+      "IT_SUPPORT", "it_support", "it-support", "It_Support", "It-Support",
+      "SUPER_TESTER", "super_tester", "super-tester", "Super_Tester", "Super-Tester",
+      "TESTER", "tester", "Tester"
+    ];
 
     // Allow bypass for Admins with specific roles (via UserRole)
     if (user && user.userType === 'ADMIN') {
