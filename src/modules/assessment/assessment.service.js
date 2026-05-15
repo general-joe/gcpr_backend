@@ -224,14 +224,28 @@ class AssessmentService {
   static async getAvailableTools(user) {
     const serviceProvider = await AssessmentService.requireServiceProvider(user);
 
-    const tools = ALL_TOOL_CONFIGS.map((toolConfig) => ({
-      toolName: toolConfig.toolName,
-      toolCode: toolConfig.toolCode,
-      whoCanUseTool: getAllowedProfessions(toolConfig),
-      canCurrentUserUse: getAllowedProfessions(toolConfig).includes(
-        serviceProvider.profession
-      )
-    }));
+    // If user is admin, allow all tools
+    const isAdmin = user && user.userType === 'ADMIN';
+
+    // Gather all user roles (from user object and serviceProvider)
+    const userRoles = new Set();
+    if (user && Array.isArray(user.roles)) {
+      user.roles.forEach((role) => userRoles.add(String(role).toUpperCase()));
+    }
+    if (serviceProvider && serviceProvider.profession) {
+      userRoles.add(String(serviceProvider.profession).toUpperCase());
+    }
+
+    const tools = ALL_TOOL_CONFIGS.map((toolConfig) => {
+      const allowed = getAllowedProfessions(toolConfig).map((r) => String(r).toUpperCase());
+      const canUse = isAdmin ? true : allowed.some((role) => userRoles.has(role));
+      return {
+        toolName: toolConfig.toolName,
+        toolCode: toolConfig.toolCode,
+        whoCanUseTool: getAllowedProfessions(toolConfig),
+        canCurrentUserUse: canUse
+      };
+    });
 
     return {
       total: tools.length,
@@ -303,29 +317,13 @@ class AssessmentService {
       "TESTER", "tester", "Tester"
     ];
 
-    // Allow bypass for Admins with specific roles (via UserRole)
+    // Allow all admins to bypass service provider check
     if (user && user.userType === 'ADMIN') {
-      console.log('[RBAC DEBUG] Checking admin bypass for user:', userId, 'allowed slugs:', ADMIN_BYPASS_SLUGS);
-      const match = await prisma.userRole.findFirst({
-        where: {
-          userId,
-          active: true,
-          role: { slug: { in: ADMIN_BYPASS_SLUGS } },
-          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-        },
-        include: { role: true }
-      });
-      console.log('[RBAC DEBUG] Prisma userRole.findFirst result:', match);
-      if (match) {
-        console.log('[RBAC DEBUG] Admin bypass GRANTED for user:', userId, 'role:', match.role?.slug);
-        return {
-          id: userId,
-          profession: 'ADMIN',
-          verificationStatus: 'VERIFIED',
-        };
-      } else {
-        console.log('[RBAC DEBUG] Admin bypass DENIED for user:', userId);
-      }
+      return {
+        id: userId,
+        profession: 'ADMIN',
+        verificationStatus: 'VERIFIED',
+      };
     }
 
     // Default: require real service provider profile
