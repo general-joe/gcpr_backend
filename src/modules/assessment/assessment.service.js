@@ -305,6 +305,7 @@ class AssessmentService {
 
     // Allow bypass for Admins with specific roles (via UserRole)
     if (user && user.userType === 'ADMIN') {
+      console.log('[RBAC DEBUG] Checking admin bypass for user:', userId, 'allowed slugs:', ADMIN_BYPASS_SLUGS);
       const match = await prisma.userRole.findFirst({
         where: {
           userId,
@@ -312,13 +313,18 @@ class AssessmentService {
           role: { slug: { in: ADMIN_BYPASS_SLUGS } },
           OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
+        include: { role: true }
       });
+      console.log('[RBAC DEBUG] Prisma userRole.findFirst result:', match);
       if (match) {
+        console.log('[RBAC DEBUG] Admin bypass GRANTED for user:', userId, 'role:', match.role?.slug);
         return {
           id: userId,
           profession: 'ADMIN',
           verificationStatus: 'VERIFIED',
         };
+      } else {
+        console.log('[RBAC DEBUG] Admin bypass DENIED for user:', userId);
       }
     }
 
