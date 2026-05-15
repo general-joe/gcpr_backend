@@ -18,21 +18,25 @@ const limiter = rateLimit({
   max: 50
 });
 
+
+// Allow both SERVICE_PROVIDER and ADMIN userTypes
+const allowedUserTypes = ["SERVICE_PROVIDER", "ADMIN"];
+
 assessmentRouter.get(
   "/tools",
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(allowedUserTypes),
   AssessmentController.getAvailableTools
 );
 
 assessmentRouter.get(
   "/tools/:toolCode/form",
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(allowedUserTypes),
   AssessmentController.getAssessmentFormByToolCode
 );
 
 assessmentRouter.post(
   "/submit",
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(allowedUserTypes),
   validate(submitAssessmentSchema),
   limiter,
   AssessmentController.submitAssessment
@@ -40,58 +44,58 @@ assessmentRouter.post(
 
 assessmentRouter.get(
   "/:assessmentId/report",
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(allowedUserTypes),
   AssessmentController.getAssessmentReport
 );
 
 assessmentRouter.get(
   "/:assessmentId/referral-recommendations",
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(allowedUserTypes),
   AssessmentController.getReferralRecommendations
 );
 
 assessmentRouter.get(
   "/patient/:patientId/reports",
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(allowedUserTypes),
   AssessmentController.getAssessmentReportsByPatient
 );
 
 assessmentRouter.get(
   "/referrals/incoming",
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(allowedUserTypes),
   AssessmentController.getIncomingReferrals
 );
 
 assessmentRouter.get(
   "/referrals/outgoing",
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(allowedUserTypes),
   AssessmentController.getOutgoingReferrals
 );
 
 assessmentRouter.post(
   "/referrals",
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(allowedUserTypes),
   validate(createReferralSchema),
   AssessmentController.createReferral
 );
 
 assessmentRouter.patch(
   "/referrals/:referralId/status",
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(allowedUserTypes),
   validate(updateReferralStatusSchema),
   AssessmentController.updateReferralStatus
 );
 
 assessmentRouter.post(
   "/referrals/:referralId/tasks",
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(allowedUserTypes),
   validate(createRehabTaskSchema),
   AssessmentController.createRehabTaskFromReferral
 );
 
 assessmentRouter.get(
   "/tasks/my",
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(allowedUserTypes),
   AssessmentController.getMyAssignedTasks
 );
 
