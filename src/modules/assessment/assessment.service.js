@@ -222,7 +222,7 @@ const validateGMFMResponses = (responses) => {
 
 class AssessmentService {
   static async getAvailableTools(user) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user.id);
+    const serviceProvider = await AssessmentService.requireServiceProvider(user);
 
     const tools = ALL_TOOL_CONFIGS.map((toolConfig) => ({
       toolName: toolConfig.toolName,
@@ -240,7 +240,7 @@ class AssessmentService {
   }
 
   static async getAssessmentFormByToolCode(user, toolCode) {
-    await AssessmentService.requireServiceProvider(user.id);
+    await AssessmentService.requireServiceProvider(user);
     const normalizedToolCode = normalizeToolCode(toolCode);
     const { config: toolConfig } = getToolConfigByCode(normalizedToolCode);
 
@@ -621,7 +621,7 @@ class AssessmentService {
   }
 
   static async getAssessmentReport(user, assessmentId) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user.id);
+    const serviceProvider = await AssessmentService.requireServiceProvider(user);
     const assessment = await prisma.clinicalAssessment.findUnique({
       where: { id: assessmentId },
       include: {
@@ -674,7 +674,7 @@ class AssessmentService {
   }
 
   static async getAssessmentReportsByPatient(user, patientId) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user.id);
+    const serviceProvider = await AssessmentService.requireServiceProvider(user);
     await AssessmentService.ensurePatientExists(patientId);
 
     const canAccess = await AssessmentService.canProviderAccessPatient(
@@ -710,7 +710,7 @@ class AssessmentService {
   }
 
   static async getIncomingReferrals(user) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user.id);
+    const serviceProvider = await AssessmentService.requireServiceProvider(user);
 
     const referrals = await prisma.clinicalReferral.findMany({
       where: {
@@ -743,7 +743,7 @@ class AssessmentService {
   }
 
   static async getOutgoingReferrals(user) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user.id);
+    const serviceProvider = await AssessmentService.requireServiceProvider(user);
 
     const referrals = await prisma.clinicalReferral.findMany({
       where: { fromProviderId: serviceProvider.id },
@@ -768,7 +768,7 @@ class AssessmentService {
   }
 
   static async updateReferralStatus(user, referralId, status) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user.id);
+    const serviceProvider = await AssessmentService.requireServiceProvider(user);
 
     const referral = await prisma.clinicalReferral.findUnique({
       where: { id: referralId }
@@ -895,7 +895,7 @@ class AssessmentService {
   }
 
   static async getReferralRecommendations(user, assessmentId) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user.id);
+    const serviceProvider = await AssessmentService.requireServiceProvider(user);
 
     const assessment = await prisma.clinicalAssessment.findUnique({
       where: { id: assessmentId },
@@ -932,7 +932,7 @@ class AssessmentService {
   }
 
   static async getMyAssignedTasks(user) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user.id);
+    const serviceProvider = await AssessmentService.requireServiceProvider(user);
 
     const tasks = await prisma.rehabTask.findMany({
       where: { providerId: serviceProvider.id },
