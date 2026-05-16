@@ -34,6 +34,9 @@ const DEFAULT_ROLES = [
 ];
 
 const DEFAULT_PERMISSIONS = [
+    // Appointment management
+    { code: "appointment.read", name: "Read Appointments", description: "View all appointments and details" },
+    { code: "appointment.write", name: "Manage Appointments", description: "Create, update, or delete appointments" },
   // User management
   { code: "users.list",         name: "List Users",            description: "View all users" },
   { code: "users.read",         name: "Read User",             description: "View a user's details" },
@@ -96,9 +99,11 @@ const ROLE_PERMISSION_MAP = {
   TELEHEALTH_COORDINATOR: ["telehealth.manage"],
 };
 
-export async function seedRbac() {
+
+export async function seedRbac({ timeout = 30000 } = {}) {
   const results = { roles: 0, permissions: 0, rolePermissions: 0 };
 
+  // Use the provided timeout for all transactions
   await prisma.$transaction(async (tx) => {
     // Upsert permissions
     for (const perm of DEFAULT_PERMISSIONS) {
@@ -119,9 +124,9 @@ export async function seedRbac() {
       });
       results.roles++;
     }
-  });
+  }, { timeout });
 
-  // Assign permissions to roles (separate transaction per role for clarity)
+  // Assign permissions to roles (no transaction, to avoid timeouts)
   for (const [slug, permCodes] of Object.entries(ROLE_PERMISSION_MAP)) {
     const role = await prisma.appRole.findUnique({ where: { slug } });
     if (!role) continue;
@@ -131,15 +136,13 @@ export async function seedRbac() {
       select: { id: true, code: true },
     });
 
-    await prisma.$transaction(
-      perms.map((perm) =>
-        prisma.rolePermission.upsert({
-          where: { roleId_permissionId: { roleId: role.id, permissionId: perm.id } },
-          update: {},
-          create: { roleId: role.id, permissionId: perm.id },
-        })
-      )
-    );
+    for (const perm of perms) {
+      await prisma.rolePermission.upsert({
+        where: { roleId_permissionId: { roleId: role.id, permissionId: perm.id } },
+        update: {},
+        create: { roleId: role.id, permissionId: perm.id },
+      });
+    }
 
     results.rolePermissions += perms.length;
   }
