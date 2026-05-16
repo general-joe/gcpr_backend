@@ -1,5 +1,6 @@
 import prisma from "../../config/database.js";
 import { getIO } from "../../socket.io.js";
+import WRITE from "../../utils/logger.js";
 import {
   sendPushNotification,
   sendMulticastPushNotification,
@@ -11,32 +12,37 @@ import {
 } from "../../services/queue/queue.jobs.js";
 
 export default class NotificationService {
-  static async getUserNotifications(userId, page = 1, limit = 20, unreadOnly = false) {
+  static async getUserNotifications(
+    userId,
+    page = 1,
+    limit = 20,
+    unreadOnly = false,
+  ) {
     const skip = (page - 1) * limit;
-    
+
     const where = {
       userId,
-      ...(unreadOnly && { status: "UNREAD" })
+      ...(unreadOnly && { status: "UNREAD" }),
     };
-    
+
     const [notifications, total] = await Promise.all([
       prisma.notification.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" }
+        orderBy: { createdAt: "desc" },
       }),
-      prisma.notification.count({ where })
+      prisma.notification.count({ where }),
     ]);
-    
+
     return {
       data: notifications,
       pagination: {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit)
-      }
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 
@@ -44,8 +50,8 @@ export default class NotificationService {
     return await prisma.notification.count({
       where: {
         userId,
-        status: "UNREAD"
-      }
+        status: "UNREAD",
+      },
     });
   }
 
@@ -53,22 +59,22 @@ export default class NotificationService {
     const notification = await prisma.notification.updateMany({
       where: {
         id: notificationId,
-        userId
+        userId,
       },
       data: {
-        status: "READ"
-      }
+        status: "READ",
+      },
     });
-    
+
     // Emit real-time update via Socket.IO
     const io = getIO();
     if (io) {
-      io.to(`user-${userId}`).emit('notification-update', {
-        type: 'MARK_AS_READ',
-        notificationId
+      io.to(`user-${userId}`).emit("notification-update", {
+        type: "MARK_AS_READ",
+        notificationId,
       });
     }
-    
+
     return notification;
   }
 
@@ -76,22 +82,22 @@ export default class NotificationService {
     const result = await prisma.notification.updateMany({
       where: {
         userId,
-        status: "UNREAD"
+        status: "UNREAD",
       },
       data: {
-        status: "READ"
-      }
+        status: "READ",
+      },
     });
-    
+
     // Emit real-time update via Socket.IO
     const io = getIO();
     if (io) {
-      io.to(`user-${userId}`).emit('notification-update', {
-        type: 'MARK_ALL_AS_READ',
-        userId
+      io.to(`user-${userId}`).emit("notification-update", {
+        type: "MARK_ALL_AS_READ",
+        userId,
       });
     }
-    
+
     return result;
   }
 
@@ -99,22 +105,22 @@ export default class NotificationService {
     const notification = await prisma.notification.updateMany({
       where: {
         id: notificationId,
-        userId
+        userId,
       },
       data: {
-        status: "ARCHIVED"
-      }
+        status: "ARCHIVED",
+      },
     });
-    
+
     // Emit real-time update via Socket.IO
     const io = getIO();
     if (io) {
-      io.to(`user-${userId}`).emit('notification-update', {
-        type: 'ARCHIVE',
-        notificationId
+      io.to(`user-${userId}`).emit("notification-update", {
+        type: "ARCHIVE",
+        notificationId,
       });
     }
-    
+
     return notification;
   }
 
@@ -122,36 +128,42 @@ export default class NotificationService {
     await prisma.notification.deleteMany({
       where: {
         id: notificationId,
-        userId
-      }
+        userId,
+      },
     });
-    
+
     // Emit real-time update via Socket.IO
     const io = getIO();
     if (io) {
-      io.to(`user-${userId}`).emit('notification-update', {
-        type: 'DELETE',
-        notificationId
+      io.to(`user-${userId}`).emit("notification-update", {
+        type: "DELETE",
+        notificationId,
       });
     }
   }
 
   static async createNotification(notificationData) {
     const notification = await prisma.notification.create({
-      data: notificationData
+      data: notificationData,
     });
 
     // Emit real-time notification via Socket.IO
     const io = getIO();
     if (io) {
-      io.to(`user-${notificationData.userId}`).emit('new-notification', notification);
+      io.to(`user-${notificationData.userId}`).emit(
+        "new-notification",
+        notification,
+      );
 
       // Also send a general notification update for badge count
       const unreadCount = await this.getUnreadCount(notificationData.userId);
-      io.to(`user-${notificationData.userId}`).emit('notification-badge-update', {
-        userId: notificationData.userId,
-        count: unreadCount
-      });
+      io.to(`user-${notificationData.userId}`).emit(
+        "notification-badge-update",
+        {
+          userId: notificationData.userId,
+          count: unreadCount,
+        },
+      );
     }
 
     await this.dispatchPushNotification(notificationData.userId, notification);
@@ -160,6 +172,13 @@ export default class NotificationService {
   }
 
   static async dispatchPushNotification(userId, notification) {
+    WRITE.info("Notification dispatch started", {
+      userId,
+      notificationId: notification.id,
+      notificationType: notification.type,
+      category: notification.category,
+    });
+
     const queueResult = await enqueueJob(
       QUEUE_NAMES.NOTIFICATION,
       NOTIFICATION_JOB_NAMES.DELIVER_PUSH,
@@ -169,26 +188,58 @@ export default class NotificationService {
       },
     );
 
+    WRITE.info("Notification queue dispatch result", {
+      userId,
+      notificationId: notification.id,
+      queued: queueResult.queued,
+      queueName: queueResult.queueName,
+      jobId: queueResult.jobId,
+    });
+
     if (!queueResult.queued) {
+      WRITE.warn(
+        "Notification queue disabled or unavailable; sending immediately",
+        {
+          userId,
+          notificationId: notification.id,
+        },
+      );
       await this.sendPushNotificationToUserNow(userId, notification);
     }
   }
 
   static async sendPushNotificationToUserNow(userId, notification) {
     try {
+      WRITE.info("Sending push notification immediately", {
+        userId,
+        notificationId: notification.id,
+        category: notification.category,
+        relatedModel: notification.relatedModel,
+        relatedId: notification.relatedId,
+      });
+
       // Get user's active push tokens
       const tokens = await prisma.pushNotificationToken.findMany({
         where: {
           userId,
-          isActive: true
-        }
+          isActive: true,
+        },
+      });
+
+      WRITE.debug("Found push tokens for user", {
+        userId,
+        tokenCount: tokens.length,
       });
 
       if (tokens.length === 0) {
+        WRITE.warn("No active push tokens for user", {
+          userId,
+          notificationId: notification.id,
+        });
         return; // User has no active tokens
       }
 
-      const firebaseTokens = tokens.map(t => t.token);
+      const firebaseTokens = tokens.map((t) => t.token);
 
       // Send Firebase push notification
       const pushPayload = {
@@ -198,18 +249,43 @@ export default class NotificationService {
           notificationId: notification.id,
           category: notification.category,
           relatedId: notification.relatedId || "",
-          relatedModel: notification.relatedModel || ""
-        }
+          relatedModel: notification.relatedModel || "",
+        },
       };
 
       if (firebaseTokens.length === 1) {
-        await sendPushNotification(firebaseTokens[0], pushPayload);
-      } else {
-        await sendMulticastPushNotification(firebaseTokens, pushPayload);
+        const response = await sendPushNotification(
+          firebaseTokens[0],
+          pushPayload,
+        );
+        WRITE.info("Push notification sent to single token", {
+          userId,
+          notificationId: notification.id,
+          tokenCount: firebaseTokens.length,
+          response,
+        });
+        return response;
       }
+
+      const response = await sendMulticastPushNotification(
+        firebaseTokens,
+        pushPayload,
+      );
+      WRITE.info("Multicast push notification sent", {
+        userId,
+        notificationId: notification.id,
+        tokenCount: firebaseTokens.length,
+        successCount: response.successCount,
+        failureCount: response.failureCount,
+      });
+      return response;
     } catch (error) {
       // Log error but don't throw - push notification failure shouldn't block main flow
-      console.error(`Failed to send push notification to user ${userId}:`, error.message);
+      WRITE.error(`Failed to send push notification to user ${userId}`, {
+        error: error.message,
+        userId,
+        notificationId: notification.id,
+      });
     }
   }
 
@@ -220,12 +296,14 @@ export default class NotificationService {
       type: "IN_APP",
       category: "DIRECT_MESSAGE",
       title: "New Direct Message",
-      content: message.content ? 
-        (message.content.length > 50 ? message.content.substring(0, 50) + "..." : message.content) : 
-        "You have a new message",
+      content: message.content
+        ? message.content.length > 50
+          ? message.content.substring(0, 50) + "..."
+          : message.content
+        : "You have a new message",
       relatedId: message.id,
       relatedModel: "DirectMessage",
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
     });
   }
 
@@ -236,17 +314,19 @@ export default class NotificationService {
         communityId: message.group ? undefined : message.communityId,
         ...(message.group && { groupId: message.groupId }),
         userId: { not: message.senderId },
-        status: "ACTIVE"
+        status: "ACTIVE",
       },
-      select: { userId: true }
+      select: { userId: true },
     });
-    
+
     const truncatedContent = message.content
-      ? (message.content.length > 50 ? message.content.substring(0, 50) + "..." : message.content)
+      ? message.content.length > 50
+        ? message.content.substring(0, 50) + "..."
+        : message.content
       : "You have a new community message";
 
     // Create notifications for each member
-    const notifications = members.map(member => ({
+    const notifications = members.map((member) => ({
       userId: member.userId,
       type: "IN_APP",
       category: "COMMUNITY_MESSAGE",
@@ -254,30 +334,38 @@ export default class NotificationService {
       content: truncatedContent,
       relatedId: message.id,
       relatedModel: "CommunityMessage",
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     }));
-    
+
     if (notifications.length > 0) {
       await prisma.notification.createMany({ data: notifications });
-      
+
       // Batch-fetch unread counts for all affected users in a single query
-      const userIds = members.map(m => m.userId);
+      const userIds = members.map((m) => m.userId);
       const unreadCounts = await prisma.notification.groupBy({
-        by: ['userId'],
+        by: ["userId"],
         where: { userId: { in: userIds }, status: "UNREAD" },
-        _count: { id: true }
+        _count: { id: true },
       });
-      const countMap = new Map(unreadCounts.map(c => [c.userId, c._count.id]));
+      const countMap = new Map(
+        unreadCounts.map((c) => [c.userId, c._count.id]),
+      );
 
       // Emit real-time notifications via Socket.IO
       const io = getIO();
       if (io) {
         for (const notification of notifications) {
-          io.to(`user-${notification.userId}`).emit('new-notification', notification);
-          io.to(`user-${notification.userId}`).emit('notification-badge-update', {
-            userId: notification.userId,
-            count: countMap.get(notification.userId) || 0
-          });
+          io.to(`user-${notification.userId}`).emit(
+            "new-notification",
+            notification,
+          );
+          io.to(`user-${notification.userId}`).emit(
+            "notification-badge-update",
+            {
+              userId: notification.userId,
+              count: countMap.get(notification.userId) || 0,
+            },
+          );
         }
       }
 
@@ -287,7 +375,7 @@ export default class NotificationService {
         content: truncatedContent,
         category: "COMMUNITY_MESSAGE",
         relatedId: message.id,
-        relatedModel: "CommunityMessage"
+        relatedModel: "CommunityMessage",
       });
     }
   }
@@ -297,15 +385,17 @@ export default class NotificationService {
     const members = await prisma.communityMember.findMany({
       where: {
         communityId: announcement.communityId,
-        status: "ACTIVE"
+        status: "ACTIVE",
       },
-      select: { userId: true }
+      select: { userId: true },
     });
-    
-    const title = announcement.isPinned ? "Important Announcement" : "New Community Announcement";
+
+    const title = announcement.isPinned
+      ? "Important Announcement"
+      : "New Community Announcement";
 
     // Create notifications for each member
-    const notifications = members.map(member => ({
+    const notifications = members.map((member) => ({
       userId: member.userId,
       type: "IN_APP",
       category: "COMMUNITY_ANNOUNCEMENT",
@@ -313,30 +403,40 @@ export default class NotificationService {
       content: announcement.title,
       relatedId: announcement.id,
       relatedModel: "CommunityAnnouncement",
-      expiresAt: announcement.expiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      expiresAt:
+        announcement.expiresAt ||
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     }));
-    
+
     if (notifications.length > 0) {
       await prisma.notification.createMany({ data: notifications });
-      
+
       // Batch-fetch unread counts for all affected users in a single query
-      const userIds = members.map(m => m.userId);
+      const userIds = members.map((m) => m.userId);
       const unreadCounts = await prisma.notification.groupBy({
-        by: ['userId'],
+        by: ["userId"],
         where: { userId: { in: userIds }, status: "UNREAD" },
-        _count: { id: true }
+        _count: { id: true },
       });
-      const countMap = new Map(unreadCounts.map(c => [c.userId, c._count.id]));
+      const countMap = new Map(
+        unreadCounts.map((c) => [c.userId, c._count.id]),
+      );
 
       // Emit real-time notifications via Socket.IO
       const io = getIO();
       if (io) {
         for (const notification of notifications) {
-          io.to(`user-${notification.userId}`).emit('new-notification', notification);
-          io.to(`user-${notification.userId}`).emit('notification-badge-update', {
-            userId: notification.userId,
-            count: countMap.get(notification.userId) || 0
-          });
+          io.to(`user-${notification.userId}`).emit(
+            "new-notification",
+            notification,
+          );
+          io.to(`user-${notification.userId}`).emit(
+            "notification-badge-update",
+            {
+              userId: notification.userId,
+              count: countMap.get(notification.userId) || 0,
+            },
+          );
         }
       }
 
@@ -346,23 +446,36 @@ export default class NotificationService {
         content: announcement.title,
         category: "COMMUNITY_ANNOUNCEMENT",
         relatedId: announcement.id,
-        relatedModel: "CommunityAnnouncement"
+        relatedModel: "CommunityAnnouncement",
       });
     }
   }
 
   static async sendBulkPushNotifications(userIds, payload) {
     try {
-      if (!userIds || userIds.length === 0) return;
+      if (!userIds || userIds.length === 0) {
+        WRITE.warn("sendBulkPushNotifications called with empty user list");
+        return;
+      }
 
       const tokenRecords = await prisma.pushNotificationToken.findMany({
         where: { userId: { in: userIds }, isActive: true },
-        select: { token: true }
+        select: { token: true },
       });
 
-      if (!tokenRecords.length) return;
+      WRITE.debug("Bulk push token lookup", {
+        requestedUserIds: userIds,
+        returnedTokens: tokenRecords.length,
+      });
 
-      const tokens = tokenRecords.map(r => r.token);
+      if (!tokenRecords.length) {
+        WRITE.warn("No active push tokens found for bulk notification", {
+          userIds,
+        });
+        return;
+      }
+
+      const tokens = tokenRecords.map((r) => r.token);
       const pushPayload = {
         title: payload.title || "GCPR Notification",
         body: payload.content || "You have a new notification",
@@ -370,17 +483,33 @@ export default class NotificationService {
           notificationId: "",
           category: payload.category || "",
           relatedId: payload.relatedId || "",
-          relatedModel: payload.relatedModel || ""
-        }
+          relatedModel: payload.relatedModel || "",
+        },
       };
 
       if (tokens.length === 1) {
-        await sendPushNotification(tokens[0], pushPayload);
+        const response = await sendPushNotification(tokens[0], pushPayload);
+        WRITE.info("Bulk push notification sent to single token", {
+          tokenCount: tokens.length,
+          response,
+        });
       } else {
-        await sendMulticastPushNotification(tokens, pushPayload);
+        const response = await sendMulticastPushNotification(
+          tokens,
+          pushPayload,
+        );
+        WRITE.info("Bulk multicast push notification sent", {
+          tokenCount: tokens.length,
+          successCount: response.successCount,
+          failureCount: response.failureCount,
+        });
       }
     } catch (error) {
-      console.error(`Failed to send bulk push notifications:`, error.message);
+      WRITE.error("Failed to send bulk push notifications", {
+        error: error.message,
+        userIds,
+        category: payload.category,
+      });
     }
   }
 
@@ -388,10 +517,10 @@ export default class NotificationService {
     const tokenRecord = await prisma.pushNotificationToken.findFirst({
       where: {
         userId,
-        isActive: true
-      }
+        isActive: true,
+      },
     });
-    
+
     return tokenRecord ? tokenRecord.token : null;
   }
 
@@ -404,26 +533,26 @@ export default class NotificationService {
         deviceType,
         deviceId,
         isActive: true,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       },
       create: {
         userId,
         token,
         deviceType: deviceType || "unknown",
         deviceId,
-        isActive: true
-      }
+        isActive: true,
+      },
     });
   }
 
   static async removePushToken(userId) {
     await prisma.pushNotificationToken.updateMany({
       where: {
-        userId
+        userId,
       },
       data: {
-        isActive: false
-      }
+        isActive: false,
+      },
     });
   }
 
@@ -431,19 +560,19 @@ export default class NotificationService {
     const user = await prisma.user.update({
       where: { id: userId },
       data: {
-        accountStatus: "DEACTIVATED"
-      }
+        accountStatus: "DEACTIVATED",
+      },
     });
-    
+
     // Emit real-time update via Socket.IO
     const io = getIO();
     if (io) {
-      io.to(`user-${userId}`).emit('account-status-changed', {
+      io.to(`user-${userId}`).emit("account-status-changed", {
         userId,
-        accountStatus: "DEACTIVATED"
+        accountStatus: "DEACTIVATED",
       });
     }
-    
+
     return user;
   }
 }
