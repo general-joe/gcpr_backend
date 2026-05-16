@@ -57,6 +57,9 @@ const buildIdentifierWhere = (identifier) => {
 class AuthService {
   static async registerUser(rq, userData) {
     WRITE.info("User request data", { userData });
+    userData.userType =userData.role;
+    delete userData.role;
+ WRITE.info("User request data after mutation", { userData });
     if (rq.files?.profileImage) {
       const fileName = `${userData.id}.jpg`;
       userData.profileImage = await UploadService.saveFile(
