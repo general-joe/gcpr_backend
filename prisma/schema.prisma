@@ -315,7 +315,6 @@ model User {
   password            String
   phoneNumber         String               @unique
   gender              Gender
-  fcm_id              String?              @unique
   userType            UserType
   profileImage        String?
   verified            Boolean              @default(false)
