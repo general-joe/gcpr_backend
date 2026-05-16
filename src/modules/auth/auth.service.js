@@ -234,7 +234,7 @@ class AuthService {
         where,
         include: { otp: true },
       });
-
+registerUser
       if (!user || !user.otp) {
         WRITE.warn("OTP verification failed: User or OTP not found", {
           operationId,
@@ -266,7 +266,7 @@ class AuthService {
         );
       }
 
-      // Check OTP expiration
+      // Check OTP expirationregisterUser
       if (user.otp.expiresAt < new Date()) {
         WRITE.warn("OTP verification failed: OTP expired", {
           operationId,
