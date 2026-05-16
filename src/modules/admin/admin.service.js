@@ -24,7 +24,7 @@ class AdminService {
       );
     }
 
-    const seedResult = await seedRbac();
+    const seedResult = await seedRbac({ timeout: 30000 });
 
     let roleAssignment = null;
     if (userId) {
@@ -70,7 +70,7 @@ class AdminService {
    * Safe to call multiple times.
    */
   static async seedRbac() {
-    return seedRbac();
+    return seedRbac({ timeout: 30000 });
   }
 
   // ── User Management ──────────────────────────────────────────────────────────
