@@ -268,8 +268,8 @@ class AuthService {
         );
       }
 
-      // Check OTP expirationregisterUser
-      if (user.otp.expiresAt < new Date()) {
+       // Check OTP expiration
+       if (user.otp.expiresAt < new Date()) {
         WRITE.warn("OTP verification failed: OTP expired", {
           operationId,
           userId: user.id,
