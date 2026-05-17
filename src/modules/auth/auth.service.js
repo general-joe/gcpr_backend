@@ -232,13 +232,12 @@ class AuthService {
         timestamp: new Date().toISOString(),
       });
 
-      // Initial check - user and OTP existence
-      const user = await prisma.user.findFirst({
-        where,
-        include: { otp: true },
-      });
-registerUser
-      if (!user || !user.otp) {
+       // Initial check - user and OTP existence
+       const user = await prisma.user.findFirst({
+         where,
+         include: { otp: true },
+       });
+       if (!user || !user.otp) {
         WRITE.warn("OTP verification failed: User or OTP not found", {
           operationId,
           identifier: normalizedIdentifier,
