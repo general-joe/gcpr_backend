@@ -250,6 +250,34 @@ class ScheduleAppointmentController {
       "Caregiver appointments fetched successfully",
     );
   });
+
+  static adminAppointments = catchAsync(async (req, res) => {
+    const requestId = `REQ-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const userId = res.locals.user?.id;
+    const query = req.query;
+
+    WRITE.debug("GET /admin started", {
+      requestId,
+      userId,
+      query,
+      timestamp: new Date().toISOString(),
+    });
+
+    const result = await ScheduleAppointmentService.adminAppointments(query);
+
+    WRITE.info("GET /admin completed successfully", {
+      requestId,
+      userId,
+      appointmentsCount: result?.length || 0,
+      timestamp: new Date().toISOString(),
+    });
+
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "Appointments fetched successfully",
+    );
+  });
 }
 
 export default ScheduleAppointmentController;
