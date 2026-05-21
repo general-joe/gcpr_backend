@@ -592,6 +592,48 @@ class ScheduleAppointmentService {
       },
     });
   }
+
+  static async adminAppointments(query) {
+    const where = {};
+
+    if (query.date) {
+      const start = new Date(query.date);
+      const end = new Date(query.date);
+      end.setHours(23, 59, 59);
+
+      where.appointmentDate = { gte: start, lte: end };
+    }
+
+    if (query.month) {
+      const start = new Date(`${query.month}-01`);
+      const end = new Date(start);
+      end.setMonth(end.getMonth() + 1);
+
+      where.appointmentDate = { gte: start, lt: end };
+    }
+
+    return prisma.appointment.findMany({
+      where,
+      include: {
+        patient: true,
+        provider: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                phoneNumber: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        appointmentDate: "asc",
+      },
+    });
+  }
 }
 
 export default ScheduleAppointmentService;
