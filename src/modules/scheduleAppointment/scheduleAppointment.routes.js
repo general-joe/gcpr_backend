@@ -55,7 +55,7 @@ scheduleAppointmentRouter.patch(
 
 scheduleAppointmentRouter.get(
   "/provider",
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(["SERVICE_PROVIDER", "ADMIN"]),
   authRateLimiter,
   ScheduleAppointmentController.providerAppointments,
 );
@@ -65,6 +65,13 @@ scheduleAppointmentRouter.get(
   authorize(["CAREGIVER"]),
   authRateLimiter,
   ScheduleAppointmentController.caregiverAppointments,
+);
+
+scheduleAppointmentRouter.get(
+  "/admin",
+  authorize(["ADMIN"]),
+  authRateLimiter,
+  ScheduleAppointmentController.adminAppointments,
 );
 
 export default scheduleAppointmentRouter;

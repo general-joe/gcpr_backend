@@ -1813,3 +1813,22 @@ model Faq {
   @@index([categoryId])
   @@index([isPublished])
 }
+
+model AppointmentSettings {
+  id                    String            @id @default(uuid())
+  allowPatientBooking   Boolean           @default(true)
+  minAppointmentNotice  Int               @default(24)
+  defaultDuration       Int               @default(30)
+  bufferTime            Int               @default(15)
+  maxDailyAppointments  Int               @default(20)
+  enableReminders       Boolean           @default(true)
+  reminderLeadTime      Int               @default(2)
+  requireConfirmation   Boolean           @default(false)
+  enableWaitlist        Boolean           @default(true)
+  slotInterval          Int               @default(30)
+  workingHours          Json              @default("[]")
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([updatedAt])
+}
