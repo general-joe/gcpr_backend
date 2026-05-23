@@ -21,4 +21,18 @@ settingsRouter.put(
   SettingsController.updateAppointmentSettings
 );
 
+settingsRouter.get(
+  "/telehealth",
+  limiter,
+  requireRbacRole(["ADMIN", "SERVICE_PROVIDER", "CAREGIVER"]),
+  SettingsController.getTelehealthSettings
+);
+
+settingsRouter.put(
+  "/telehealth",
+  limiter,
+  requireRbacRole(["ADMIN", "SERVICE_PROVIDER", "CAREGIVER"]),
+  SettingsController.updateTelehealthSettings
+);
+
 export default settingsRouter;

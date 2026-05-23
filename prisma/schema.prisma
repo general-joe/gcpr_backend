@@ -4,12 +4,1276 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // url = env("DATABASE_URL")
 }
 
-/**
- * * ====== EXISTING ENUMS (kept) ====== **
- */
+model User {
+  id                           String                  @id @default(uuid())
+  fullName                     String
+  email                        String?                 @unique
+  password                     String
+  phoneNumber                  String                  @unique
+  profileImage                 String?
+  createdAt                    DateTime                @default(now())
+  updatedAt                    DateTime                @updatedAt
+  profileCompleted             Boolean                 @default(false)
+  verified                     Boolean                 @default(false)
+  gender                       Gender
+  address                      String?
+  digitalAddress               String?
+  dateOfBirth                  DateTime
+  accountStatus                AccountStatus           @default(ACTIVE)
+  userType                     UserType
+  googleAccessToken            String?
+  googleRefreshToken           String?
+  caregiver                    CareGiver?
+  chatSessions                 ChatSession[]
+  createdCommunities           Community[]             @relation("CommunityCreator")
+  communityAnnouncements       CommunityAnnouncement[]
+  communityGroupMembers        CommunityGroupMember[]
+  communityInvitations         CommunityInvitation[]
+  communityMemberships         CommunityMember[]
+  communityMessages            CommunityMessage[]
+  uploadedGames                GameResource[]          @relation("UserUploadedGames")
+  notifications                Notification[]
+  otp                          Otp?
+  passwordResetTokens          PasswordResetToken[]
+  pushNotificationTokens       PushNotificationToken[] @relation("UserPushTokens")
+  refreshToken                 RefreshToken[]
+  submittedReports             Report[]                @relation("UserReports")
+  reportedBy                   Report[]                @relation("ReportedUsers")
+  supportTickets               SupportTicket[]         @relation("UserTickets")
+  telehealthAccessCreated      TelehealthAccessToken[] @relation("AccessCreatedBy")
+  telehealthAuditLogs          TelehealthAuditLog[]
+  telehealthInvitations        TelehealthInvitation[]
+  telehealthInvitationsInvited TelehealthInvitation[]  @relation("InvitationInviter")
+  telehealthMessagesSent       TelehealthMessage[]     @relation("TeleMessageSender")
+  telehealthParticipants       TelehealthParticipant[]
+  telehealthRoomsCreated       TelehealthRoom[]        @relation("RoomCreator")
+  ticketMessages               TicketMessage[]         @relation("TicketMessageSender")
+  userPermissions              UserPermission[]
+  userRoles                    UserRole[]
+  receivedDirectMessages       DirectMessage[]         @relation("DirectMessageReceiver")
+  sentDirectMessages           DirectMessage[]         @relation("DirectMessageSender")
+  pdfResources                 PdfResource[]
+  serviceProvider              ServiceProvider?
+}
+
+model Otp {
+  id         String    @id @default(uuid())
+  codeHash   String?
+  userId     String    @unique
+  expiresAt  DateTime?
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  prefix     String?
+  requestId  String?
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ServiceProvider {
+  id                        String                     @id @default(uuid())
+  userId                    String                     @unique
+  licenseNumber             String
+  licenseImage              String?
+  licenseExpiry             DateTime
+  licenseIssuedBy           String?
+  licenseIssuedDate         DateTime
+  licenseStatus             LicenseStatus              @default(INACTIVE)
+  facilityType              FacilityType
+  facilityName              String
+  facilityAddress           String
+  experience                Int
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  profession                Profession
+  licenseType               ProfessionalBody
+  licensePin                String
+  verificationStatus        VerificationStatus         @default(PENDING_REVIEW)
+  verificationNote          String?
+  verifiedAt                DateTime?
+  verifiedBy                String?
+  participationLogs         ActivityParticipationLog[]
+  appointments              Appointment[]
+  clinicalAssessments       ClinicalAssessment[]       @relation("ProviderAssessments")
+  clinicalReferrals         ClinicalReferral[]         @relation("ProviderReferrals")
+  incomingReferrals         ClinicalReferral[]         @relation("ReferralRecipients")
+  functionalClassifications FunctionalClassification[]
+  providerGames             GameResource[]             @relation("ProviderUploadedGames")
+  motorFunctionOutcomes     MotorFunctionOutcome[]
+  availabilities            ProviderAvailability[]
+  providerMetrics           ProviderMetricsSnapshot[]
+  rehabTasks                RehabTask[]
+  adherenceLogs             TaskAdherenceLog[]
+  telehealthAuditLogs       TelehealthAuditLog[]
+  telehealthIntegrations    TelehealthIntegration[]    @relation("IntegrationOwner")
+  telehealthRecordings      TelehealthRecording[]
+  telehealthRoomsProvided   TelehealthRoom[]           @relation("ProviderForRoom")
+  pdfResources              PdfResource[]
+  user                      User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([verificationStatus])
+  @@map("serviceProvider")
+}
+
+model ProviderAvailability {
+  id         String          @id @default(uuid())
+  providerId String
+  dayOfWeek  Int
+  startTime  String
+  endTime    String
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  provider   ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+}
+
+model CareGiver {
+  id                    String          @id @default(uuid())
+  type                  CaregiverType
+  userId                String?         @unique
+  occupation            String?
+  educationLevel        EducationLevel?
+  idType                IdType?
+  idNumber              String?
+  nameOfGroup           String?
+  locationOfGroup       String?
+  groupContact          String?
+  groupDigitalAddress   String?
+  groupEmail            String?
+  managerName           String?         @map("ManagerName")
+  managerContact        String?
+  verificationDocuments String[]
+  isVerified            Boolean         @default(true)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  user                  User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cpPatients            CpPatient[]
+}
+
+model CpPatient {
+  id                        String                     @id @default(uuid())
+  fullName                  String
+  dateOfBirth               DateTime
+  gender                    Gender
+  address                   String
+  placeOfBirth              String
+  birthWeight               Float?
+  numberOfSiblings          Int?
+  caregiverId               String
+  relationToCaregiver       Relationship
+  householdSize             Int
+  schoolEnrollmentStatus    Boolean                    @default(false) @map("schoolEnrollmmentStatus")
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  typeOfSchool              SchoolType?
+  participationLogs         ActivityParticipationLog[]
+  appointments              Appointment[]
+  clinicalAssessments       ClinicalAssessment[]
+  clinicalReferrals         ClinicalReferral[]
+  functionalClassifications FunctionalClassification[]
+  motorFunctionOutcomes     MotorFunctionOutcome[]
+  enrollmentRecord          PatientEnrollmentRecord?
+  patientMetrics            PatientMetricsSnapshot[]
+  rehabTasks                RehabTask[]
+  adherenceLogs             TaskAdherenceLog[]
+  caregiver                 CareGiver                  @relation(fields: [caregiverId], references: [id], onDelete: Cascade)
+
+  @@index([caregiverId])
+  @@map("cpPatient")
+}
+
+model FunctionalClassification {
+  id         String                   @id @default(uuid())
+  patientId  String
+  level      Int
+  assessedAt DateTime
+  assessorId String?
+  notes      String?
+  createdAt  DateTime                 @default(now())
+  updatedAt  DateTime                 @updatedAt
+  classifier FunctionalClassifierType
+  assessor   ServiceProvider?         @relation(fields: [assessorId], references: [id])
+  patient    CpPatient                @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([assessorId])
+  @@index([classifier])
+}
+
+model ClinicalAssessment {
+  id          String                     @id @default(uuid())
+  patientId   String
+  providerId  String
+  toolCode    String
+  toolVersion String
+  status      AssessmentStatus           @default(DRAFT)
+  assessedAt  DateTime?
+  responses   Json
+  referralId  String?                    @unique
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+  patient     CpPatient                  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  provider    ServiceProvider            @relation("ProviderAssessments", fields: [providerId], references: [id], onDelete: Cascade)
+  referral    ClinicalReferral?          @relation("ReferralAssessment", fields: [referralId], references: [id])
+  reports     ClinicalAssessmentReport[]
+
+  @@index([patientId])
+  @@index([providerId])
+}
+
+model ClinicalAssessmentReport {
+  id              String             @id @default(uuid())
+  assessmentId    String
+  summary         String?
+  scores          Json
+  interpretation  String?
+  recommendations Json?
+  createdAt       DateTime           @default(now())
+  assessment      ClinicalAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@index([assessmentId])
+}
+
+model ClinicalReferral {
+  id                String              @id @default(uuid())
+  patientId         String
+  fromProviderId    String
+  toProfession      Profession
+  reason            String
+  status            ReferralStatus      @default(PENDING)
+  createdAt         DateTime            @default(now())
+  toProviderId      String?
+  relatedAssessment ClinicalAssessment? @relation("ReferralAssessment")
+  fromProvider      ServiceProvider     @relation("ProviderReferrals", fields: [fromProviderId], references: [id], onDelete: Cascade)
+  patient           CpPatient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  toProvider        ServiceProvider?    @relation("ReferralRecipients", fields: [toProviderId], references: [id])
+  generatedTasks    RehabTask[]
+
+  @@index([patientId])
+  @@index([fromProviderId])
+  @@index([toProviderId])
+}
+
+model RehabTask {
+  id                    String                     @id @default(uuid())
+  patientId             String
+  providerId            String
+  title                 String
+  instructions          String
+  instructionSteps      Json?
+  frequencyPerDay       Int?
+  frequencyNote         String?
+  durationDays          Int
+  startDate             DateTime?
+  endDate               DateTime?
+  status                RehabTaskStatus            @default(PENDING)
+  completedAt           DateTime?
+  referralId            String?
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+  progress              Int                        @default(0)
+  caregiverMarkedDoneAt DateTime?
+  completedDates        String[]                   @default([])
+  videoUrl              String?
+  participationLogs     ActivityParticipationLog[]
+  patient               CpPatient                  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  provider              ServiceProvider            @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  referral              ClinicalReferral?          @relation(fields: [referralId], references: [id])
+  adherenceLogs         TaskAdherenceLog[]
+
+  @@index([patientId])
+  @@index([providerId])
+  @@index([referralId])
+}
+
+model Appointment {
+  id              String            @id @default(uuid())
+  patientId       String
+  providerId      String
+  appointmentDate DateTime
+  status          AppointmentStatus @default(PENDING)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  reasonAudio     String?
+  reasonText      String?
+  patient         CpPatient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  provider        ServiceProvider   @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([providerId])
+}
+
+model AssessmentTool {
+  id          String                     @id @default(uuid())
+  toolCode    String                     @unique
+  toolName    String
+  version     String
+  description String?
+  schema      Json?
+  isActive    Boolean                    @default(true)
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+  professions AssessmentToolProfession[]
+}
+
+model AssessmentToolProfession {
+  id         String         @id @default(uuid())
+  toolId     String
+  profession Profession
+  createdAt  DateTime       @default(now())
+  tool       AssessmentTool @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@unique([toolId, profession])
+}
+
+model VideoCache {
+  id         String   @id @default(uuid())
+  cacheKey   String   @unique
+  cachedData Json
+  pageInfo   Json?
+  lastFetch  DateTime @default(now())
+  ttl        Int      @default(3600)
+  isValid    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Community {
+  id            String                  @id @default(uuid())
+  name          String
+  description   String?
+  image         String?
+  createdBy     String
+  inviteCode    String?                 @unique
+  inviteEnabled Boolean                 @default(true)
+  maxMembers    Int                     @default(1000)
+  isPublic      Boolean                 @default(false)
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  creator       User                    @relation("CommunityCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  announcements CommunityAnnouncement[]
+  groups        CommunityGroup[]
+  invitations   CommunityInvitation[]
+  members       CommunityMember[]
+
+  @@index([createdBy])
+  @@index([inviteCode])
+}
+
+model CommunityMember {
+  id          String                @id @default(uuid())
+  communityId String
+  userId      String
+  role        CommunityMemberRole   @default(MEMBER)
+  status      CommunityMemberStatus @default(ACTIVE)
+  joinedAt    DateTime              @default(now())
+  invitedBy   String?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  community   Community             @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([communityId, userId])
+  @@index([userId])
+  @@index([communityId, status])
+}
+
+model CommunityGroup {
+  id                 String                 @id @default(uuid())
+  communityId        String
+  name               String
+  description        String?
+  image              String?
+  createdBy          String
+  isDefault          Boolean                @default(false)
+  isAnnouncementOnly Boolean                @default(false)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  community          Community              @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  members            CommunityGroupMember[]
+  messages           CommunityMessage[]
+
+  @@index([communityId])
+  @@index([createdBy])
+}
+
+model CommunityGroupMember {
+  id        String          @id @default(uuid())
+  groupId   String
+  userId    String
+  role      GroupMemberRole @default(MEMBER)
+  joinedAt  DateTime        @default(now())
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  group     CommunityGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([userId])
+}
+
+model CommunityMessage {
+  id        String             @id @default(uuid())
+  groupId   String
+  senderId  String
+  content   String?
+  type      MessageType        @default(TEXT)
+  mediaUrl  String?
+  metadata  Json?
+  status    MessageStatus      @default(SENT)
+  replyToId String?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @default(now())
+  dislikes  Int                @default(0)
+  likes     Int                @default(0)
+  caption   String?
+  group     CommunityGroup     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  replyTo   CommunityMessage?  @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies   CommunityMessage[] @relation("MessageReplies")
+  sender    User               @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+model CommunityAnnouncement {
+  id          String    @id @default(uuid())
+  communityId String
+  title       String
+  content     String
+  mediaUrl    String?
+  createdBy   String
+  isPinned    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now())
+  caption     String?
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  creator     User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([communityId])
+  @@index([createdBy])
+}
+
+model CommunityInvitation {
+  id          String    @id @default(uuid())
+  communityId String
+  invitedBy   String
+  invitedUser String?
+  phoneNumber String?
+  email       String?
+  code        String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  inviter     User      @relation(fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@index([communityId])
+  @@index([code])
+  @@index([invitedBy])
+}
+
+model PdfResource {
+  id                String          @id @default(uuid())
+  title             String
+  description       String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @default(now())
+  serviceProviderId String?
+  pdfFile           String[]
+  userId            String?
+  serviceProvider   ServiceProvider? @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
+  user              User?           @relation(fields: [userId], references: [id])
+
+  @@index([serviceProviderId])
+  @@map("pdfResource")
+}
+
+model Notification {
+  id           String               @id @default(uuid())
+  userId       String
+  type         NotificationType
+  category     NotificationCategory
+  title        String
+  content      String?
+  data         Json?
+  status       NotificationStatus   @default(UNREAD)
+  relatedId    String?
+  relatedModel String?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @default(now())
+  expiresAt    DateTime?
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([type, category])
+}
+
+model PushNotificationToken {
+  id         String   @id @default(uuid())
+  userId     String
+  token      String   @unique
+  deviceType String
+  deviceId   String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now())
+  user       User     @relation("UserPushTokens", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([isActive])
+}
+
+model DirectMessage {
+  id         String              @id @default(uuid())
+  senderId   String
+  receiverId String
+  content    String?
+  mediaUrl   String?
+  type       MessageType         @default(TEXT)
+  status     DirectMessageStatus @default(SENT)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @default(now())
+  caption    String?
+  receiver   User                @relation("DirectMessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  sender     User                @relation("DirectMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([createdAt])
+  @@index([senderId, receiverId])
+  @@map("directMessage")
+}
+
+model TelehealthIntegration {
+  id                     String                   @id @default(uuid())
+  organizationId         String
+  providerName           String
+  clientId               String?
+  clientSecretEncrypted  Bytes?
+  apiKeyEncrypted        Bytes?
+  webhookSecretEncrypted Bytes?
+  config                 Json                     @default("{}")
+  defaultRegion          String?
+  enabled                Boolean                  @default(true)
+  ownerProviderId        String?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @default(now())
+  ownerProvider          ServiceProvider?         @relation("IntegrationOwner", fields: [ownerProviderId], references: [id])
+  oauthTokens            TelehealthOAuthToken[]
+  telehealthRooms        TelehealthRoom[]         @relation("ProviderIntegrationRooms")
+  webhookEvents          TelehealthWebhookEvent[]
+
+  @@unique([organizationId, providerName])
+  @@index([organizationId, providerName])
+}
+
+model TelehealthOAuthToken {
+  id                    String                @id @default(uuid())
+  integrationId         String
+  tokenType             String?
+  tokenEncrypted        Bytes
+  expiresAt             DateTime?
+  scope                 String?
+  refreshTokenEncrypted Bytes?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @default(now())
+  integration           TelehealthIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@index([integrationId])
+}
+
+model TelehealthRoom {
+  id                    String                  @id @default(uuid())
+  organizationId        String
+  creatorUserId         String
+  title                 String?
+  description           String?
+  scheduledStart        DateTime?
+  scheduledEnd          DateTime?
+  status                TelehealthRoomStatus    @default(scheduled)
+  visibility            TelehealthVisibility    @default(private)
+  maxParticipants       Int                     @default(50)
+  providerIntegrationId String?
+  externalMeetingId     String?
+  joinUrl               String?
+  joinUrlExpiresAt      DateTime?
+  providerPayload       Json                    @default("{}")
+  isRecordingEnabled    Boolean                 @default(false)
+  metadata              Json                    @default("{}")
+  providedByProviderId  String?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @default(now())
+  canceledAt            DateTime?
+  canceledBy            String?
+  accessTokens          TelehealthAccessToken[]
+  auditLogs             TelehealthAuditLog[]
+  invitations           TelehealthInvitation[]
+  messages              TelehealthMessage[]
+  participants          TelehealthParticipant[]
+  recordings            TelehealthRecording[]
+  creator               User                    @relation("RoomCreator", fields: [creatorUserId], references: [id], onDelete: Cascade)
+  providedByProvider    ServiceProvider?        @relation("ProviderForRoom", fields: [providedByProviderId], references: [id])
+  providerIntegration   TelehealthIntegration?  @relation("ProviderIntegrationRooms", fields: [providerIntegrationId], references: [id])
+  transcripts           TelehealthTranscript[]
+
+  @@index([organizationId, status, scheduledStart])
+  @@index([externalMeetingId])
+  @@index([creatorUserId])
+}
+
+model TelehealthParticipant {
+  id                    String                      @id @default(uuid())
+  roomId                String
+  userId                String?
+  guestEmail            String?
+  role                  TelehealthParticipantRole   @default(observer)
+  status                TelehealthParticipantStatus @default(invited)
+  externalParticipantId String?
+  joinTokenHash         String?
+  permissions           Json                        @default("{}")
+  deviceInfo            Json                        @default("{}")
+  metadata              Json                        @default("{}")
+  joinedAt              DateTime?
+  leftAt                DateTime?
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @default(now())
+  room                  TelehealthRoom              @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user                  User?                       @relation(fields: [userId], references: [id])
+
+  @@unique([roomId, userId])
+  @@index([roomId])
+  @@index([userId])
+}
+
+model TelehealthAccessToken {
+  id            String         @id @default(uuid())
+  roomId        String
+  userId        String?
+  tokenHash     String
+  createdBy     String?
+  expiresAt     DateTime?
+  singleUse     Boolean        @default(true)
+  scopes        String[]       @default([])
+  metadata      Json           @default("{}")
+  createdAt     DateTime       @default(now())
+  usedAt        DateTime?
+  createdByUser User?          @relation("AccessCreatedBy", fields: [createdBy], references: [id])
+  room          TelehealthRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@index([tokenHash])
+}
+
+model TelehealthInvitation {
+  id              String         @id @default(uuid())
+  roomId          String
+  inviterUserId   String
+  inviteeUserId   String?
+  inviteeEmail    String?
+  inviteePhone    String?
+  inviteTokenHash String?
+  expiresAt       DateTime?
+  status          String         @default("sent")
+  deliveredVia    String?
+  deliveredAt     DateTime?
+  metadata        Json           @default("{}")
+  createdAt       DateTime       @default(now())
+  inviteeUser     User?          @relation(fields: [inviteeUserId], references: [id])
+  inviter         User           @relation("InvitationInviter", fields: [inviterUserId], references: [id], onDelete: Cascade)
+  room            TelehealthRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@index([inviteeEmail])
+}
+
+model TelehealthMessage {
+  id           String                     @id @default(uuid())
+  roomId       String
+  senderUserId String?
+  senderRole   TelehealthParticipantRole?
+  messageType  TelehealthMessageType      @default(text)
+  content      String?
+  attachments  Json                       @default("[]")
+  sequence     Int                        @default(autoincrement())
+  visibleTo    Json                       @default("null")
+  metadata     Json                       @default("{}")
+  editedAt     DateTime?
+  deletedAt    DateTime?
+  createdAt    DateTime                   @default(now())
+  room         TelehealthRoom             @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender       User?                      @relation("TeleMessageSender", fields: [senderUserId], references: [id])
+
+  @@index([roomId, createdAt])
+  @@index([sequence])
+}
+
+model TelehealthRecording {
+  id                  String                   @id @default(uuid())
+  roomId              String
+  providerRecordingId String?
+  s3Bucket            String?
+  s3Key               String?
+  storageClass        String?
+  encryptionKeyId     String?
+  sizeBytes           BigInt?
+  durationSeconds     Int?
+  state               TelehealthRecordingState @default(processing)
+  metadata            Json                     @default("{}")
+  createdAt           DateTime                 @default(now())
+  availableAt         DateTime?
+  deletedAt           DateTime?
+  serviceProviderId   String?
+  room                TelehealthRoom           @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  serviceProvider     ServiceProvider?         @relation(fields: [serviceProviderId], references: [id])
+  transcripts         TelehealthTranscript[]
+
+  @@index([roomId])
+  @@index([providerRecordingId])
+}
+
+model TelehealthTranscript {
+  id                   String               @id @default(uuid())
+  recordingId          String?
+  roomId               String?
+  providerTranscriptId String?
+  language             String?
+  fullText             String?
+  segments             Json                 @default("[]")
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @default(now())
+  recording            TelehealthRecording? @relation(fields: [recordingId], references: [id])
+  room                 TelehealthRoom?      @relation(fields: [roomId], references: [id])
+
+  @@index([roomId])
+}
+
+model TelehealthWebhookEvent {
+  id              String                  @id @default(uuid())
+  integrationId   String?
+  providerEventId String?
+  eventType       String?
+  payload         Json
+  receivedAt      DateTime                @default(now())
+  processedAt     DateTime?
+  status          TelehealthWebhookStatus @default(pending)
+  attemptCount    Int                     @default(0)
+  integration     TelehealthIntegration?  @relation(fields: [integrationId], references: [id])
+
+  @@unique([integrationId, providerEventId])
+}
+
+model TelehealthAuditLog {
+  id                String           @id @default(uuid())
+  roomId            String?
+  userId            String?
+  actionType        String
+  actionDetails     Json             @default("{}")
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime         @default(now())
+  serviceProviderId String?
+  room              TelehealthRoom?  @relation(fields: [roomId], references: [id])
+  serviceProvider   ServiceProvider? @relation(fields: [serviceProviderId], references: [id])
+  user              User?            @relation(fields: [userId], references: [id])
+
+  @@index([roomId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model TelehealthIdempotencyKey {
+  id        String    @id @default(uuid())
+  key       String
+  scope     String
+  response  Json?
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
+
+  @@unique([key, scope])
+}
+
+model TelehealthRoleTemplate {
+  id                 String                    @id @default(uuid())
+  organizationId     String
+  role               TelehealthParticipantRole
+  defaultPermissions Json                      @default("{}")
+  description        String?
+  createdAt          DateTime                  @default(now())
+
+  @@index([organizationId])
+}
+
+model Permission {
+  id                  String               @id @default(uuid())
+  code                String               @unique
+  name                String?
+  description         String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @default(now())
+  gameRolePermissions GameRolePermission[]
+  rolePermissions     RolePermission[]
+  userPermissions     UserPermission[]
+}
+
+model AppRole {
+  id                  String               @id @default(uuid())
+  slug                String               @unique
+  name                String?
+  description         String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @default(now())
+  gameRolePermissions GameRolePermission[]
+  rolePermissions     RolePermission[]
+  userRoles           UserRole[]
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime   @default(now())
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         AppRole    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model UserRole {
+  id        String              @id @default(uuid())
+  userId    String
+  roleId    String
+  scopeType AssignmentScopeType @default(GLOBAL)
+  scopeId   String?
+  grantedBy String?
+  grantedAt DateTime            @default(now())
+  expiresAt DateTime?
+  active    Boolean             @default(true)
+  role      AppRole             @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId, scopeType, scopeId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+model UserPermission {
+  id           String              @id @default(uuid())
+  userId       String
+  permissionId String
+  allowed      Boolean             @default(true)
+  scopeType    AssignmentScopeType @default(GLOBAL)
+  scopeId      String?
+  grantedBy    String?
+  grantedAt    DateTime            @default(now())
+  permission   Permission          @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionId, scopeType, scopeId])
+  @@index([userId])
+  @@index([permissionId])
+}
+
+model GameResource {
+  id                 String               @id @default(uuid())
+  title              String
+  description        String?
+  source             GameSource           @default(UPLOADED)
+  externalProvider   String?
+  externalId         String?
+  files              String[]             @default([])
+  thumbnail          String?
+  tags               String[]             @default([])
+  isPublished        Boolean              @default(false)
+  publishedAt        DateTime?
+  metadata           Json                 @default("{}")
+  uploaderUserId     String
+  uploaderProviderId String?
+  allowedRoleSlugs   String[]             @default([])
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @default(now())
+  removedAt          DateTime?
+  uploaderProvider   ServiceProvider?     @relation("ProviderUploadedGames", fields: [uploaderProviderId], references: [id])
+  uploaderUser       User                 @relation("UserUploadedGames", fields: [uploaderUserId], references: [id], onDelete: Cascade)
+  rolePermissions    GameRolePermission[]
+
+  @@index([externalProvider, externalId])
+  @@index([uploaderUserId])
+  @@index([uploaderProviderId])
+}
+
+model GameRolePermission {
+  id           String       @id @default(uuid())
+  gameId       String
+  roleId       String
+  permissionId String
+  createdAt    DateTime     @default(now())
+  game         GameResource @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  permission   Permission   @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         AppRole      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+model TaskAdherenceLog {
+  id         String          @id @default(uuid())
+  taskId     String
+  patientId  String
+  providerId String
+  logDate    DateTime
+  status     AdherenceStatus @default(PENDING)
+  markedById String?
+  markedAt   DateTime?
+  notes      String?
+  metadata   Json            @default("{}")
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  patient    CpPatient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  provider   ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  task       RehabTask       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, logDate])
+  @@index([patientId, logDate])
+  @@index([providerId, logDate])
+  @@index([status])
+}
+
+model PatientEnrollmentRecord {
+  id               String           @id @default(uuid())
+  patientId        String           @unique
+  enrolledAt       DateTime         @default(now())
+  enrolledByUserId String
+  status           EnrollmentStatus @default(ACTIVE)
+  programName      String?
+  unenrolledAt     DateTime?
+  unenrollReason   String?
+  notes            String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  patient          CpPatient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([enrolledAt])
+}
+
+model MotorFunctionOutcome {
+  id                 String           @id @default(uuid())
+  patientId          String
+  assessorId         String
+  baselineLevel      Int
+  currentLevel       Int
+  baselineDate       DateTime
+  reviewDate         DateTime
+  outcomeDirection   OutcomeDirection
+  percentageChange   Float?
+  notes              String?
+  assessmentToolUsed String?
+  metadata           Json             @default("{}")
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  assessor           ServiceProvider  @relation(fields: [assessorId], references: [id], onDelete: Cascade)
+  patient            CpPatient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([assessorId])
+  @@index([outcomeDirection])
+  @@index([reviewDate])
+}
+
+model ActivityParticipationLog {
+  id               String          @id @default(uuid())
+  patientId        String
+  providerId       String
+  taskId           String?
+  activityName     String
+  activityCategory String?
+  participatedOn   DateTime
+  durationMinutes  Int?
+  outcome          String?
+  metadata         Json            @default("{}")
+  createdAt        DateTime        @default(now())
+  patient          CpPatient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  provider         ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  task             RehabTask?      @relation(fields: [taskId], references: [id])
+
+  @@index([patientId])
+  @@index([providerId])
+  @@index([participatedOn])
+  @@index([activityCategory])
+}
+
+model ProviderMetricsSnapshot {
+  id                        String          @id @default(uuid())
+  providerId                String
+  snapshotDate              DateTime
+  period                    MetricPeriod    @default(DAILY)
+  totalChildrenAttended     Int             @default(0)
+  newChildrenAttended       Int             @default(0)
+  returningChildrenAttended Int             @default(0)
+  totalActivitiesAssigned   Int             @default(0)
+  totalActivitiesCompleted  Int             @default(0)
+  uniqueActivitiesTypes     Int             @default(0)
+  totalAdheringPatients     Int             @default(0)
+  totalNonAdheringPatients  Int             @default(0)
+  adherenceThresholdPct     Float           @default(80.0)
+  averageAdherenceRate      Float           @default(0.0)
+  totalImprovedOutcomes     Int             @default(0)
+  totalStableOutcomes       Int             @default(0)
+  totalRegressedOutcomes    Int             @default(0)
+  appointmentsScheduled     Int             @default(0)
+  appointmentsCompleted     Int             @default(0)
+  appointmentsDeclined      Int             @default(0)
+  assessmentsCompleted      Int             @default(0)
+  referralsMade             Int             @default(0)
+  referralsReceived         Int             @default(0)
+  telehealthSessionsHosted  Int             @default(0)
+  telehealthMinutesTotal    Int             @default(0)
+  metadata                  Json            @default("{}")
+  computedAt                DateTime        @default(now())
+  provider                  ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, snapshotDate, period])
+  @@index([providerId, period])
+  @@index([snapshotDate])
+}
+
+model SystemMetricsSnapshot {
+  id                         String       @id @default(uuid())
+  snapshotDate               DateTime
+  period                     MetricPeriod @default(DAILY)
+  totalChildrenEnrolled      Int          @default(0)
+  newChildrenEnrolledPeriod  Int          @default(0)
+  totalActiveEnrollments     Int          @default(0)
+  totalInactiveEnrollments   Int          @default(0)
+  totalActiveProfessionals   Int          @default(0)
+  totalChildrenAttendedTo    Int          @default(0)
+  totalAdheringPlatform      Int          @default(0)
+  totalNonAdheringPlatform   Int          @default(0)
+  platformAdherenceRate      Float        @default(0.0)
+  totalImprovedGrossMotor    Int          @default(0)
+  totalStableGrossMotor      Int          @default(0)
+  totalRegressedGrossMotor   Int          @default(0)
+  totalActivitiesAssigned    Int          @default(0)
+  totalActivitiesCompleted   Int          @default(0)
+  totalActivityParticipants  Int          @default(0)
+  totalAssessmentsCompleted  Int          @default(0)
+  totalReferralsMade         Int          @default(0)
+  totalTelehealthSessions    Int          @default(0)
+  totalTelehealthMinutes     Int          @default(0)
+  totalAppointments          Int          @default(0)
+  totalCompletedAppointments Int          @default(0)
+  metadata                   Json         @default("{}")
+  computedAt                 DateTime     @default(now())
+
+  @@unique([snapshotDate, period])
+  @@index([snapshotDate, period])
+}
+
+model PatientMetricsSnapshot {
+  id                     String            @id @default(uuid())
+  patientId              String
+  snapshotDate           DateTime
+  period                 MetricPeriod      @default(WEEKLY)
+  tasksAssigned          Int               @default(0)
+  tasksCompleted         Int               @default(0)
+  tasksMissed            Int               @default(0)
+  adherenceRate          Float             @default(0.0)
+  currentGmfcsLevel      Int?
+  previousGmfcsLevel     Int?
+  outcomeDirection       OutcomeDirection?
+  appointmentsAttended   Int               @default(0)
+  assessmentsCompleted   Int               @default(0)
+  activitiesParticipated Int               @default(0)
+  metadata               Json              @default("{}")
+  computedAt             DateTime          @default(now())
+  patient                CpPatient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, snapshotDate, period])
+  @@index([patientId, period])
+}
+
+model ChatSession {
+  id        String        @id @default(uuid())
+  userId    String
+  title     String?
+  context   String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model ChatMessage {
+  id        String      @id @default(uuid())
+  sessionId String
+  role      ChatRole
+  content   String
+  tokens    Int?
+  createdAt DateTime    @default(now())
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+model Report {
+  id           String       @id @default(uuid())
+  reporterId   String
+  reportType   ReportType
+  targetUserId String?
+  subject      String
+  description  String
+  evidence     String[]     @default([])
+  status       ReportStatus @default(PENDING)
+  adminNotes   String?
+  resolvedBy   String?
+  resolvedAt   DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  reporter     User         @relation("UserReports", fields: [reporterId], references: [id], onDelete: Cascade)
+  targetUser   User?        @relation("ReportedUsers", fields: [targetUserId], references: [id])
+
+  @@index([reporterId])
+  @@index([targetUserId])
+  @@index([status])
+  @@index([reportType])
+}
+
+model SupportTicket {
+  id           String          @id @default(uuid())
+  ticketNumber String          @unique
+  userId       String
+  category     TicketCategory
+  subject      String
+  description  String
+  attachments  String[]        @default([])
+  status       TicketStatus    @default(OPEN)
+  priority     TicketPriority  @default(MEDIUM)
+  assignedTo   String?
+  resolvedAt   DateTime?
+  closedAt     DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  user         User            @relation("UserTickets", fields: [userId], references: [id], onDelete: Cascade)
+  messages     TicketMessage[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([priority])
+  @@index([ticketNumber])
+}
+
+model TicketMessage {
+  id           String        @id @default(uuid())
+  ticketId     String
+  senderId     String
+  content      String
+  isAdminReply Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  sender       User          @relation("TicketMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+}
+
+model FaqCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  faqs        Faq[]
+}
+
+model Faq {
+  id           String      @id @default(uuid())
+  categoryId   String
+  question     String
+  answer       String
+  tags         String[]    @default([])
+  targetRoles  String[]    @default([])
+  sortOrder    Int         @default(0)
+  isPublished  Boolean     @default(false)
+  viewCount    Int         @default(0)
+  helpfulCount Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  category     FaqCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId])
+  @@index([isPublished])
+}
+
+model AppointmentSettings {
+  id                   String   @id @default(uuid())
+  allowPatientBooking  Boolean  @default(true)
+  minAppointmentNotice Int      @default(24)
+  defaultDuration      Int      @default(30)
+  bufferTime           Int      @default(15)
+  maxDailyAppointments Int      @default(20)
+  enableReminders      Boolean  @default(true)
+  reminderLeadTime     Int      @default(2)
+  requireConfirmation  Boolean  @default(false)
+  enableWaitlist       Boolean  @default(true)
+  slotInterval         Int      @default(30)
+  workingHours         Json     @default("[]")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([updatedAt])
+}
+
+model TelehealthSettings {
+  id                     String   @id @default(uuid())
+  enableTelehealth       Boolean  @default(true)
+  defaultProviderMinutes Int      @default(30)
+  maxConcurrentSessions  Int      @default(5)
+  recordingEnabled       Boolean  @default(false)
+  waitingRoomEnabled     Boolean  @default(true)
+  requireApproval        Boolean  @default(false)
+  sessionTimeout         Int      @default(30)
+  connectTimeout         Int      @default(10)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([updatedAt])
+}
+
+/// *
+///  * * ====== EXISTING ENUMS (kept) ====== **
 enum Gender {
   MALE
   FEMALE
@@ -133,9 +1397,8 @@ enum AppointmentStatus {
   @@map("appointmentStatus")
 }
 
-/**
- * * ====== COMMUNITY & MESSAGING ENUMS (kept) ====== **
- */
+/// *
+///  * * ====== COMMUNITY & MESSAGING ENUMS (kept) ====== **
 enum CommunityMemberRole {
   OWNER
   ADMIN
@@ -201,9 +1464,8 @@ enum AccountStatus {
   DELETED
 }
 
-/**
- * * ====== TELEHEALTH ENUMS (kept) ====== **
- */
+/// *
+///  * * ====== TELEHEALTH ENUMS (kept) ====== **
 enum TelehealthRoomStatus {
   scheduled
   live
@@ -256,9 +1518,8 @@ enum TelehealthWebhookStatus {
   failed
 }
 
-/**
- * * ====== RBAC & GAME ENUMS (kept) ====== **
- */
+/// *
+///  * * ====== RBAC & GAME ENUMS (kept) ====== **
 enum AssignmentScopeType {
   GLOBAL
   ORGANIZATION
@@ -272,9 +1533,8 @@ enum GameSource {
   EXTERNAL
 }
 
-/**
- * * ====== METRICS ENUMS (new) ====== **
- */
+/// *
+///  * * ====== METRICS ENUMS (new) ====== **
 enum AdherenceStatus {
   PENDING
   COMPLETED
@@ -304,1379 +1564,11 @@ enum MetricPeriod {
   YEARLY
 }
 
-/**
- * * ====== EXISTING MODELS (kept/unchanged, with small additions for RBAC, Games & Metrics) ====== **
- */
-
-model User {
-  id                  String               @id @default(uuid())
-  fullName            String
-  email               String?              @unique
-  password            String
-  phoneNumber         String               @unique
-  gender              Gender
-  userType            UserType
-  profileImage        String?
-  verified            Boolean              @default(false)
-  profileCompleted    Boolean              @default(false)
-  accountStatus       AccountStatus        @default(ACTIVE)
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  address             String?
-  digitalAddress      String?
-  dateOfBirth         DateTime
-  otp                 Otp?
-  refreshToken        RefreshToken[]
-  passwordResetTokens PasswordResetToken[]
-
-  serviceProvider ServiceProvider?
-  caregiver       CareGiver?
-
-  // Community relations
-  createdCommunities     Community[]             @relation("CommunityCreator")
-  communityMemberships   CommunityMember[]
-  communityGroupMembers  CommunityGroupMember[]
-  communityMessages      CommunityMessage[]
-  communityAnnouncements CommunityAnnouncement[]
-  communityInvitations   CommunityInvitation[]
-  sentDirectMessages     DirectMessage[]         @relation("DirectMessageSender")
-  receivedDirectMessages DirectMessage[]         @relation("DirectMessageReceiver")
-  pdfResources           PdfResource[]
-  notifications          Notification[]
-  pushNotificationTokens PushNotificationToken[] @relation("UserPushTokens")
-
-  // Telehealth relations
-  telehealthRoomsCreated       TelehealthRoom[]        @relation("RoomCreator")
-  telehealthParticipants       TelehealthParticipant[]
-  telehealthMessagesSent       TelehealthMessage[]     @relation("TeleMessageSender")
-  telehealthAuditLogs          TelehealthAuditLog[]
-  telehealthAccessCreated      TelehealthAccessToken[] @relation("AccessCreatedBy")
-  telehealthInvitationsInvited TelehealthInvitation[]  @relation("InvitationInviter")
-
-  // RBAC relations
-  userRoles       UserRole[]
-  userPermissions UserPermission[]
-
-  // Game relations
-  uploadedGames         GameResource[]         @relation("UserUploadedGames")
-  telehealthInvitations TelehealthInvitation[]
-
-  // Chatbot
-  chatSessions ChatSession[]
-
-  // Reports
-  submittedReports Report[] @relation("UserReports")
-  reportedBy       Report[] @relation("ReportedUsers")
-
-  // Support
-  supportTickets SupportTicket[] @relation("UserTickets")
-  ticketMessages TicketMessage[] @relation("TicketMessageSender")
-
-  // Google OAuth
-  googleAccessToken  String?
-  googleRefreshToken String?
-}
-
-model Otp {
-  id         String    @id @default(uuid())
-  codeHash   String?
-  userId     String    @unique
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt  DateTime?
-  attempts   Int       @default(0)
-  requestId  String?
-  prefix     String?
-  consumedAt DateTime?
-  createdAt  DateTime  @default(now())
-}
-
-model RefreshToken {
-  id        String   @id @default(uuid())
-  tokenHash String   @unique
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  expiresAt DateTime
-}
-
-model PasswordResetToken {
-  id        String    @id @default(uuid())
-  tokenHash String    @unique
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime  @default(now())
-  expiresAt DateTime
-  usedAt    DateTime?
-}
-
-model ServiceProvider {
-  id     String @id @default(uuid())
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  licenseNumber     String
-  licenseImage      String?
-  licenseExpiry     DateTime
-  licenseIssuedBy   String?
-  licenseIssuedDate DateTime
-  licenseType       ProfessionalBody
-  licenseStatus     LicenseStatus    @default(INACTIVE)
-  profession        Profession
-  facilityType      FacilityType
-  facilityName      String
-  facilityAddress   String
-  licensePin        String
-  experience        Int
-
-  // Verification
-  verificationStatus VerificationStatus @default(PENDING_REVIEW)
-  verificationNote   String?
-  verifiedAt         DateTime?
-  verifiedBy         String? // userId of the admin who verified
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  clinicalAssessments       ClinicalAssessment[]       @relation("ProviderAssessments")
-  clinicalReferrals         ClinicalReferral[]         @relation("ProviderReferrals")
-  incomingReferrals         ClinicalReferral[]         @relation("ReferralRecipients")
-  rehabTasks                RehabTask[]
-  functionalClassifications FunctionalClassification[]
-
-  appointments   Appointment[]
-  availabilities ProviderAvailability[]
-  pdfResources   PdfResource[]
-
-  // Telehealth relations
-  telehealthIntegrations  TelehealthIntegration[] @relation("IntegrationOwner")
-  telehealthRoomsProvided TelehealthRoom[]        @relation("ProviderForRoom")
-  telehealthRecordings    TelehealthRecording[]
-  telehealthAuditLogs     TelehealthAuditLog[]
-
-  // Games
-  providerGames GameResource[] @relation("ProviderUploadedGames")
-
-  // Metrics relations (new)
-  adherenceLogs         TaskAdherenceLog[]
-  participationLogs     ActivityParticipationLog[]
-  motorFunctionOutcomes MotorFunctionOutcome[]
-  providerMetrics       ProviderMetricsSnapshot[]
-
-  @@index([verificationStatus])
-  @@map("serviceProvider")
-}
-
-model ProviderAvailability {
-  id         String          @id @default(uuid())
-  providerId String
-  provider   ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
-
-  dayOfWeek Int // 0 = Sunday, 1 = Monday ... 6 = Saturday
-  startTime String // stored as HH:mm
-  endTime   String // stored as HH:mm
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([providerId])
-}
-
-model CareGiver {
-  id     String        @id @default(uuid())
-  type   CaregiverType
-  userId String?       @unique
-  user   User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  occupation     String?
-  educationLevel EducationLevel?
-  idType         IdType?
-  idNumber       String?
-
-  nameOfGroup           String?
-  locationOfGroup       String?
-  groupContact          String?
-  groupDigitalAddress   String?
-  groupEmail            String?
-  managerName           String?  @map("ManagerName")
-  managerContact        String?
-  verificationDocuments String[]
-  isVerified            Boolean  @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  cpPatients CpPatient[]
-}
-
-model CpPatient {
-  id                     String       @id @default(uuid())
-  fullName               String
-  dateOfBirth            DateTime
-  gender                 Gender
-  address                String
-  placeOfBirth           String
-  birthWeight            Float?
-  numberOfSiblings       Int?
-  caregiverId            String
-  caregiver              CareGiver    @relation(fields: [caregiverId], references: [id], onDelete: Cascade)
-  relationToCaregiver    Relationship
-  householdSize          Int
-  schoolEnrollmentStatus Boolean      @default(false) @map("schoolEnrollmmentStatus")
-  typeOfSchool           SchoolType?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  clinicalAssessments       ClinicalAssessment[]
-  clinicalReferrals         ClinicalReferral[]
-  rehabTasks                RehabTask[]
-  functionalClassifications FunctionalClassification[]
-  appointments              Appointment[]
-
-  // Metrics relations (new)
-  enrollmentRecord      PatientEnrollmentRecord?
-  motorFunctionOutcomes MotorFunctionOutcome[]
-  adherenceLogs         TaskAdherenceLog[]
-  participationLogs     ActivityParticipationLog[]
-  patientMetrics        PatientMetricsSnapshot[]
-
-  @@index([caregiverId])
-  @@map("cpPatient")
-}
-
-model FunctionalClassification {
-  id        String    @id @default(uuid())
-  patientId String
-  patient   CpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-
-  classifier FunctionalClassifierType
-  level      Int
-  assessedAt DateTime
-
-  assessorId String?
-  assessor   ServiceProvider? @relation(fields: [assessorId], references: [id])
-
-  notes String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([patientId])
-  @@index([assessorId])
-  @@index([classifier])
-}
-
-model ClinicalAssessment {
-  id        String    @id @default(uuid())
-  patientId String
-  patient   CpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-
-  providerId String
-  provider   ServiceProvider @relation("ProviderAssessments", fields: [providerId], references: [id], onDelete: Cascade)
-
-  toolCode    String
-  toolVersion String
-  status      AssessmentStatus @default(DRAFT)
-  assessedAt  DateTime?
-  responses   Json
-
-  referralId String?           @unique
-  referral   ClinicalReferral? @relation("ReferralAssessment", fields: [referralId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  reports ClinicalAssessmentReport[]
-
-  @@index([patientId])
-  @@index([providerId])
-}
-
-model ClinicalAssessmentReport {
-  id           String             @id @default(uuid())
-  assessmentId String
-  assessment   ClinicalAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-
-  summary         String?
-  scores          Json
-  interpretation  String?
-  recommendations Json?
-
-  createdAt DateTime @default(now())
-
-  @@index([assessmentId])
-}
-
-model ClinicalReferral {
-  id        String    @id @default(uuid())
-  patientId String
-  patient   CpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-
-  fromProviderId String
-  fromProvider   ServiceProvider  @relation("ProviderReferrals", fields: [fromProviderId], references: [id], onDelete: Cascade)
-  toProviderId   String?
-  toProvider     ServiceProvider? @relation("ReferralRecipients", fields: [toProviderId], references: [id], onDelete: SetNull)
-
-  toProfession Profession
-  reason       String
-
-  relatedAssessment ClinicalAssessment? @relation("ReferralAssessment")
-
-  status    ReferralStatus @default(PENDING)
-  createdAt DateTime       @default(now())
-
-  generatedTasks RehabTask[]
-
-  @@index([patientId])
-  @@index([fromProviderId])
-  @@index([toProviderId])
-}
-
-model RehabTask {
-  id        String    @id @default(uuid())
-  patientId String
-  patient   CpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-
-  providerId String
-  provider   ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
-
-  title            String
-  instructions     String
-  instructionSteps Json?
-  frequencyPerDay  Int?
-  frequencyNote    String?
-  durationDays     Int
-  startDate        DateTime?
-  endDate          DateTime?
-  videoUrl         String?
-  progress         Int       @default(0)
-  completedDates   String[]  @default([])
-
-  status                RehabTaskStatus @default(PENDING)
-  completedAt           DateTime?
-  caregiverMarkedDoneAt DateTime?
-
-  referralId String?
-  referral   ClinicalReferral? @relation(fields: [referralId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Metrics relations (new)
-  adherenceLogs     TaskAdherenceLog[]
-  participationLogs ActivityParticipationLog[]
-
-  @@index([patientId])
-  @@index([providerId])
-  @@index([referralId])
-}
-
-model Appointment {
-  id        String    @id @default(uuid())
-  patientId String
-  patient   CpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-
-  providerId String
-  provider   ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
-
-  appointmentDate DateTime
-  reasonText      String?
-  reasonAudio     String?
-
-  status    AppointmentStatus @default(PENDING)
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
-
-  @@index([patientId])
-  @@index([providerId])
-}
-
-model AssessmentTool {
-  id          String   @id @default(uuid())
-  toolCode    String   @unique
-  toolName    String
-  version     String
-  description String?
-  schema      Json?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  professions AssessmentToolProfession[]
-}
-
-model AssessmentToolProfession {
-  id         String         @id @default(uuid())
-  toolId     String
-  tool       AssessmentTool @relation(fields: [toolId], references: [id], onDelete: Cascade)
-  profession Profession
-  createdAt  DateTime       @default(now())
-
-  @@unique([toolId, profession])
-}
-
-model VideoCache {
-  id         String   @id @default(uuid())
-  cacheKey   String   @unique // e.g., "youtube_channel_videos"
-  cachedData Json // Stores the entire response from YouTube API
-  pageInfo   Json? // Stores pagination info
-  lastFetch  DateTime @default(now())
-  ttl        Int      @default(3600) // Time to live in seconds (default: 1 hour)
-  isValid    Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-
-// ==================== COMMUNITY MODELS ====================
-
-model Community {
-  id          String  @id @default(uuid())
-  name        String
-  description String?
-  image       String?
-  createdBy   String
-  creator     User    @relation("CommunityCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-
-  inviteCode    String? @unique
-  inviteEnabled Boolean @default(true)
-  maxMembers    Int     @default(1000)
-  isPublic      Boolean @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  members       CommunityMember[]
-  groups        CommunityGroup[]
-  announcements CommunityAnnouncement[]
-  invitations   CommunityInvitation[]
-
-  @@index([createdBy])
-  @@index([inviteCode])
-}
-
-model CommunityMember {
-  id          String                @id @default(uuid())
-  communityId String
-  community   Community             @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  userId      String
-  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role        CommunityMemberRole   @default(MEMBER)
-  status      CommunityMemberStatus @default(ACTIVE)
-  joinedAt    DateTime              @default(now())
-  invitedBy   String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([communityId, userId])
-  @@index([userId])
-  @@index([communityId, status])
-}
-
-model CommunityGroup {
-  id          String    @id @default(uuid())
-  communityId String
-  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  name        String
-  description String?
-  image       String?
-  createdBy   String
-
-  isDefault          Boolean @default(false)
-  isAnnouncementOnly Boolean @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  members  CommunityGroupMember[]
-  messages CommunityMessage[]
-
-  @@index([communityId])
-  @@index([createdBy])
-}
-
-model CommunityGroupMember {
-  id       String          @id @default(uuid())
-  groupId  String
-  group    CommunityGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  userId   String
-  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role     GroupMemberRole @default(MEMBER)
-  joinedAt DateTime        @default(now())
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([groupId, userId])
-  @@index([userId])
-}
-
-model CommunityMessage {
-  id        String             @id @default(uuid())
-  groupId   String
-  group     CommunityGroup     @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  senderId  String
-  sender    User               @relation(fields: [senderId], references: [id], onDelete: Cascade)
-  content   String?
-  type      MessageType        @default(TEXT)
-  mediaUrl  String?
-  caption   String? // Caption for media messages
-  metadata  Json?
-  status    MessageStatus      @default(SENT)
-  replyToId String?
-  replyTo   CommunityMessage?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
-  replies   CommunityMessage[] @relation("MessageReplies")
-  likes     Int                @default(0)
-  dislikes  Int                @default(0)
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @default(now())
-
-  @@index([groupId])
-  @@index([senderId])
-  @@index([createdAt])
-}
-
-model CommunityAnnouncement {
-  id          String    @id @default(uuid())
-  communityId String
-  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  title       String
-  content     String
-  mediaUrl    String?
-  caption     String? // Caption for media content
-  createdBy   String
-  creator     User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
-  isPinned    Boolean   @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now())
-
-  @@index([communityId])
-  @@index([createdBy])
-}
-
-model CommunityInvitation {
-  id          String    @id @default(uuid())
-  communityId String
-  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  invitedBy   String
-  inviter     User      @relation(fields: [invitedBy], references: [id], onDelete: Cascade)
-  invitedUser String?
-  phoneNumber String?
-  email       String?
-  code        String    @unique
-  expiresAt   DateTime
-  usedAt      DateTime?
-
-  createdAt DateTime @default(now())
-
-  @@index([communityId])
-  @@index([code])
-  @@index([invitedBy])
-}
-
-model PdfResource {
-  id                String          @id @default(uuid())
-  title             String
-  description       String?
-  pdfFile           String[]
-  serviceProviderId String
-  serviceProvider   ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @default(now())
-  user              User?           @relation(fields: [userId], references: [id])
-  userId            String?
-
-  @@index([serviceProviderId])
-  @@map("pdfResource")
-}
-
-// ==================== NOTIFICATION MODELS ====================
-
-model Notification {
-  id           String               @id @default(uuid())
-  userId       String
-  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type         NotificationType
-  category     NotificationCategory
-  title        String
-  content      String?
-  data         Json? // Additional data specific to notification type
-  status       NotificationStatus   @default(UNREAD)
-  relatedId    String? // ID of related entity (messageId, announcementId, etc.)
-  relatedModel String? // Model name of related entity
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @default(now())
-  expiresAt    DateTime? // For time-sensitive notifications
-
-  @@index([userId])
-  @@index([status])
-  @@index([createdAt])
-  @@index([type, category])
-}
-
-// Push notification tokens (for mobile/web push)
-model PushNotificationToken {
-  id         String   @id @default(uuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade, name: "UserPushTokens")
-  token      String   @unique
-  deviceType String // ios, android, web
-  deviceId   String? // Device identifier
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @default(now())
-
-  @@index([userId])
-  @@index([token])
-  @@index([isActive])
-}
-
-// ==================== DIRECT MESSAGING MODELS ====================
-
-model DirectMessage {
-  id         String              @id @default(uuid())
-  senderId   String
-  sender     User                @relation(fields: [senderId], references: [id], onDelete: Cascade, name: "DirectMessageSender")
-  receiverId String
-  receiver   User                @relation(fields: [receiverId], references: [id], onDelete: Cascade, name: "DirectMessageReceiver")
-  content    String?
-  mediaUrl   String?
-  caption    String? // Caption for media messages
-  type       MessageType         @default(TEXT)
-  status     DirectMessageStatus @default(SENT)
-  createdAt  DateTime            @default(now())
-  updatedAt  DateTime            @default(now())
-
-  @@index([senderId])
-  @@index([receiverId])
-  @@index([createdAt])
-  @@index([senderId, receiverId])
-  @@map("directMessage")
-}
-
-/**
- * * ====== TELEHEALTH MODELS (kept) ====== **
- */
-
-/**
- * Notes:
- * - organizationId fields are String (no Organization model in this schema). Replace with relation if you have an Organization model.
- * - Encrypted secrets are stored as Bytes; decrypt in application using KMS.
- * - Arrays (String[]) and Json fields rely on Postgres provider.
- */
-
-model TelehealthIntegration {
-  id                     String           @id @default(uuid())
-  organizationId         String
-  providerName           String
-  clientId               String?
-  clientSecretEncrypted  Bytes? // encrypted blob (KMS)
-  apiKeyEncrypted        Bytes? // encrypted blob (KMS)
-  webhookSecretEncrypted Bytes? // encrypted signing secret (KMS)
-  config                 Json             @default("{}")
-  defaultRegion          String?
-  enabled                Boolean          @default(true)
-  ownerProviderId        String? // optional: tie to ServiceProvider
-  ownerProvider          ServiceProvider? @relation("IntegrationOwner", fields: [ownerProviderId], references: [id], onDelete: SetNull)
-  createdAt              DateTime         @default(now())
-  updatedAt              DateTime         @default(now())
-
-  oauthTokens     TelehealthOAuthToken[]
-  webhookEvents   TelehealthWebhookEvent[]
-  telehealthRooms TelehealthRoom[]         @relation("ProviderIntegrationRooms")
-
-  @@unique([organizationId, providerName])
-  @@index([organizationId, providerName])
-}
-
-model TelehealthOAuthToken {
-  id                    String                @id @default(uuid())
-  integrationId         String
-  integration           TelehealthIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
-  tokenType             String?
-  tokenEncrypted        Bytes // encrypted blob
-  expiresAt             DateTime?
-  scope                 String?
-  refreshTokenEncrypted Bytes?
-  createdAt             DateTime              @default(now())
-  updatedAt             DateTime              @default(now())
-
-  @@index([integrationId])
-}
-
-model TelehealthRoom {
-  id                    String                 @id @default(uuid())
-  organizationId        String
-  creatorUserId         String
-  creator               User                   @relation("RoomCreator", fields: [creatorUserId], references: [id], onDelete: Cascade)
-  title                 String?
-  description           String?
-  scheduledStart        DateTime?
-  scheduledEnd          DateTime?
-  status                TelehealthRoomStatus   @default(scheduled)
-  visibility            TelehealthVisibility   @default(private)
-  maxParticipants       Int                    @default(50)
-  providerIntegrationId String?
-  providerIntegration   TelehealthIntegration? @relation("ProviderIntegrationRooms", fields: [providerIntegrationId], references: [id], onDelete: SetNull)
-  externalMeetingId     String?
-  joinUrl               String?
-  joinUrlExpiresAt      DateTime?
-  providerPayload       Json                   @default("{}")
-  isRecordingEnabled    Boolean                @default(false)
-  metadata              Json                   @default("{}")
-  providedByProviderId  String? // optional link to ServiceProvider that will host
-  providedByProvider    ServiceProvider?       @relation("ProviderForRoom", fields: [providedByProviderId], references: [id], onDelete: SetNull)
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @default(now())
-  canceledAt            DateTime?
-  canceledBy            String?
-
-  participants TelehealthParticipant[]
-  messages     TelehealthMessage[]
-  recordings   TelehealthRecording[]
-  transcripts  TelehealthTranscript[]
-  invitations  TelehealthInvitation[]
-  accessTokens TelehealthAccessToken[]
-  auditLogs    TelehealthAuditLog[]
-
-  @@index([organizationId, status, scheduledStart])
-  @@index([externalMeetingId])
-  @@index([creatorUserId])
-}
-
-model TelehealthParticipant {
-  id                    String                      @id @default(uuid())
-  roomId                String
-  room                  TelehealthRoom              @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  userId                String?
-  user                  User?                       @relation(fields: [userId], references: [id], onDelete: SetNull)
-  guestEmail            String?
-  role                  TelehealthParticipantRole   @default(observer)
-  status                TelehealthParticipantStatus @default(invited)
-  externalParticipantId String?
-  joinTokenHash         String?
-  permissions           Json                        @default("{}")
-  deviceInfo            Json                        @default("{}")
-  metadata              Json                        @default("{}")
-  joinedAt              DateTime?
-  leftAt                DateTime?
-  createdAt             DateTime                    @default(now())
-  updatedAt             DateTime                    @default(now())
-
-  @@unique([roomId, userId])
-  @@index([roomId])
-  @@index([userId])
-}
-
-model TelehealthAccessToken {
-  id            String         @id @default(uuid())
-  roomId        String
-  room          TelehealthRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  userId        String?
-  tokenHash     String // SHA-256 or other hash
-  createdBy     String?
-  createdByUser User?          @relation("AccessCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
-  expiresAt     DateTime?
-  singleUse     Boolean        @default(true)
-  scopes        String[]       @default([])
-  metadata      Json           @default("{}")
-  createdAt     DateTime       @default(now())
-  usedAt        DateTime?
-
-  @@index([roomId])
-  @@index([tokenHash])
-}
-
-model TelehealthInvitation {
-  id              String         @id @default(uuid())
-  roomId          String
-  room            TelehealthRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  inviterUserId   String
-  inviter         User           @relation("InvitationInviter", fields: [inviterUserId], references: [id], onDelete: Cascade)
-  inviteeUserId   String?
-  inviteeUser     User?          @relation(fields: [inviteeUserId], references: [id], onDelete: SetNull)
-  inviteeEmail    String?
-  inviteePhone    String?
-  inviteTokenHash String?
-  expiresAt       DateTime?
-  status          String         @default("sent") // e.g., sent/accepted/declined/expired
-  deliveredVia    String?
-  deliveredAt     DateTime?
-  metadata        Json           @default("{}")
-  createdAt       DateTime       @default(now())
-
-  @@index([roomId])
-  @@index([inviteeEmail])
-}
-
-model TelehealthMessage {
-  id           String                     @id @default(uuid())
-  roomId       String
-  room         TelehealthRoom             @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  senderUserId String?
-  sender       User?                      @relation("TeleMessageSender", fields: [senderUserId], references: [id], onDelete: SetNull)
-  senderRole   TelehealthParticipantRole?
-  messageType  TelehealthMessageType      @default(text)
-  content      String?
-  attachments  Json                       @default("[]") // array of attachments metadata
-  sequence     Int                        @default(autoincrement())
-  visibleTo    Json                       @default("null")
-  metadata     Json                       @default("{}")
-  editedAt     DateTime?
-  deletedAt    DateTime?
-  createdAt    DateTime                   @default(now())
-
-  @@index([roomId, createdAt])
-  @@index([sequence])
-}
-
-model TelehealthRecording {
-  id                  String                   @id @default(uuid())
-  roomId              String
-  room                TelehealthRoom           @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  providerRecordingId String?
-  s3Bucket            String?
-  s3Key               String?
-  storageClass        String?
-  encryptionKeyId     String?
-  sizeBytes           BigInt?
-  durationSeconds     Int?
-  state               TelehealthRecordingState @default(processing)
-  metadata            Json                     @default("{}")
-  createdAt           DateTime                 @default(now())
-  availableAt         DateTime?
-  deletedAt           DateTime?
-
-  transcripts       TelehealthTranscript[]
-  serviceProvider   ServiceProvider?       @relation(fields: [serviceProviderId], references: [id])
-  serviceProviderId String?
-
-  @@index([roomId])
-  @@index([providerRecordingId])
-}
-
-model TelehealthTranscript {
-  id                   String               @id @default(uuid())
-  recordingId          String?
-  recording            TelehealthRecording? @relation(fields: [recordingId], references: [id], onDelete: SetNull)
-  roomId               String?
-  room                 TelehealthRoom?      @relation(fields: [roomId], references: [id], onDelete: SetNull)
-  providerTranscriptId String?
-  language             String?
-  fullText             String? // long text
-  segments             Json                 @default("[]") // [{start,end,speaker,text},...]
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @default(now())
-
-  @@index([roomId])
-}
-
-model TelehealthWebhookEvent {
-  id              String                  @id @default(uuid())
-  integrationId   String?
-  integration     TelehealthIntegration?  @relation(fields: [integrationId], references: [id], onDelete: SetNull)
-  providerEventId String?
-  eventType       String?
-  payload         Json // raw payload
-  receivedAt      DateTime                @default(now())
-  processedAt     DateTime?
-  status          TelehealthWebhookStatus @default(pending)
-  attemptCount    Int                     @default(0)
-
-  @@unique([integrationId, providerEventId])
-}
-
-model TelehealthAuditLog {
-  id                String           @id @default(uuid())
-  roomId            String?
-  room              TelehealthRoom?  @relation(fields: [roomId], references: [id], onDelete: SetNull)
-  userId            String?
-  user              User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
-  actionType        String
-  actionDetails     Json             @default("{}")
-  ipAddress         String?
-  userAgent         String?
-  createdAt         DateTime         @default(now())
-  serviceProvider   ServiceProvider? @relation(fields: [serviceProviderId], references: [id])
-  serviceProviderId String?
-
-  @@index([roomId])
-  @@index([userId])
-  @@index([createdAt])
-}
-
-model TelehealthIdempotencyKey {
-  id        String    @id @default(uuid())
-  key       String
-  scope     String
-  response  Json?
-  createdAt DateTime  @default(now())
-  expiresAt DateTime?
-
-  @@unique([key, scope])
-}
-
-model TelehealthRoleTemplate {
-  id                 String                    @id @default(uuid())
-  organizationId     String
-  role               TelehealthParticipantRole
-  defaultPermissions Json                      @default("{}")
-  description        String?
-  createdAt          DateTime                  @default(now())
-
-  @@index([organizationId])
-}
-
-/**
- * * ====== RBAC MODELS (kept) ====== **
- */
-
-/**
- * Permission: small-codebook of capability strings. Examples: UPLOAD_GAME, MANAGE_GAMES, VIEW_GAMES, CREATE_ROOM, START_RECORDING, etc.
- * AppRole: logical role grouping multiple permissions (e.g., "ADMIN", "SERVICE_PROVIDER_ADMIN", "MODERATOR")
- * RolePermission: join table role -> permission
- * UserRole: a user's role assignment; optionally scoped to organization/service provider/community
- * UserPermission: direct per-user grant/deny (useful for overrides)
- */
-
-model Permission {
-  id          String   @id @default(uuid())
-  code        String   @unique // e.g., "UPLOAD_GAME", "MANAGE_GAMES"
-  name        String?
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now())
-
-  rolePermissions     RolePermission[]
-  userPermissions     UserPermission[]
-  gameRolePermissions GameRolePermission[]
-}
-
-model AppRole {
-  id          String   @id @default(uuid())
-  slug        String   @unique // e.g., "ADMIN", "SERVICE_PROVIDER"
-  name        String?
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now())
-
-  rolePermissions     RolePermission[]
-  userRoles           UserRole[]
-  gameRolePermissions GameRolePermission[]
-}
-
-model RolePermission {
-  id           String     @id @default(uuid())
-  roleId       String
-  role         AppRole    @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permissionId String
-  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-  createdAt    DateTime   @default(now())
-
-  @@unique([roleId, permissionId])
-  @@index([permissionId])
-}
-
-model UserRole {
-  id        String              @id @default(uuid())
-  userId    String
-  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  roleId    String
-  role      AppRole             @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  scopeType AssignmentScopeType @default(GLOBAL)
-  scopeId   String? // optional: organizationId, serviceProviderId, communityId...
-  grantedBy String? // user id who granted this role
-  grantedAt DateTime            @default(now())
-  expiresAt DateTime?
-  active    Boolean             @default(true)
-
-  @@unique([userId, roleId, scopeType, scopeId])
-  @@index([userId])
-  @@index([roleId])
-}
-
-model UserPermission {
-  id           String              @id @default(uuid())
-  userId       String
-  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  permissionId String
-  permission   Permission          @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-  allowed      Boolean             @default(true) // true = grant, false = deny
-  scopeType    AssignmentScopeType @default(GLOBAL)
-  scopeId      String?
-  grantedBy    String?
-  grantedAt    DateTime            @default(now())
-
-  @@unique([userId, permissionId, scopeType, scopeId])
-  @@index([userId])
-  @@index([permissionId])
-}
-
-/**
- * * ====== GAME (WELLBEING) MODELS (kept) ====== **
- */
-
-/**
- * GameResource:
- * - allows uploads (files array) or external references (Youtube/external)
- * - uploaderUser/serviceProvider references
- * - publish state
- * - tags, thumbnail, metadata
- * - allowedRoles: optional array of AppRole slugs allowed to access or role-based mapping in GameRolePermission
- */
-
-model GameResource {
-  id                 String           @id @default(uuid())
-  title              String
-  description        String?
-  source             GameSource       @default(UPLOADED)
-  externalProvider   String? // e.g., "youtube"
-  externalId         String? // external resource id
-  files              String[]         @default([]) // uploaded file URLs (S3 keys)
-  thumbnail          String?
-  tags               String[]         @default([])
-  isPublished        Boolean          @default(false)
-  publishedAt        DateTime?
-  metadata           Json             @default("{}")
-  uploaderUserId     String
-  uploaderUser       User             @relation("UserUploadedGames", fields: [uploaderUserId], references: [id], onDelete: Cascade)
-  uploaderProviderId String? // optional: service provider uploader
-  uploaderProvider   ServiceProvider? @relation("ProviderUploadedGames", fields: [uploaderProviderId], references: [id], onDelete: SetNull)
-  allowedRoleSlugs   String[]         @default([]) // convenience: list of AppRole.slug allowed to access; app should enforce via UserRole lookup
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @default(now())
-  removedAt          DateTime?
-
-  rolePermissions GameRolePermission[] // granular per-game role->permission mappings
-
-  @@index([externalProvider, externalId])
-  @@index([uploaderUserId])
-  @@index([uploaderProviderId])
-}
-
-model GameRolePermission {
-  id           String       @id @default(uuid())
-  gameId       String
-  game         GameResource @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  roleId       String
-  role         AppRole      @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permissionId String
-  permission   Permission   @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-  createdAt    DateTime     @default(now())
-
-  @@unique([gameId, roleId, permissionId])
-  @@index([roleId])
-  @@index([permissionId])
-}
-
-/**
- * * ====== METRICS & ADHERENCE MODELS (new) ====== **
- * Covers stakeholder requirements:
- * - Number of children attended to by each professional
- * - Number participating in each activity by each professional
- * - Number of children enrolled
- * - Number adhering / not adhering to daily activities
- * - Number with improved gross motor function outcomes
- * - System-wide and provider-level snapshots
- */
-
-// ─────────────────────────────────────────────
-// 1. DAILY TASK ADHERENCE LOG
-//    Tracks per-day per-task adherence for each patient.
-//    This augments the String[] completedDates on RehabTask
-//    with a proper relational audit trail.
-// ─────────────────────────────────────────────
-model TaskAdherenceLog {
-  id         String          @id @default(uuid())
-  taskId     String
-  task       RehabTask       @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  patientId  String
-  patient    CpPatient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  providerId String
-  provider   ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
-
-  logDate    DateTime // The calendar date this log is for (date only; store as midnight UTC)
-  status     AdherenceStatus @default(PENDING)
-  markedById String? // userId who marked it (caregiver or provider)
-  markedAt   DateTime?
-  notes      String?
-  metadata   Json            @default("{}")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([taskId, logDate]) // one log per task per day
-  @@index([patientId, logDate])
-  @@index([providerId, logDate])
-  @@index([status])
-}
-
-// ─────────────────────────────────────────────
-// 2. PATIENT ENROLLMENT RECORD
-//    Tracks formal enrollment of a CpPatient into the platform/program.
-//    "Number of children enrolled" is COUNT of active EnrollmentRecord rows.
-// ─────────────────────────────────────────────
-model PatientEnrollmentRecord {
-  id        String    @id @default(uuid())
-  patientId String    @unique // one active enrollment per patient
-  patient   CpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-
-  enrolledAt       DateTime         @default(now())
-  enrolledByUserId String // user (caregiver or provider) who enrolled
-  status           EnrollmentStatus @default(ACTIVE)
-  programName      String? // optional: e.g., "CP Rehab Program 2026"
-  unenrolledAt     DateTime?
-  unenrollReason   String?
-  notes            String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([status])
-  @@index([enrolledAt])
-}
-
-// ──────────────────────────────��──────────────
-// 3. MOTOR FUNCTION OUTCOME RECORD
-//    Tracks improvement/regression of gross motor function over time.
-//    "Number with improved gross motor function outcomes" =
-//    COUNT WHERE outcomeDirection = IMPROVED
-// ─────────────────────────────────────────────
-model MotorFunctionOutcome {
-  id         String          @id @default(uuid())
-  patientId  String
-  patient    CpPatient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  assessorId String
-  assessor   ServiceProvider @relation(fields: [assessorId], references: [id], onDelete: Cascade)
-
-  // GMFCS levels (1-5, lower = better)
-  baselineLevel      Int // GMFCS level at start of period
-  currentLevel       Int // GMFCS level at review
-  baselineDate       DateTime
-  reviewDate         DateTime
-  outcomeDirection   OutcomeDirection // IMPROVED | STABLE | REGRESSED
-  percentageChange   Float? // computed; store for quick aggregation
-  notes              String?
-  assessmentToolUsed String? // e.g., "GMFCS", "MACS", "CFCS"
-  metadata           Json             @default("{}")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([patientId])
-  @@index([assessorId])
-  @@index([outcomeDirection])
-  @@index([reviewDate])
-}
-
-// ─────────────────────────────────────────────
-// 4. PROVIDER ACTIVITY PARTICIPATION LOG
-//    Tracks which patients participated in which activities/tasks
-//    under a given provider — satisfies:
-//    "Number participating in each activity by each professional"
-// ─────────────────────────────────────────────
-model ActivityParticipationLog {
-  id         String          @id @default(uuid())
-  patientId  String
-  patient    CpPatient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  providerId String
-  provider   ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  taskId     String?
-  task       RehabTask?      @relation(fields: [taskId], references: [id], onDelete: SetNull)
-
-  activityName     String // activity label (can mirror task title or be standalone)
-  activityCategory String? // e.g., "Physiotherapy", "Speech", "OT"
-  participatedOn   DateTime
-  durationMinutes  Int?
-  outcome          String? // free text or coded outcome
-  metadata         Json     @default("{}")
-
-  createdAt DateTime @default(now())
-
-  @@index([patientId])
-  @@index([providerId])
-  @@index([participatedOn])
-  @@index([activityCategory])
-}
-
-// ─────────────────────────────────────────────
-// 5. PROVIDER METRICS SNAPSHOT
-//    Periodic (daily/weekly/monthly) materialized snapshot
-//    per provider. Computed by a background job / cron.
-//    All "number of..." KPIs per professional land here.
-// ─────────────────────────────────────────────
-model ProviderMetricsSnapshot {
-  id         String          @id @default(uuid())
-  providerId String
-  provider   ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
-
-  snapshotDate DateTime // date the snapshot covers (midnight UTC)
-  period       MetricPeriod @default(DAILY)
-
-  // ── Child attendance ──
-  totalChildrenAttended     Int @default(0) // distinct patients seen in period
-  newChildrenAttended       Int @default(0) // first-time encounters in period
-  returningChildrenAttended Int @default(0)
-
-  // ── Activity participation ──
-  totalActivitiesAssigned  Int @default(0)
-  totalActivitiesCompleted Int @default(0)
-  uniqueActivitiesTypes    Int @default(0)
-
-  // ── Adherence ──
-  totalAdheringPatients    Int   @default(0) // patients completing >= adherenceThresholdPct of tasks
-  totalNonAdheringPatients Int   @default(0)
-  adherenceThresholdPct    Float @default(80.0) // configurable threshold
-  averageAdherenceRate     Float @default(0.0) // 0-100
-
-  // ── Outcomes ──
-  totalImprovedOutcomes  Int @default(0)
-  totalStableOutcomes    Int @default(0)
-  totalRegressedOutcomes Int @default(0)
-
-  // ── Appointments ──
-  appointmentsScheduled Int @default(0)
-  appointmentsCompleted Int @default(0)
-  appointmentsDeclined  Int @default(0)
-
-  // ── Assessments ──
-  assessmentsCompleted Int @default(0)
-  referralsMade        Int @default(0)
-  referralsReceived    Int @default(0)
-
-  // ── Telehealth ──
-  telehealthSessionsHosted Int @default(0)
-  telehealthMinutesTotal   Int @default(0)
-
-  metadata   Json     @default("{}")
-  computedAt DateTime @default(now())
-
-  @@unique([providerId, snapshotDate, period])
-  @@index([providerId, period])
-  @@index([snapshotDate])
-}
-
-// ─────────────────────────────────────────────
-// 6. SYSTEM METRICS SNAPSHOT
-//    Platform-wide aggregate. One row per period.
-//    Satisfies all "total number of..." stakeholder KPIs.
-// ─────────────────────────────────────────────
-model SystemMetricsSnapshot {
-  id           String       @id @default(uuid())
-  snapshotDate DateTime
-  period       MetricPeriod @default(DAILY)
-
-  // ── Enrollment ──
-  totalChildrenEnrolled     Int @default(0)
-  newChildrenEnrolledPeriod Int @default(0)
-  totalActiveEnrollments    Int @default(0)
-  totalInactiveEnrollments  Int @default(0)
-
-  // ── Professionals ──
-  totalActiveProfessionals Int @default(0)
-  totalChildrenAttendedTo  Int @default(0) // platform-wide distinct patients seen
-
-  // ── Adherence ──
-  totalAdheringPlatform    Int   @default(0)
-  totalNonAdheringPlatform Int   @default(0)
-  platformAdherenceRate    Float @default(0.0)
-
-  // ── Outcomes ──
-  totalImprovedGrossMotor  Int @default(0)
-  totalStableGrossMotor    Int @default(0)
-  totalRegressedGrossMotor Int @default(0)
-
-  // ── Activities ──
-  totalActivitiesAssigned   Int @default(0)
-  totalActivitiesCompleted  Int @default(0)
-  totalActivityParticipants Int @default(0)
-
-  // ── Assessments & Referrals ──
-  totalAssessmentsCompleted Int @default(0)
-  totalReferralsMade        Int @default(0)
-
-  // ── Telehealth ──
-  totalTelehealthSessions Int @default(0)
-  totalTelehealthMinutes  Int @default(0)
-
-  // ── Appointments ──
-  totalAppointments          Int @default(0)
-  totalCompletedAppointments Int @default(0)
-
-  metadata   Json     @default("{}")
-  computedAt DateTime @default(now())
-
-  @@unique([snapshotDate, period])
-  @@index([snapshotDate, period])
-}
-
-// ─────────────────────────────────────────────
-// 7. PATIENT METRICS SNAPSHOT
-//    Per-patient periodic snapshot for caregiver dashboards.
-// ──────────────────────────────���──────────────
-model PatientMetricsSnapshot {
-  id        String    @id @default(uuid())
-  patientId String
-  patient   CpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-
-  snapshotDate DateTime
-  period       MetricPeriod @default(WEEKLY)
-
-  tasksAssigned          Int               @default(0)
-  tasksCompleted         Int               @default(0)
-  tasksMissed            Int               @default(0)
-  adherenceRate          Float             @default(0.0) // 0-100
-  currentGmfcsLevel      Int?
-  previousGmfcsLevel     Int?
-  outcomeDirection       OutcomeDirection?
-  appointmentsAttended   Int               @default(0)
-  assessmentsCompleted   Int               @default(0)
-  activitiesParticipated Int               @default(0)
-
-  metadata   Json     @default("{}")
-  computedAt DateTime @default(now())
-
-  @@unique([patientId, snapshotDate, period])
-  @@index([patientId, period])
-}
-
-// ==================== CHATBOT MODELS ====================
-
 enum ChatRole {
   USER
   ASSISTANT
   SYSTEM
 }
-
-model ChatSession {
-  id        String        @id @default(uuid())
-  userId    String
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String? // Auto-set from first user message
-  context   String? // Serialised context summary for long sessions
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  messages  ChatMessage[]
-
-  @@index([userId])
-  @@index([createdAt])
-}
-
-model ChatMessage {
-  id        String      @id @default(uuid())
-  sessionId String
-  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  role      ChatRole
-  content   String
-  tokens    Int? // LLM token count for this message (optional usage tracking)
-  createdAt DateTime    @default(now())
-
-  @@index([sessionId])
-  @@index([createdAt])
-}
-
-// ==================== REPORT MODELS ====================
 
 enum ReportType {
   SERVICE_PROVIDER
@@ -1692,31 +1584,6 @@ enum ReportStatus {
   RESOLVED
   DISMISSED
 }
-
-model Report {
-  id           String       @id @default(uuid())
-  reporterId   String
-  reporter     User         @relation("UserReports", fields: [reporterId], references: [id], onDelete: Cascade)
-  reportType   ReportType
-  targetUserId String?
-  targetUser   User?        @relation("ReportedUsers", fields: [targetUserId], references: [id], onDelete: SetNull)
-  subject      String
-  description  String
-  evidence     String[]     @default([])
-  status       ReportStatus @default(PENDING)
-  adminNotes   String?
-  resolvedBy   String?
-  resolvedAt   DateTime?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-
-  @@index([reporterId])
-  @@index([targetUserId])
-  @@index([status])
-  @@index([reportType])
-}
-
-// ==================== SUPPORT TICKET MODELS ====================
 
 enum TicketCategory {
   ACCOUNT
@@ -1741,94 +1608,4 @@ enum TicketPriority {
   MEDIUM
   HIGH
   URGENT
-}
-
-model SupportTicket {
-  id           String         @id @default(uuid())
-  ticketNumber String         @unique
-  userId       String
-  user         User           @relation("UserTickets", fields: [userId], references: [id], onDelete: Cascade)
-  category     TicketCategory
-  subject      String
-  description  String
-  attachments  String[]       @default([])
-  status       TicketStatus   @default(OPEN)
-  priority     TicketPriority @default(MEDIUM)
-  assignedTo   String?
-  resolvedAt   DateTime?
-  closedAt     DateTime?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-
-  messages TicketMessage[]
-
-  @@index([userId])
-  @@index([status])
-  @@index([priority])
-  @@index([ticketNumber])
-}
-
-model TicketMessage {
-  id           String        @id @default(uuid())
-  ticketId     String
-  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  senderId     String
-  sender       User          @relation("TicketMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
-  content      String
-  isAdminReply Boolean       @default(false)
-  createdAt    DateTime      @default(now())
-
-  @@index([ticketId])
-}
-
-// ==================== FAQ MODELS ====================
-
-model FaqCategory {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  sortOrder   Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  faqs Faq[]
-}
-
-model Faq {
-  id           String      @id @default(uuid())
-  categoryId   String
-  category     FaqCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  question     String
-  answer       String
-  tags         String[]    @default([])
-  targetRoles  String[]    @default([])
-  sortOrder    Int         @default(0)
-  isPublished  Boolean     @default(false)
-  viewCount    Int         @default(0)
-  helpfulCount Int         @default(0)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-
-  @@index([categoryId])
-  @@index([isPublished])
-}
-
-model AppointmentSettings {
-  id                    String            @id @default(uuid())
-  allowPatientBooking   Boolean           @default(true)
-  minAppointmentNotice  Int               @default(24)
-  defaultDuration       Int               @default(30)
-  bufferTime            Int               @default(15)
-  maxDailyAppointments  Int               @default(20)
-  enableReminders       Boolean           @default(true)
-  reminderLeadTime      Int               @default(2)
-  requireConfirmation   Boolean           @default(false)
-  enableWaitlist        Boolean           @default(true)
-  slotInterval          Int               @default(30)
-  workingHours          Json              @default("[]")
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
-
-  @@index([updatedAt])
 }

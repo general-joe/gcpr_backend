@@ -1,8 +1,47 @@
 import UtilFunctions from "../../utils/UtilFunctions.js";
 import { ServiceProviderService } from "./serviceProvider.service.js";
 import catchAsync from "../../middlewares/catchAsync.js";
+import prisma from "../../config/database.js";
 
 export default class ServiceProviderController {
+  static createForAdmin = catchAsync(async (req, res) => {
+    const userId = req.body.userId || res.locals.user.id;
+    
+    const existingProfile = await prisma.serviceProvider.findUnique({
+      where: { userId },
+      select: { id: true }
+    });
+
+    if (existingProfile) {
+      return UtilFunctions.outputError(
+        res,
+        "Service provider profile already exists for this user",
+        {},
+        "CONFLICT",
+        409
+      );
+    }
+
+    const licenseNumber = `ADMIN-${userId}-${Date.now()}`.trim();
+    
+    const completeProfile = await prisma.serviceProvider.create({
+      data: {
+        userId,
+        licenseNumber,
+        licenseStatus: "ACTIVE",
+        licenseIssuedDate: new Date(),
+        licenseExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        experience: 0,
+      },
+    });
+
+    UtilFunctions.outputSuccess(
+      res,
+      completeProfile,
+      "Service provider profile created for admin",
+    );
+  });
+
   static completeProfile = catchAsync(async (req, res) => {
     if (!_.has(req.files, "licenseImage")) {
       return UtilFunctions.outputError(res, "No license image specified");

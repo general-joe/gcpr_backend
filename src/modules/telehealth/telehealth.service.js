@@ -9,13 +9,22 @@ import {
 } from "./google-meet.service.js";
 
 class TelehealthService {
-  static async requireServiceProvider(userId) {
+  static async requireServiceProvider(userId, userType) {
     const sp = await prisma.serviceProvider.findUnique({
       where: { userId },
       select: { id: true, userId: true }
     });
-    if (!sp) throw new gcprError(HttpStatus.NOT_FOUND, "Service provider profile not found");
-    return sp;
+    if (!sp) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { userType: true }
+      });
+      if (user?.userType === 'ADMIN') {
+        return { id: userId, userId: null, isAdmin: true };
+      }
+      throw new gcprError(HttpStatus.NOT_FOUND, "Service provider profile not found");
+    }
+    return { ...sp, isAdmin: false };
   }
 
   static buildReminders(scheduledStart) {
@@ -27,7 +36,7 @@ class TelehealthService {
   }
 
   static async createRoom(user, data) {
-    const sp = await TelehealthService.requireServiceProvider(user.id);
+    const sp = await TelehealthService.requireServiceProvider(user.id, user.userType);
 
     // Get attendee emails from patient userIds (optional)
     const patientUsers = [];
@@ -62,20 +71,23 @@ class TelehealthService {
         attendeeEmails
       });
     } catch (e) {
-      WRITE.error("[Telehealth] Google Meet creation failed", { error: e.message });
+      WRITE.error("[Telehealth] Google Meet creation failed", { error: e.message, stack: e.stack });
       throw new gcprError(
         HttpStatus.BAD_GATEWAY,
-        "Unable to provision Google Meet for this telehealth room",
+        `Unable to provision Google Meet: ${e.message}`,
       );
     }
 
     const reminders = TelehealthService.buildReminders(data.scheduledStart);
 
+    const isServiceProvider = !sp.isAdmin;
+    const providerId = isServiceProvider ? sp.id : null;
+    
     const room = await prisma.telehealthRoom.create({
       data: {
-        organizationId: sp.id,
+        organizationId: isServiceProvider ? sp.id : user.id,
         creatorUserId: user.id,
-        providedByProviderId: sp.id,
+        providedByProviderId: providerId,
         title: data.title,
         description: data.description,
         scheduledStart: new Date(data.scheduledStart),
@@ -149,8 +161,9 @@ class TelehealthService {
 
     let where = {};
 
-    if (user.userType === "SERVICE_PROVIDER") {
-      const sp = await TelehealthService.requireServiceProvider(user.id);
+    if (user.userType === "ADMIN") {
+      where = {};
+    } else if (user.userType === "SERVICE_PROVIDER") {
       where = {
         OR: [
           { creatorUserId: user.id },
@@ -158,7 +171,6 @@ class TelehealthService {
         ]
       };
     } else {
-      // CAREGIVER
       where = { participants: { some: { userId: user.id } } };
     }
 

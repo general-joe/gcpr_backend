@@ -23,6 +23,17 @@ const DEFAULT_SETTINGS = {
   ],
 };
 
+const DEFAULT_TELEHEALTH_SETTINGS = {
+  enableTelehealth: true,
+  defaultProviderMinutes: 30,
+  maxConcurrentSessions: 5,
+  recordingEnabled: false,
+  waitingRoomEnabled: true,
+  requireApproval: false,
+  sessionTimeout: 30,
+  connectTimeout: 10,
+};
+
 class SettingsController {
   static async getAppointmentSettings(req, res) {
     try {
@@ -74,6 +85,60 @@ class SettingsController {
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         status: false,
         message: "Failed to update appointment settings",
+      });
+    }
+  }
+
+  static async getTelehealthSettings(req, res) {
+    try {
+      let settings = await prisma.telehealthSettings.findFirst();
+
+      if (!settings) {
+        settings = await prisma.telehealthSettings.create({
+          data: DEFAULT_TELEHEALTH_SETTINGS,
+        });
+      }
+
+      return res.status(HttpStatus.OK).json({
+        status: true,
+        data: settings,
+      });
+    } catch (error) {
+      console.error("Error fetching telehealth settings:", error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        status: false,
+        message: "Failed to fetch telehealth settings",
+      });
+    }
+  }
+
+  static async updateTelehealthSettings(req, res) {
+    try {
+      const { id, ...settingsData } = req.body;
+
+      let settings = await prisma.telehealthSettings.findFirst();
+
+      if (!settings) {
+        settings = await prisma.telehealthSettings.create({
+          data: settingsData,
+        });
+      } else {
+        settings = await prisma.telehealthSettings.update({
+          where: { id: settings.id },
+          data: settingsData,
+        });
+      }
+
+      return res.status(HttpStatus.OK).json({
+        status: true,
+        message: "Settings updated successfully",
+        data: settings,
+      });
+    } catch (error) {
+      console.error("Error updating telehealth settings:", error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        status: false,
+        message: "Failed to update telehealth settings",
       });
     }
   }

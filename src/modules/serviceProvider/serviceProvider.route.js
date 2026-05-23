@@ -26,11 +26,18 @@ const authRateLimiter = rateLimit({
 
 serviceProviderRouter.post(
   "/complete-profile",
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(["SERVICE_PROVIDER", "ADMIN"]),
   upload.fields([{ name: "licenseImage" }]),
   validate(serviceProviderProfileSchema),
   authRateLimiter,
   ServiceProviderController.completeProfile,
+);
+
+serviceProviderRouter.post(
+  "/admin-create",
+  authRateLimiter,
+  requireRbacRole(["ADMIN"]),
+  ServiceProviderController.createForAdmin,
 );
 
 serviceProviderRouter.get(
