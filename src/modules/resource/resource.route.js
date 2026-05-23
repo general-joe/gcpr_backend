@@ -14,11 +14,28 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const resourcesBasePath = path.resolve(__dirname, "../..", "src", "files");
 const pdfBucket = "pdfs";
-const allowedPdfTypes = new Set([
+
+const allowedFileTypes = new Set([
   "application/pdf",
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
 ]);
 
-const isSafeFileName = (value) => /^[A-Za-z0-9._-]+$/.test(value);
+const allowedPdfTypes = new Set(["application/pdf"]);
+
+const getFileBucket = (type) => {
+  switch (type.toLowerCase()) {
+    case "video":
+      return "videos";
+    case "document":
+    case "pdf":
+    default:
+      return pdfBucket;
+  }
+};
+
+const uploadNone = upload.fields([{ name: "file", maxCount: 1 }]);
 
 const sendProtectedFile = (res, bucket, fileName) => {
   const filePath = path.resolve(resourcesBasePath, bucket, fileName);
@@ -35,62 +52,65 @@ const sendProtectedFile = (res, bucket, fileName) => {
   return res.sendFile(filePath);
 };
 
-// Upload PDF resource (Service Provider only)
+// Upload resource (Service Provider only, or ADMIN with role)
 resourceRouter.post(
   "/",
-  authorize(["SERVICE_PROVIDER"]),
-  upload.single("pdfFile"),
+  authorize(["SERVICE_PROVIDER", "ADMIN"]),
+  uploadNone,
   async (req, res) => {
-    const file = req.file;
-    if (!file) {
+    const file = req.files?.file?.[0];
+    
+    const body = req.body;
+    const resourceTitle = body?.name || body?.title;
+    if (!resourceTitle) {
       return UtilFunctions.outputError(
         res,
-        "PDF file is required",
+        "Name or title is required",
         {},
         "BAD_REQUEST",
         400
       );
     }
 
-    if (!allowedPdfTypes.has(file.mimetype)) {
-      return UtilFunctions.outputError(
-        res,
-        "Unsupported file type. Only PDF files are allowed",
-        {},
-        "UNPROCESSABLE_ENTITY",
-        422
-      );
+    const resourceType = (body?.type || "document").toLowerCase();
+
+    // If file is provided, validate it based on type
+    if (file) {
+      if (!allowedFileTypes.has(file.mimetype)) {
+        return UtilFunctions.outputError(
+          res,
+          `Unsupported file type. Allowed types: PDF, video`,
+          {},
+          "UNPROCESSABLE_ENTITY",
+          422
+        );
+      }
     }
 
-    // Validate required fields
-    const { title, description } = req.body;
-    if (!title) {
-      return UtilFunctions.outputError(
-        res,
-        "Title is required",
-        {},
-        "BAD_REQUEST",
-        400
-      );
+    let fileUrl = null;
+    const bucket = getFileBucket(resourceType);
+    
+    // Process file if provided
+    if (file) {
+      const safeName = `${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 10)}${path.extname(file.originalname) || ".pdf"}`;
+
+      // Ensure resources directory exists
+      fs.mkdirSync(path.resolve(resourcesBasePath, bucket), { recursive: true });
+
+      // Save file to storage
+      fileUrl = await UploadService.saveFile(file.buffer, safeName, bucket);
     }
-
-    const safeName = `${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 10)}${path.extname(file.originalname) || ".pdf"}`;
-
-    // Ensure resources directory exists
-    fs.mkdirSync(path.resolve(resourcesBasePath, pdfBucket), { recursive: true });
-
-    // Save file to storage
-    const fileUrl = await UploadService.saveFile(file.buffer, safeName, pdfBucket);
 
     // Look up the service provider by user ID
-    const serviceProvider = await prisma.serviceProvider.findUnique({
+    let serviceProvider = await prisma.serviceProvider.findUnique({
       where: { userId: res.locals.user.id },
       select: { id: true },
     });
 
-    if (!serviceProvider) {
+    // If not a service provider, check if user is ADMIN (for admin-created resources)
+    if (!serviceProvider && res.locals.user.userType !== "ADMIN") {
       return UtilFunctions.outputError(
         res,
         "Service provider profile not found",
@@ -100,28 +120,28 @@ resourceRouter.post(
       );
     }
 
-    // Create pdfResource record in database
-    const pdfResource = await prisma.pdfResource.create({
+    // Create resource record in database
+    const resource = await prisma.pdfResource.create({
       data: {
-        title,
-        description: description || null,
-        pdfFile: [fileUrl], // Storing as array as per schema
-        serviceProviderId: serviceProvider.id,
+        title: resourceTitle,
+        description: body?.description || null,
+        pdfFile: fileUrl ? [fileUrl] : [],
+        ...(serviceProvider && { serviceProviderId: serviceProvider.id }),
       },
     });
 
     return UtilFunctions.outputSuccess(
       res,
-      pdfResource,
-      "PDF resource uploaded successfully"
+      { ...resource, name: resource.title },
+      `${resourceType.charAt(0).toUpperCase() + resourceType.slice(1)} resource uploaded successfully`
     );
   }
 );
 
-// Get all PDF resources (Caregiver and Service Provider)
+// Get all PDF resources (Service Provider, Caregiver, and ADMIN with appropriate role)
 resourceRouter.get(
   "/",
-  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
+  authorize(["SERVICE_PROVIDER", "CAREGIVER", "ADMIN"]),
   async (req, res) => {
     const pdfResources = await prisma.pdfResource.findMany({
       include: {
@@ -142,9 +162,14 @@ resourceRouter.get(
       }
     });
 
+    const resources = pdfResources.map(r => ({
+      ...r,
+      name: r.title,
+    }));
+
     return UtilFunctions.outputSuccess(
       res,
-      pdfResources,
+      resources,
       "PDF resources retrieved successfully"
     );
   }
@@ -153,7 +178,7 @@ resourceRouter.get(
 // Get specific PDF resource by ID
 resourceRouter.get(
   "/:id",
-  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
+  authorize(["SERVICE_PROVIDER", "CAREGIVER", "ADMIN"]),
   async (req, res) => {
     const { id } = req.params;
     
@@ -186,16 +211,16 @@ resourceRouter.get(
 
     return UtilFunctions.outputSuccess(
       res,
-      pdfResource,
+      { ...pdfResource, name: pdfResource.title },
       "PDF resource retrieved successfully"
     );
   }
 );
 
-// Download PDF file (Caregiver and Service Provider)
+// Download PDF file (Caregiver, Service Provider, and ADMIN)
 resourceRouter.get(
   "/:id/download",
-  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
+  authorize(["SERVICE_PROVIDER", "CAREGIVER", "ADMIN"]),
   async (req, res) => {
     const { id } = req.params;
     
@@ -232,16 +257,16 @@ resourceRouter.get(
   }
 );
 
-// Update PDF resource (Service Provider only - owner only)
+// Update PDF resource (Service Provider only - owner only, or ADMIN with role)
 resourceRouter.put(
   "/:id",
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(["SERVICE_PROVIDER", "ADMIN"]),
   upload.single("pdfFile"),
   async (req, res) => {
     const { id } = req.params;
-    const { title, description } = req.body;
+    const body = req.body || {};
+    const resourceTitle = body.title || body.name;
     
-    // Check if resource exists and belongs to the service provider
     const existingResource = await prisma.pdfResource.findUnique({
       where: { id },
       include: {
@@ -259,8 +284,10 @@ resourceRouter.put(
       );
     }
 
-    // Check ownership - compare against the provider's userId
-    if (existingResource.serviceProvider.userId !== res.locals.user.id) {
+    const isServiceProvider = res.locals.user.userType === "SERVICE_PROVIDER";
+    const isOwner = existingResource.serviceProvider?.userId === res.locals.user.id;
+    
+    if (isServiceProvider && !isOwner) {
       return UtilFunctions.outputError(
         res,
         "You can only update your own PDF resources",
@@ -270,10 +297,9 @@ resourceRouter.put(
       );
     }
 
-    // Prepare update data
     const updateData = {
-      title: title || existingResource.title,
-      description: description !== undefined ? description : existingResource.description,
+      title: resourceTitle || existingResource.title,
+      description: body.description !== undefined ? body.description : existingResource.description,
     };
 
     // Handle file update if provided
@@ -322,16 +348,16 @@ resourceRouter.put(
 
     return UtilFunctions.outputSuccess(
       res,
-      updatedResource,
+      { ...updatedResource, name: updatedResource.title },
       "PDF resource updated successfully"
     );
   }
 );
 
-// Delete PDF resource (Service Provider only - owner only)
+// Delete PDF resource (Service Provider only - owner only, or ADMIN with role)
 resourceRouter.delete(
   "/:id",
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(["SERVICE_PROVIDER", "ADMIN"]),
   async (req, res) => {
     const { id } = req.params;
     
@@ -353,8 +379,10 @@ resourceRouter.delete(
       );
     }
 
-    // Check ownership - compare against the provider's userId
-    if (existingResource.serviceProvider.userId !== res.locals.user.id) {
+    const isServiceProvider = res.locals.user.userType === "SERVICE_PROVIDER";
+    const isOwner = existingResource.serviceProvider?.userId === res.locals.user.id;
+    
+    if (isServiceProvider && !isOwner) {
       return UtilFunctions.outputError(
         res,
         "You can only delete your own PDF resources",

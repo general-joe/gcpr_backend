@@ -17,7 +17,7 @@ const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
 telehealthRouter.post(
   "/rooms",
   limiter,
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(["ADMIN", "SERVICE_PROVIDER"]),
   validate(createRoomSchema),
   TelehealthController.createRoom
 );
@@ -25,21 +25,21 @@ telehealthRouter.post(
 telehealthRouter.get(
   "/rooms",
   limiter,
-  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
+  authorize(["ADMIN", "SERVICE_PROVIDER", "CAREGIVER"]),
   TelehealthController.listRooms
 );
 
 telehealthRouter.get(
   "/rooms/:id",
   limiter,
-  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
+  authorize(["ADMIN", "SERVICE_PROVIDER", "CAREGIVER"]),
   TelehealthController.getRoomById
 );
 
 telehealthRouter.patch(
   "/rooms/:id",
   limiter,
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(["ADMIN", "SERVICE_PROVIDER"]),
   validate(updateRoomSchema),
   TelehealthController.updateRoom
 );
@@ -47,14 +47,14 @@ telehealthRouter.patch(
 telehealthRouter.delete(
   "/rooms/:id",
   limiter,
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(["ADMIN", "SERVICE_PROVIDER"]),
   TelehealthController.cancelRoom
 );
 
 telehealthRouter.post(
   "/rooms/:id/invite",
   limiter,
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(["ADMIN", "SERVICE_PROVIDER"]),
   validate(inviteUsersSchema),
   TelehealthController.inviteToRoom
 );
@@ -62,28 +62,28 @@ telehealthRouter.post(
 telehealthRouter.get(
   "/rooms/:id/participants",
   limiter,
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(["ADMIN", "SERVICE_PROVIDER"]),
   TelehealthController.getParticipants
 );
 
 telehealthRouter.post(
   "/rooms/:id/join",
   limiter,
-  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
+  authorize(["ADMIN", "SERVICE_PROVIDER", "CAREGIVER"]),
   TelehealthController.joinRoom
 );
 
 telehealthRouter.get(
   "/rooms/:id/countdown",
   limiter,
-  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
+  authorize(["ADMIN", "SERVICE_PROVIDER", "CAREGIVER"]),
   TelehealthController.getCountdown
 );
 
 telehealthRouter.patch(
   "/rooms/:id/status",
   limiter,
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(["ADMIN", "SERVICE_PROVIDER"]),
   validate(updateRoomStatusSchema),
   TelehealthController.updateRoomStatus
 );
