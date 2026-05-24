@@ -309,16 +309,8 @@ class AssessmentService {
       user = null;
     }
 
-    // Canonical RBAC slugs for admin bypass (allow lowercase and variants)
-    const ADMIN_BYPASS_SLUGS = [
-      "ADMIN", "admin", "Admin",
-      "IT_SUPPORT", "it_support", "it-support", "It_Support", "It-Support",
-      "SUPER_TESTER", "super_tester", "super-tester", "Super_Tester", "Super-Tester",
-      "TESTER", "tester", "Tester"
-    ];
-
     // Allow all admins to bypass service provider check
-    if (user && user.userType === 'ADMIN') {
+    if (user && user.userType && user.userType.toUpperCase() === 'ADMIN') {
       return {
         id: userId,
         profession: 'ADMIN',
@@ -351,31 +343,13 @@ class AssessmentService {
       user = null;
     }
 
-    // Canonical RBAC slugs for admin bypass (allow lowercase and variants)
-    const ADMIN_BYPASS_SLUGS = [
-      "ADMIN", "admin", "Admin",
-      "IT_SUPPORT", "it_support", "it-support", "It_Support", "It-Support",
-      "SUPER_TESTER", "super_tester", "super-tester", "Super_Tester", "Super-Tester",
-      "TESTER", "tester", "Tester"
-    ];
-
-    // Allow bypass for Admins with specific roles (via UserRole)
-    if (user && user.userType === 'ADMIN') {
-      const match = await prisma.userRole.findFirst({
-        where: {
-          userId,
-          active: true,
-          role: { slug: { in: ADMIN_BYPASS_SLUGS } },
-          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-        },
-      });
-      if (match) {
-        return {
-          id: userId,
-          profession: 'ADMIN',
-          verificationStatus: 'VERIFIED',
-        };
-      }
+    // Allow admin users to bypass service provider verification
+    if (user && user.userType && user.userType.toUpperCase() === 'ADMIN') {
+      return {
+        id: userId,
+        profession: 'ADMIN',
+        verificationStatus: 'VERIFIED',
+      };
     }
 
     const serviceProvider = await AssessmentService.requireServiceProvider(userId);
@@ -400,7 +374,7 @@ class AssessmentService {
   }
 
   static async submitAssessment(user, data) {
-    const serviceProvider = await AssessmentService.requireVerifiedServiceProvider(user.id);
+    const serviceProvider = await AssessmentService.requireVerifiedServiceProvider(user);
     await AssessmentService.ensurePatientExists(data.patientId);
 
     const normalizedToolCode = normalizeToolCode(data.toolCode);
@@ -417,7 +391,10 @@ class AssessmentService {
     }
 
     const allowedProfessions = getAllowedProfessions(toolConfig);
+    // Admin users can use any tool
+    const isAdmin = user && user.userType && user.userType.toUpperCase() === 'ADMIN';
     if (
+      !isAdmin &&
       allowedProfessions.length > 0 &&
       !allowedProfessions.includes(serviceProvider.profession)
     ) {
@@ -425,6 +402,30 @@ class AssessmentService {
         HttpStatus.FORBIDDEN,
         `Tool ${normalizedToolCode} is not available for profession ${serviceProvider.profession}`
       );
+    }
+
+    // For admin users, use a system service provider - not tied to any specific user
+    let providerId = serviceProvider.id;
+    if (isAdmin && serviceProvider.id === user.id) {
+      // Admin users don't have service provider records - use a system provider
+      let systemProvider = await prisma.serviceProvider.findFirst({
+        where: { userId: null, profession: 'ADMIN' }
+      });
+      
+      if (!systemProvider) {
+        // Try to find any provider with ADMIN profession
+        systemProvider = await prisma.serviceProvider.findFirst({
+          where: { profession: 'ADMIN' }
+        });
+      }
+      
+      if (!systemProvider) {
+        throw new gcprError(
+          HttpStatus.FORBIDDEN,
+          "System error: No admin service provider configured. Please contact system administrator."
+        );
+      }
+      providerId = systemProvider.id;
     }
 
     const scoring = processAssessment({
@@ -445,7 +446,7 @@ class AssessmentService {
       const assessment = await tx.clinicalAssessment.create({
         data: {
           patientId: data.patientId,
-          providerId: serviceProvider.id,
+          providerId: providerId,
           toolCode: normalizedToolCode,
           toolVersion: data.toolVersion ?? "1.0.0",
           responses: data.responses,
@@ -497,7 +498,7 @@ class AssessmentService {
   }
 
   static async createReferral(user, data) {
-    const serviceProvider = await AssessmentService.requireVerifiedServiceProvider(user.id);
+    const serviceProvider = await AssessmentService.requireVerifiedServiceProvider(user);
     await AssessmentService.ensurePatientExists(data.patientId);
 
     if (serviceProvider.profession !== "PHYSIOTHERAPIST") {
@@ -650,12 +651,15 @@ class AssessmentService {
       throw new gcprError(HttpStatus.NOT_FOUND, "Assessment not found");
     }
 
-    const canAccess = await AssessmentService.canProviderAccessPatient(
-      serviceProvider.id,
-      assessment.patientId
-    );
-    if (!canAccess) {
-      throw new gcprError(HttpStatus.FORBIDDEN, "Access to patient report denied");
+    const isAdmin = user && user.userType === 'ADMIN';
+    if (!isAdmin) {
+      const canAccess = await AssessmentService.canProviderAccessPatient(
+        serviceProvider.id,
+        assessment.patientId
+      );
+      if (!canAccess) {
+        throw new gcprError(HttpStatus.FORBIDDEN, "Access to patient report denied");
+      }
     }
 
     if (!assessment.reports.length) {
@@ -675,12 +679,15 @@ class AssessmentService {
     const serviceProvider = await AssessmentService.requireServiceProvider(user);
     await AssessmentService.ensurePatientExists(patientId);
 
-    const canAccess = await AssessmentService.canProviderAccessPatient(
-      serviceProvider.id,
-      patientId
-    );
-    if (!canAccess) {
-      throw new gcprError(HttpStatus.FORBIDDEN, "Access to patient reports denied");
+    const isAdmin = user && user.userType === 'ADMIN';
+    if (!isAdmin) {
+      const canAccess = await AssessmentService.canProviderAccessPatient(
+        serviceProvider.id,
+        patientId
+      );
+      if (!canAccess) {
+        throw new gcprError(HttpStatus.FORBIDDEN, "Access to patient reports denied");
+      }
     }
 
     const assessments = await prisma.clinicalAssessment.findMany({
@@ -797,7 +804,7 @@ class AssessmentService {
   }
 
   static async createRehabTaskFromReferral(user, referralId, data) {
-    const serviceProvider = await AssessmentService.requireVerifiedServiceProvider(user.id);
+    const serviceProvider = await AssessmentService.requireVerifiedServiceProvider(user);
 
     const referral = await prisma.clinicalReferral.findUnique({
       where: { id: referralId },
@@ -906,12 +913,15 @@ class AssessmentService {
       throw new gcprError(HttpStatus.NOT_FOUND, "Assessment not found");
     }
 
-    const canAccess = await AssessmentService.canProviderAccessPatient(
-      serviceProvider.id,
-      assessment.patientId
-    );
-    if (!canAccess) {
-      throw new gcprError(HttpStatus.FORBIDDEN, "Access to patient denied");
+    const isAdmin = user && user.userType === 'ADMIN';
+    if (!isAdmin) {
+      const canAccess = await AssessmentService.canProviderAccessPatient(
+        serviceProvider.id,
+        assessment.patientId
+      );
+      if (!canAccess) {
+        throw new gcprError(HttpStatus.FORBIDDEN, "Access to patient denied");
+      }
     }
 
     const report = assessment.reports[0] ?? null;
