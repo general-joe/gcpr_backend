@@ -14,7 +14,7 @@ class AdminController {
     const result = await AdminService.seedRbac();
     UtilFunctions.outputSuccess(res, result, "RBAC seeded successfully");
   });
-  
+
   // User Management
   static listUsers = catchAsync(async (req, res) => {
     const result = await AdminService.listUsers(req.query);
@@ -29,7 +29,11 @@ class AdminController {
   static updateUserStatus = catchAsync(async (req, res) => {
     const { status } = req.validatedData ?? req.body;
     const result = await AdminService.updateUserStatus(req.params.id, status);
-    UtilFunctions.outputSuccess(res, result, "User status updated successfully");
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "User status updated successfully",
+    );
   });
 
   static deleteUser = catchAsync(async (req, res) => {
@@ -40,17 +44,28 @@ class AdminController {
   // Provider Management
   static listProviders = catchAsync(async (req, res) => {
     const result = await AdminService.listProviders(req.query);
-    UtilFunctions.outputSuccess(res, result, "Service providers retrieved successfully");
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "Service providers retrieved successfully",
+    );
   });
 
   static verifyProvider = catchAsync(async (req, res) => {
-    const result = await AdminService.verifyProvider(req.params.id, req.validatedData ?? req.body);
+    const result = await AdminService.verifyProvider(
+      req.params.id,
+      req.validatedData ?? req.body,
+    );
     UtilFunctions.outputSuccess(res, result, "Provider verified successfully");
   });
 
   static getProviderById = catchAsync(async (req, res) => {
     const result = await AdminService.getProviderById(req.params.id);
-    UtilFunctions.outputSuccess(res, result, "Service provider retrieved successfully");
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "Service provider retrieved successfully",
+    );
   });
 
   // Patient Management
@@ -67,18 +82,30 @@ class AdminController {
   // System Metrics
   static getSystemMetrics = catchAsync(async (req, res) => {
     const result = await AdminService.getSystemMetrics();
-    UtilFunctions.outputSuccess(res, result, "System metrics retrieved successfully");
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "System metrics retrieved successfully",
+    );
   });
 
   static getProviderMetricsComparison = catchAsync(async (req, res) => {
     const result = await AdminService.getProviderMetricsComparison(req.query);
-    UtilFunctions.outputSuccess(res, result, "Provider metrics comparison retrieved successfully");
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "Provider metrics comparison retrieved successfully",
+    );
   });
 
   // Community Moderation
   static listCommunities = catchAsync(async (req, res) => {
     const result = await AdminService.listCommunities(req.query);
-    UtilFunctions.outputSuccess(res, result, "Communities retrieved successfully");
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "Communities retrieved successfully",
+    );
   });
 
   static deleteCommunity = catchAsync(async (req, res) => {
@@ -87,24 +114,62 @@ class AdminController {
   });
 
   static removeCommunityMember = catchAsync(async (req, res) => {
-    await AdminService.removeCommunityMember(req.params.communityId, req.params.userId);
-    UtilFunctions.outputSuccess(res, {}, "Community member removed successfully");
+    await AdminService.removeCommunityMember(
+      req.params.communityId,
+      req.params.userId,
+    );
+    UtilFunctions.outputSuccess(
+      res,
+      {},
+      "Community member removed successfully",
+    );
   });
 
   // Assessment Tools
   static listAssessmentTools = catchAsync(async (req, res) => {
     const result = await AdminService.listAssessmentTools(req.query);
-    UtilFunctions.outputSuccess(res, result, "Assessment tools retrieved successfully");
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "Assessment tools retrieved successfully",
+    );
   });
 
   static createAssessmentTool = catchAsync(async (req, res) => {
-    const result = await AdminService.createAssessmentTool(req.validatedData ?? req.body);
-    UtilFunctions.outputSuccess(res, result, "Assessment tool created successfully");
+    const result = await AdminService.createAssessmentTool(
+      req.validatedData ?? req.body,
+    );
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "Assessment tool created successfully",
+    );
   });
 
   static updateAssessmentTool = catchAsync(async (req, res) => {
-    const result = await AdminService.updateAssessmentTool(req.params.id, req.validatedData ?? req.body);
-    UtilFunctions.outputSuccess(res, result, "Assessment tool updated successfully");
+    const result = await AdminService.updateAssessmentTool(
+      req.params.id,
+      req.validatedData ?? req.body,
+    );
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "Assessment tool updated successfully",
+    );
+  });
+
+  // Provider Verification Management
+  static updateProviderVerification = catchAsync(async (req, res) => {
+    const result = await AdminService.updateProviderVerification(
+      req.params.id,
+      req.validatedData ?? req.body,
+      res.locals.user.id,
+    );
+    UtilFunctions.outputSuccess(
+      res,
+      result,
+      "Provider verification updated successfully",
+    );
   });
 }
 

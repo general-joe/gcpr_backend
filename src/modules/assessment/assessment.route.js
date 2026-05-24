@@ -1,6 +1,6 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
-import { authorize } from "../../middlewares/auth.js";
+import { authorize, authorizeOrRbacRole } from "../../middlewares/auth.js";
 import { validate } from "../../middlewares/validation.js";
 
 import AssessmentController from "./assessment.controller.js";
@@ -8,95 +8,98 @@ import {
   submitAssessmentSchema,
   createReferralSchema,
   updateReferralStatusSchema,
-  createRehabTaskSchema
+  createRehabTaskSchema,
 } from "./assessment.validator.js";
 
 const assessmentRouter = express.Router();
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 50
+  max: 50,
 });
 
-
-// Allow both SERVICE_PROVIDER and ADMIN userTypes
+// Allow both SERVICE_PROVIDER and ADMIN userTypes or RBAC roles ADMIN/TESTER
 const allowedUserTypes = ["SERVICE_PROVIDER", "ADMIN"];
+const assessmentAuth = authorizeOrRbacRole(allowedUserTypes, [
+  "ADMIN",
+  "TESTER",
+]);
 
 assessmentRouter.get(
   "/tools",
-  authorize(allowedUserTypes),
-  AssessmentController.getAvailableTools
+  assessmentAuth,
+  AssessmentController.getAvailableTools,
 );
 
 assessmentRouter.get(
   "/tools/:toolCode/form",
-  authorize(allowedUserTypes),
-  AssessmentController.getAssessmentFormByToolCode
+  assessmentAuth,
+  AssessmentController.getAssessmentFormByToolCode,
 );
 
 assessmentRouter.post(
   "/submit",
-  authorize(allowedUserTypes),
+  assessmentAuth,
   validate(submitAssessmentSchema),
   limiter,
-  AssessmentController.submitAssessment
+  AssessmentController.submitAssessment,
 );
 
 assessmentRouter.get(
   "/:assessmentId/report",
-  authorize(allowedUserTypes),
-  AssessmentController.getAssessmentReport
+  assessmentAuth,
+  AssessmentController.getAssessmentReport,
 );
 
 assessmentRouter.get(
   "/:assessmentId/referral-recommendations",
-  authorize(allowedUserTypes),
-  AssessmentController.getReferralRecommendations
+  assessmentAuth,
+  AssessmentController.getReferralRecommendations,
 );
 
 assessmentRouter.get(
   "/patient/:patientId/reports",
-  authorize(allowedUserTypes),
-  AssessmentController.getAssessmentReportsByPatient
+  assessmentAuth,
+  AssessmentController.getAssessmentReportsByPatient,
 );
 
 assessmentRouter.get(
   "/referrals/incoming",
-  authorize(allowedUserTypes),
-  AssessmentController.getIncomingReferrals
+  assessmentAuth,
+  AssessmentController.getIncomingReferrals,
 );
 
 assessmentRouter.get(
   "/referrals/outgoing",
-  authorize(allowedUserTypes),
-  AssessmentController.getOutgoingReferrals
+  assessmentAuth,
+  AssessmentController.getOutgoingReferrals,
 );
 
 assessmentRouter.post(
   "/referrals",
-  authorize(allowedUserTypes),
+  assessmentAuth,
   validate(createReferralSchema),
-  AssessmentController.createReferral
+  AssessmentController.createReferral,
 );
 
 assessmentRouter.patch(
   "/referrals/:referralId/status",
-  authorize(allowedUserTypes),
+  assessmentAuth,
   validate(updateReferralStatusSchema),
-  AssessmentController.updateReferralStatus
+  AssessmentController.updateReferralStatus,
 );
 
 assessmentRouter.post(
   "/referrals/:referralId/tasks",
-  authorize(allowedUserTypes),
+  assessmentAuth,
   validate(createRehabTaskSchema),
-  AssessmentController.createRehabTaskFromReferral
+  AssessmentController.createRehabTaskFromReferral,
 );
 
 assessmentRouter.get(
   "/tasks/my",
-  authorize(allowedUserTypes),
-  AssessmentController.getMyAssignedTasks
+  assessmentAuth,
+  AssessmentController.getMyAssignedTasks,
 );
 
 export default assessmentRouter;
