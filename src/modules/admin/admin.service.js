@@ -232,6 +232,107 @@ class AdminService {
     return updated;
   }
 
+  /**
+   * Comprehensive provider verification management
+   * Allows admins to approve, reject, request changes, or suspend provider verification
+   *
+   * @param {string} providerId - The ID of the service provider
+   * @param {object} data - Verification data
+   * @param {string} data.action - APPROVE, REJECT, REQUEST_CHANGES, or SUSPEND
+   * @param {string} data.verificationNote - Reason/note for the action
+   * @param {string} data.licenseStatus - ACTIVE or INACTIVE (for approval)
+   * @param {string} adminId - The ID of the admin performing the action
+   * @returns {object} Updated service provider record
+   */
+  static async updateProviderVerification(providerId, data, adminId) {
+    const { action, verificationNote, licenseStatus } = data;
+
+    const provider = await prisma.serviceProvider.findUnique({
+      where: { id: providerId },
+      include: { user: { select: { id: true, fullName: true, email: true } } },
+    });
+
+    if (!provider) {
+      throw new gcprError(HttpStatus.NOT_FOUND, "Service provider not found");
+    }
+
+    // Determine the new verification status based on action
+    let newVerificationStatus;
+    let notificationTitle;
+    let notificationContent;
+
+    switch (action) {
+      case "APPROVE":
+        newVerificationStatus = "VERIFIED";
+        notificationTitle = "Verification Approved";
+        notificationContent =
+          verificationNote ||
+          "Your verification has been approved by an administrator. You can now complete your profile.";
+        break;
+      case "REJECT":
+        newVerificationStatus = "REJECTED";
+        notificationTitle = "Verification Rejected";
+        notificationContent = `Your verification has been rejected. Reason: ${verificationNote}`;
+        break;
+      case "REQUEST_CHANGES":
+        newVerificationStatus = "PENDING_REVIEW";
+        notificationTitle = "Changes Requested";
+        notificationContent = `Changes have been requested for your verification. Please review: ${verificationNote}`;
+        break;
+      case "SUSPEND":
+        newVerificationStatus = "SUSPENDED";
+        notificationTitle = "Verification Suspended";
+        notificationContent = `Your verification has been suspended. Reason: ${verificationNote}`;
+        break;
+      default:
+        throw new gcprError(
+          HttpStatus.BAD_REQUEST,
+          "Invalid verification action",
+        );
+    }
+
+    // Update the service provider with verification details
+    const updateData = {
+      verificationStatus: newVerificationStatus,
+      verificationNote,
+    };
+
+    // Only update license status and verifiedAt for approval
+    if (action === "APPROVE") {
+      updateData.licenseStatus = licenseStatus || "ACTIVE";
+      updateData.verifiedAt = new Date();
+      updateData.verifiedBy = adminId;
+    }
+
+    const updated = await prisma.serviceProvider.update({
+      where: { id: providerId },
+      data: updateData,
+      include: {
+        user: { select: { id: true, fullName: true, email: true } },
+      },
+    });
+
+    // Send notification to the service provider
+    try {
+      await NotificationService.createNotification({
+        userId: provider.user.id,
+        type: "IN_APP",
+        category: "SYSTEM",
+        title: notificationTitle,
+        content: notificationContent,
+        relatedId: providerId,
+        relatedModel: "ServiceProvider",
+      });
+    } catch (e) {
+      WRITE.warn("[Admin] Provider verification notification failed", {
+        error: e.message,
+        providerId,
+      });
+    }
+
+    return updated;
+  }
+
   static async getProviderById(providerId) {
     const provider = await prisma.serviceProvider.findUnique({
       where: { id: providerId },
