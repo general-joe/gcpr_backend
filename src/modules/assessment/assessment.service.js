@@ -7,14 +7,15 @@ import {
   homeRehabPharmacyConfig,
   cpProgramIntakeConfig,
   otCpClinicalAssessmentConfig,
-  dietitianNutritionConsultationConfig
+  dietitianNutritionConsultationConfig,
 } from "../../config/tools/index.js";
 import {
   processAssessment,
-  getToolConfigByCode
+  getToolConfigByCode,
 } from "../../services/assessment/assessment.service.js";
 import { generateReferralRecommendations } from "../../services/assessment/referral.engine.js";
 import HttpStatus from "../../utils/http-status.js";
+import { hasRbacRole } from "../../middlewares/auth.js";
 
 const TOOL_ALIASES = {
   GMFM88: "GMFM_88",
@@ -50,7 +51,7 @@ const TOOL_ALIASES = {
   "DIETITIAN-NUTRITION-CONSULTATION": "DIETITIAN_NUTRITION_CONSULTATION",
   dietitian_nutrition_consultation: "DIETITIAN_NUTRITION_CONSULTATION",
   "dietitian-nutrition-consultation": "DIETITIAN_NUTRITION_CONSULTATION",
-  dietitianNutritionConsultation: "DIETITIAN_NUTRITION_CONSULTATION"
+  dietitianNutritionConsultation: "DIETITIAN_NUTRITION_CONSULTATION",
 };
 
 const normalizeToolCode = (toolCode) => TOOL_ALIASES[toolCode] ?? toolCode;
@@ -61,7 +62,7 @@ const ALL_TOOL_CONFIGS = [
   otCpClinicalAssessmentConfig,
   cpProgramIntakeConfig,
   homeRehabPharmacyConfig,
-  dietitianNutritionConsultationConfig
+  dietitianNutritionConsultationConfig,
 ];
 
 const ITEM_TYPE_TO_FORMAT = {
@@ -69,7 +70,7 @@ const ITEM_TYPE_TO_FORMAT = {
   NUMBER: "number",
   BOOLEAN: "boolean",
   DATE: "date",
-  SELECT: "string"
+  SELECT: "string",
 };
 
 const toTitleFromId = (value) =>
@@ -91,7 +92,9 @@ const buildItemLookup = (toolConfig) => {
 };
 
 const buildGMFMFields = (toolConfig) => {
-  const dimensions = Array.isArray(toolConfig?.dimensions) ? toolConfig.dimensions : [];
+  const dimensions = Array.isArray(toolConfig?.dimensions)
+    ? toolConfig.dimensions
+    : [];
   const itemLookup = buildItemLookup(toolConfig);
 
   return dimensions.map((dimension) => {
@@ -108,20 +111,22 @@ const buildGMFMFields = (toolConfig) => {
         dimension: itemDef?.dimension ?? dimension.code,
         itemNumber: itemDef?.number ?? itemNumber,
         expectedAnswerFormat: "number_or_NT",
-        allowedValues: [0, 1, 2, 3, "NT"]
+        allowedValues: [0, 1, 2, 3, "NT"],
       });
     }
 
     return {
       sectionCode: dimension.code,
       sectionName: dimension.name,
-      fields
+      fields,
     };
   });
 };
 
 const buildSectionFields = (toolConfig) => {
-  const sections = Array.isArray(toolConfig?.sections) ? toolConfig.sections : [];
+  const sections = Array.isArray(toolConfig?.sections)
+    ? toolConfig.sections
+    : [];
   return sections.map((section, sectionIndex) => ({
     sectionCode: section.code,
     sectionName: section.name,
@@ -130,13 +135,16 @@ const buildSectionFields = (toolConfig) => {
       fieldKey: item.id,
       question: item.text ?? item.label ?? toTitleFromId(item.id),
       expectedAnswerFormat: ITEM_TYPE_TO_FORMAT[item.type] ?? "string",
-      options: item.options ?? null
-    }))
+      options: item.options ?? null,
+    })),
   }));
 };
 
 const buildFormSchema = (toolConfig) => {
-  if (Array.isArray(toolConfig?.dimensions) && toolConfig.dimensions.length > 0) {
+  if (
+    Array.isArray(toolConfig?.dimensions) &&
+    toolConfig.dimensions.length > 0
+  ) {
     return buildGMFMFields(toolConfig);
   }
 
@@ -167,7 +175,7 @@ const GMFM_DIMENSIONS = [
   { code: "B", start: 18, end: 37 },
   { code: "C", start: 38, end: 51 },
   { code: "D", start: 52, end: 64 },
-  { code: "E", start: 65, end: 88 }
+  { code: "E", start: 65, end: 88 },
 ];
 
 const VALID_GMFM_VALUES = new Set([0, 1, 2, 3, "NT"]);
@@ -191,15 +199,27 @@ const validateGMFMResponses = (responses) => {
     }
 
     const value = responses[key];
-    const normalizedValue = typeof value === "string" && value !== "NT" ? Number(value) : value;
-    const isValidNumeric = Number.isInteger(normalizedValue) && normalizedValue >= 0 && normalizedValue <= 3;
+    const normalizedValue =
+      typeof value === "string" && value !== "NT" ? Number(value) : value;
+    const isValidNumeric =
+      Number.isInteger(normalizedValue) &&
+      normalizedValue >= 0 &&
+      normalizedValue <= 3;
 
-    if (!(VALID_GMFM_VALUES.has(value) || VALID_GMFM_VALUES.has(normalizedValue) || isValidNumeric)) {
+    if (
+      !(
+        VALID_GMFM_VALUES.has(value) ||
+        VALID_GMFM_VALUES.has(normalizedValue) ||
+        isValidNumeric
+      )
+    ) {
       invalidValues.push(`${key}:${String(value)}`);
     }
   });
 
-  const unknownKeys = Object.keys(responses).filter((key) => !expectedKeys.has(key));
+  const unknownKeys = Object.keys(responses).filter(
+    (key) => !expectedKeys.has(key),
+  );
 
   if (missingKeys.length || invalidValues.length || unknownKeys.length) {
     const parts = [];
@@ -215,17 +235,18 @@ const validateGMFMResponses = (responses) => {
 
     throw new gcprError(
       HttpStatus.UNPROCESSABLE_ENTITY,
-      `Invalid GMFM-88 response payload: ${parts.join(", ")}`
+      `Invalid GMFM-88 response payload: ${parts.join(", ")}`,
     );
   }
 };
 
 class AssessmentService {
   static async getAvailableTools(user) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user);
+    const serviceProvider =
+      await AssessmentService.requireServiceProvider(user);
 
     // If user is admin, allow all tools
-    const isAdmin = user && user.userType === 'ADMIN';
+    const isAdmin = user && user.userType === "ADMIN";
 
     // Gather all user roles (from user object and serviceProvider)
     const userRoles = new Set();
@@ -237,19 +258,23 @@ class AssessmentService {
     }
 
     const tools = ALL_TOOL_CONFIGS.map((toolConfig) => {
-      const allowed = getAllowedProfessions(toolConfig).map((r) => String(r).toUpperCase());
-      const canUse = isAdmin ? true : allowed.some((role) => userRoles.has(role));
+      const allowed = getAllowedProfessions(toolConfig).map((r) =>
+        String(r).toUpperCase(),
+      );
+      const canUse = isAdmin
+        ? true
+        : allowed.some((role) => userRoles.has(role));
       return {
         toolName: toolConfig.toolName,
         toolCode: toolConfig.toolCode,
         whoCanUseTool: getAllowedProfessions(toolConfig),
-        canCurrentUserUse: canUse
+        canCurrentUserUse: canUse,
       };
     });
 
     return {
       total: tools.length,
-      tools
+      tools,
     };
   }
 
@@ -261,7 +286,7 @@ class AssessmentService {
     if (!toolConfig) {
       throw new gcprError(
         HttpStatus.NOT_FOUND,
-        `Assessment tool not found for code: ${toolCode}`
+        `Assessment tool not found for code: ${toolCode}`,
       );
     }
 
@@ -269,29 +294,28 @@ class AssessmentService {
       toolName: toolConfig.toolName,
       toolCode: toolConfig.toolCode,
       version: toolConfig.version,
-      sections: buildFormSchema(toolConfig)
+      sections: buildFormSchema(toolConfig),
     };
   }
 
   static async canProviderAccessPatient(providerId, patientId) {
     const [ownAssessmentsCount, referralCount, taskCount] = await Promise.all([
       prisma.clinicalAssessment.count({
-        where: { patientId, providerId }
+        where: { patientId, providerId },
       }),
       prisma.clinicalReferral.count({
         where: {
           patientId,
-          OR: [{ fromProviderId: providerId }, { toProviderId: providerId }]
-        }
+          OR: [{ fromProviderId: providerId }, { toProviderId: providerId }],
+        },
       }),
       prisma.rehabTask.count({
-        where: { patientId, providerId }
-      })
+        where: { patientId, providerId },
+      }),
     ]);
 
     return ownAssessmentsCount > 0 || referralCount > 0 || taskCount > 0;
   }
-
 
   /**
    * Allow Admins with certain roles to bypass service provider check.
@@ -302,30 +326,36 @@ class AssessmentService {
     // Accept either user object or userId
     let user = userOrUserId;
     let userId = userOrUserId;
-    if (typeof userOrUserId === 'object' && userOrUserId !== null) {
+    if (typeof userOrUserId === "object" && userOrUserId !== null) {
       user = userOrUserId;
       userId = user.id;
     } else {
       user = null;
     }
 
-    // Allow all admins to bypass service provider check
-    if (user && user.userType && user.userType.toUpperCase() === 'ADMIN') {
+    const isAdminUserType =
+      user && user.userType && user.userType.toUpperCase() === "ADMIN";
+    const isAdminRbac =
+      !isAdminUserType &&
+      user &&
+      (await hasRbacRole(userId, ["ADMIN", "TESTER"]));
+
+    if (isAdminUserType || isAdminRbac) {
       return {
         id: userId,
-        profession: 'ADMIN',
-        verificationStatus: 'VERIFIED',
+        profession: "ADMIN",
+        verificationStatus: "VERIFIED",
       };
     }
 
     // Default: require real service provider profile
     const serviceProvider = await prisma.serviceProvider.findUnique({
-      where: { userId }
+      where: { userId },
     });
     if (!serviceProvider) {
       throw new gcprError(
         HttpStatus.NOT_FOUND,
-        "Service provider profile not found"
+        "Service provider profile not found",
       );
     }
     return serviceProvider;
@@ -336,27 +366,35 @@ class AssessmentService {
     // Accept either user object or userId
     let user = userOrUserId;
     let userId = userOrUserId;
-    if (typeof userOrUserId === 'object' && userOrUserId !== null) {
+    if (typeof userOrUserId === "object" && userOrUserId !== null) {
       user = userOrUserId;
       userId = user.id;
     } else {
       user = null;
     }
 
+    const isAdminUserType =
+      user && user.userType && user.userType.toUpperCase() === "ADMIN";
+    const isAdminRbac =
+      !isAdminUserType &&
+      user &&
+      (await hasRbacRole(userId, ["ADMIN", "TESTER"]));
+
     // Allow admin users to bypass service provider verification
-    if (user && user.userType && user.userType.toUpperCase() === 'ADMIN') {
+    if (isAdminUserType || isAdminRbac) {
       return {
         id: userId,
-        profession: 'ADMIN',
-        verificationStatus: 'VERIFIED',
+        profession: "ADMIN",
+        verificationStatus: "VERIFIED",
       };
     }
 
-    const serviceProvider = await AssessmentService.requireServiceProvider(userId);
+    const serviceProvider =
+      await AssessmentService.requireServiceProvider(userId);
     if (serviceProvider.verificationStatus !== "VERIFIED") {
       throw new gcprError(
         HttpStatus.FORBIDDEN,
-        "Your account is pending verification. Contact admin to complete verification before performing clinical actions."
+        "Your account is pending verification. Contact admin to complete verification before performing clinical actions.",
       );
     }
     return serviceProvider;
@@ -365,7 +403,7 @@ class AssessmentService {
   static async ensurePatientExists(patientId) {
     const patient = await prisma.cpPatient.findUnique({
       where: { id: patientId },
-      select: { id: true }
+      select: { id: true },
     });
 
     if (!patient) {
@@ -374,7 +412,8 @@ class AssessmentService {
   }
 
   static async submitAssessment(user, data) {
-    const serviceProvider = await AssessmentService.requireVerifiedServiceProvider(user);
+    const serviceProvider =
+      await AssessmentService.requireVerifiedServiceProvider(user);
     await AssessmentService.ensurePatientExists(data.patientId);
 
     const normalizedToolCode = normalizeToolCode(data.toolCode);
@@ -386,13 +425,14 @@ class AssessmentService {
     if (!toolConfig) {
       throw new gcprError(
         HttpStatus.UNPROCESSABLE_ENTITY,
-        `Unsupported assessment tool code: ${normalizedToolCode}`
+        `Unsupported assessment tool code: ${normalizedToolCode}`,
       );
     }
 
     const allowedProfessions = getAllowedProfessions(toolConfig);
     // Admin users can use any tool
-    const isAdmin = user && user.userType && user.userType.toUpperCase() === 'ADMIN';
+    const isAdmin =
+      user && user.userType && user.userType.toUpperCase() === "ADMIN";
     if (
       !isAdmin &&
       allowedProfessions.length > 0 &&
@@ -400,7 +440,7 @@ class AssessmentService {
     ) {
       throw new gcprError(
         HttpStatus.FORBIDDEN,
-        `Tool ${normalizedToolCode} is not available for profession ${serviceProvider.profession}`
+        `Tool ${normalizedToolCode} is not available for profession ${serviceProvider.profession}`,
       );
     }
 
@@ -409,20 +449,20 @@ class AssessmentService {
     if (isAdmin && serviceProvider.id === user.id) {
       // Admin users don't have service provider records - use a system provider
       let systemProvider = await prisma.serviceProvider.findFirst({
-        where: { userId: null, profession: 'ADMIN' }
+        where: { userId: null, profession: "ADMIN" },
       });
-      
+
       if (!systemProvider) {
         // Try to find any provider with ADMIN profession
         systemProvider = await prisma.serviceProvider.findFirst({
-          where: { profession: 'ADMIN' }
+          where: { profession: "ADMIN" },
         });
       }
-      
+
       if (!systemProvider) {
         throw new gcprError(
           HttpStatus.FORBIDDEN,
-          "System error: No admin service provider configured. Please contact system administrator."
+          "System error: No admin service provider configured. Please contact system administrator.",
         );
       }
       providerId = systemProvider.id;
@@ -430,7 +470,7 @@ class AssessmentService {
 
     const scoring = processAssessment({
       toolCode: normalizedToolCode,
-      responses: data.responses
+      responses: data.responses,
     });
 
     const structuredReport = scoring.result?.scores
@@ -439,7 +479,7 @@ class AssessmentService {
           scores: scoring.result,
           summary: scoring.message ?? null,
           interpretation: null,
-          recommendations: null
+          recommendations: null,
         };
 
     const result = await prisma.$transaction(async (tx) => {
@@ -451,8 +491,8 @@ class AssessmentService {
           toolVersion: data.toolVersion ?? "1.0.0",
           responses: data.responses,
           status: data.status ?? "COMPLETED",
-          assessedAt: new Date()
-        }
+          assessedAt: new Date(),
+        },
       });
 
       const report = await tx.clinicalAssessmentReport.create({
@@ -461,13 +501,13 @@ class AssessmentService {
           scores: structuredReport.scores,
           summary: structuredReport.summary,
           interpretation: structuredReport.interpretation,
-          recommendations: structuredReport.recommendations
-        }
+          recommendations: structuredReport.recommendations,
+        },
       });
 
       return {
         assessment,
-        report
+        report,
       };
     });
 
@@ -475,7 +515,7 @@ class AssessmentService {
     try {
       const patient = await prisma.cpPatient.findUnique({
         where: { id: data.patientId },
-        select: { userId: true }
+        select: { userId: true },
       });
       if (patient && patient.userId) {
         await NotificationService.createNotification({
@@ -486,42 +526,49 @@ class AssessmentService {
           content: `A new assessment has been submitted for you by your provider.`,
           relatedId: result.assessment.id,
           relatedModel: "ClinicalAssessment",
-          expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+          expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
         });
       }
     } catch (e) {
       // Log but do not block
-      console.error("[Notification] Assessment submission notification failed:", e.message);
+      console.error(
+        "[Notification] Assessment submission notification failed:",
+        e.message,
+      );
     }
 
     return result;
   }
 
   static async createReferral(user, data) {
-    const serviceProvider = await AssessmentService.requireVerifiedServiceProvider(user);
+    const serviceProvider =
+      await AssessmentService.requireVerifiedServiceProvider(user);
     await AssessmentService.ensurePatientExists(data.patientId);
 
     if (serviceProvider.profession !== "PHYSIOTHERAPIST") {
       throw new gcprError(
         HttpStatus.FORBIDDEN,
-        "Only physiotherapists can create referrals"
+        "Only physiotherapists can create referrals",
       );
     }
 
     if (data.toProviderId) {
       const targetProvider = await prisma.serviceProvider.findUnique({
         where: { id: data.toProviderId },
-        select: { id: true, profession: true }
+        select: { id: true, profession: true },
       });
 
       if (!targetProvider) {
-        throw new gcprError(HttpStatus.NOT_FOUND, "Referred provider not found");
+        throw new gcprError(
+          HttpStatus.NOT_FOUND,
+          "Referred provider not found",
+        );
       }
 
       if (targetProvider.profession !== data.toProfession) {
         throw new gcprError(
           HttpStatus.UNPROCESSABLE_ENTITY,
-          "Selected provider profession does not match referral target profession"
+          "Selected provider profession does not match referral target profession",
         );
       }
     }
@@ -534,8 +581,8 @@ class AssessmentService {
           patientId: true,
           providerId: true,
           status: true,
-          referralId: true
-        }
+          referralId: true,
+        },
       });
 
       if (!assessment) {
@@ -545,28 +592,28 @@ class AssessmentService {
       if (assessment.patientId !== data.patientId) {
         throw new gcprError(
           HttpStatus.UNPROCESSABLE_ENTITY,
-          "Assessment does not belong to the selected patient"
+          "Assessment does not belong to the selected patient",
         );
       }
 
       if (assessment.providerId !== serviceProvider.id) {
         throw new gcprError(
           HttpStatus.FORBIDDEN,
-          "Only the assessment owner can attach referral to this assessment"
+          "Only the assessment owner can attach referral to this assessment",
         );
       }
 
       if (assessment.status !== "COMPLETED") {
         throw new gcprError(
           HttpStatus.UNPROCESSABLE_ENTITY,
-          "Referral can only be linked to a COMPLETED assessment"
+          "Referral can only be linked to a COMPLETED assessment",
         );
       }
 
       if (assessment.referralId) {
         throw new gcprError(
           HttpStatus.UNPROCESSABLE_ENTITY,
-          "A referral is already linked to this assessment"
+          "A referral is already linked to this assessment",
         );
       }
     }
@@ -578,14 +625,14 @@ class AssessmentService {
           fromProviderId: serviceProvider.id,
           toProviderId: data.toProviderId ?? null,
           toProfession: data.toProfession,
-          reason: data.reason
-        }
+          reason: data.reason,
+        },
       });
 
       if (data.assessmentId) {
         await tx.clinicalAssessment.update({
           where: { id: data.assessmentId },
-          data: { referralId: createdReferral.id }
+          data: { referralId: createdReferral.id },
         });
       }
 
@@ -597,7 +644,7 @@ class AssessmentService {
       if (data.toProviderId) {
         const provider = await prisma.serviceProvider.findUnique({
           where: { id: data.toProviderId },
-          select: { userId: true }
+          select: { userId: true },
         });
         if (provider && provider.userId) {
           await NotificationService.createNotification({
@@ -608,7 +655,7 @@ class AssessmentService {
             content: `You have received a new referral for patient assessment.`,
             relatedId: referral.id,
             relatedModel: "ClinicalReferral",
-            expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+            expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
           });
         }
       }
@@ -620,18 +667,19 @@ class AssessmentService {
   }
 
   static async getAssessmentReport(user, assessmentId) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user);
+    const serviceProvider =
+      await AssessmentService.requireServiceProvider(user);
     const assessment = await prisma.clinicalAssessment.findUnique({
       where: { id: assessmentId },
       include: {
         reports: {
-          orderBy: { createdAt: "desc" }
+          orderBy: { createdAt: "desc" },
         },
         patient: {
           select: {
             id: true,
-            fullName: true
-          }
+            fullName: true,
+          },
         },
         provider: {
           select: {
@@ -639,54 +687,61 @@ class AssessmentService {
             user: {
               select: {
                 id: true,
-                fullName: true
-              }
-            }
-          }
-        }
-      }
+                fullName: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!assessment) {
       throw new gcprError(HttpStatus.NOT_FOUND, "Assessment not found");
     }
 
-    const isAdmin = user && user.userType === 'ADMIN';
+    const isAdmin = user && user.userType === "ADMIN";
     if (!isAdmin) {
       const canAccess = await AssessmentService.canProviderAccessPatient(
         serviceProvider.id,
-        assessment.patientId
+        assessment.patientId,
       );
       if (!canAccess) {
-        throw new gcprError(HttpStatus.FORBIDDEN, "Access to patient report denied");
+        throw new gcprError(
+          HttpStatus.FORBIDDEN,
+          "Access to patient report denied",
+        );
       }
     }
 
     if (!assessment.reports.length) {
       throw new gcprError(
         HttpStatus.NOT_FOUND,
-        "Clinical assessment report not found"
+        "Clinical assessment report not found",
       );
     }
 
     return {
       assessment,
-      report: assessment.reports[0]
+      report: assessment.reports[0],
     };
   }
 
   static async getAssessmentReportsByPatient(user, patientId) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user);
+    const serviceProvider =
+      await AssessmentService.requireServiceProvider(user);
     await AssessmentService.ensurePatientExists(patientId);
 
-    const isAdmin = user && user.userType === 'ADMIN';
+    const isAdmin = user && user.userType === "ADMIN";
     if (!isAdmin) {
       const canAccess = await AssessmentService.canProviderAccessPatient(
         serviceProvider.id,
-        patientId
+        patientId,
       );
       if (!canAccess) {
-        throw new gcprError(HttpStatus.FORBIDDEN, "Access to patient reports denied");
+        throw new gcprError(
+          HttpStatus.FORBIDDEN,
+          "Access to patient reports denied",
+        );
       }
     }
 
@@ -694,10 +749,10 @@ class AssessmentService {
       where: { patientId },
       include: {
         reports: {
-          orderBy: { createdAt: "desc" }
-        }
+          orderBy: { createdAt: "desc" },
+        },
       },
-      orderBy: { assessedAt: "desc" }
+      orderBy: { assessedAt: "desc" },
     });
 
     return {
@@ -709,13 +764,14 @@ class AssessmentService {
         toolVersion: item.toolVersion,
         status: item.status,
         assessedAt: item.assessedAt,
-        report: item.reports[0] ?? null
-      }))
+        report: item.reports[0] ?? null,
+      })),
     };
   }
 
   static async getIncomingReferrals(user) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user);
+    const serviceProvider =
+      await AssessmentService.requireServiceProvider(user);
 
     const referrals = await prisma.clinicalReferral.findMany({
       where: {
@@ -723,60 +779,70 @@ class AssessmentService {
           { toProviderId: serviceProvider.id },
           {
             toProviderId: null,
-            toProfession: serviceProvider.profession
-          }
-        ]
+            toProfession: serviceProvider.profession,
+          },
+        ],
       },
       include: {
         patient: {
-          select: { id: true, fullName: true }
+          select: { id: true, fullName: true },
         },
         fromProvider: {
-          select: { id: true, profession: true, user: { select: { fullName: true } } }
+          select: {
+            id: true,
+            profession: true,
+            user: { select: { fullName: true } },
+          },
         },
         relatedAssessment: {
-          select: { id: true, toolCode: true, status: true, assessedAt: true }
-        }
+          select: { id: true, toolCode: true, status: true, assessedAt: true },
+        },
       },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
     });
 
     return {
       total: referrals.length,
-      referrals
+      referrals,
     };
   }
 
   static async getOutgoingReferrals(user) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user);
+    const serviceProvider =
+      await AssessmentService.requireServiceProvider(user);
 
     const referrals = await prisma.clinicalReferral.findMany({
       where: { fromProviderId: serviceProvider.id },
       include: {
         patient: {
-          select: { id: true, fullName: true }
+          select: { id: true, fullName: true },
         },
         toProvider: {
-          select: { id: true, profession: true, user: { select: { fullName: true } } }
+          select: {
+            id: true,
+            profession: true,
+            user: { select: { fullName: true } },
+          },
         },
         relatedAssessment: {
-          select: { id: true, toolCode: true, status: true, assessedAt: true }
-        }
+          select: { id: true, toolCode: true, status: true, assessedAt: true },
+        },
       },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
     });
 
     return {
       total: referrals.length,
-      referrals
+      referrals,
     };
   }
 
   static async updateReferralStatus(user, referralId, status) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user);
+    const serviceProvider =
+      await AssessmentService.requireServiceProvider(user);
 
     const referral = await prisma.clinicalReferral.findUnique({
-      where: { id: referralId }
+      where: { id: referralId },
     });
 
     if (!referral) {
@@ -791,31 +857,32 @@ class AssessmentService {
     if (!isTargetProvider) {
       throw new gcprError(
         HttpStatus.FORBIDDEN,
-        "Only the target provider can update this referral"
+        "Only the target provider can update this referral",
       );
     }
 
     const updated = await prisma.clinicalReferral.update({
       where: { id: referralId },
-      data: { status }
+      data: { status },
     });
 
     return updated;
   }
 
   static async createRehabTaskFromReferral(user, referralId, data) {
-    const serviceProvider = await AssessmentService.requireVerifiedServiceProvider(user);
+    const serviceProvider =
+      await AssessmentService.requireVerifiedServiceProvider(user);
 
     const referral = await prisma.clinicalReferral.findUnique({
       where: { id: referralId },
       include: {
         patient: {
-          select: { id: true, fullName: true }
+          select: { id: true, fullName: true },
         },
         fromProvider: {
-          select: { id: true, user: { select: { fullName: true } } }
-        }
-      }
+          select: { id: true, user: { select: { fullName: true } } },
+        },
+      },
     });
 
     if (!referral) {
@@ -830,14 +897,14 @@ class AssessmentService {
     if (!isTargetProvider) {
       throw new gcprError(
         HttpStatus.FORBIDDEN,
-        "Only the referred provider can assign tasks for this referral"
+        "Only the referred provider can assign tasks for this referral",
       );
     }
 
     if (referral.status !== "ACCEPTED") {
       throw new gcprError(
         HttpStatus.UNPROCESSABLE_ENTITY,
-        "Referral must be ACCEPTED before assigning rehab tasks"
+        "Referral must be ACCEPTED before assigning rehab tasks",
       );
     }
     const videoUrl =
@@ -857,18 +924,19 @@ class AssessmentService {
         endDate: data.endDate ? new Date(data.endDate) : null,
         videoUrl,
         progress: 0,
-        status: "ASSIGNED"
+        status: "ASSIGNED",
       },
       include: {
         patient: {
-          select: { id: true, fullName: true }
-        }
-      }
+          select: { id: true, fullName: true },
+        },
+      },
     });
 
     // Notify patient/caregiver on rehab task assignment
     try {
-      const { default: AdherenceService } = await import("./adherence.service.js");
+      const { default: AdherenceService } =
+        await import("./adherence.service.js");
       await AdherenceService.generateAdherenceLogs(task);
     } catch (e) {
       console.error("[AdherenceLogs] Auto-generation failed:", e.message);
@@ -878,7 +946,7 @@ class AssessmentService {
     try {
       const patient = await prisma.cpPatient.findUnique({
         where: { id: referral.patientId },
-        select: { userId: true }
+        select: { userId: true },
       });
       if (patient && patient.userId) {
         await NotificationService.createNotification({
@@ -889,35 +957,39 @@ class AssessmentService {
           content: `A new rehab task has been assigned to you by your provider.`,
           relatedId: task.id,
           relatedModel: "RehabTask",
-          expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+          expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
         });
       }
     } catch (e) {
-      console.error("[Notification] Rehab task notification failed:", e.message);
+      console.error(
+        "[Notification] Rehab task notification failed:",
+        e.message,
+      );
     }
 
     return task;
   }
 
   static async getReferralRecommendations(user, assessmentId) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user);
+    const serviceProvider =
+      await AssessmentService.requireServiceProvider(user);
 
     const assessment = await prisma.clinicalAssessment.findUnique({
       where: { id: assessmentId },
       include: {
-        reports: { orderBy: { createdAt: "desc" }, take: 1 }
-      }
+        reports: { orderBy: { createdAt: "desc" }, take: 1 },
+      },
     });
 
     if (!assessment) {
       throw new gcprError(HttpStatus.NOT_FOUND, "Assessment not found");
     }
 
-    const isAdmin = user && user.userType === 'ADMIN';
+    const isAdmin = user && user.userType === "ADMIN";
     if (!isAdmin) {
       const canAccess = await AssessmentService.canProviderAccessPatient(
         serviceProvider.id,
-        assessment.patientId
+        assessment.patientId,
       );
       if (!canAccess) {
         throw new gcprError(HttpStatus.FORBIDDEN, "Access to patient denied");
@@ -929,35 +1001,36 @@ class AssessmentService {
 
     const recommendations = generateReferralRecommendations({
       toolCode: assessment.toolCode,
-      scores
+      scores,
     });
 
     return {
       assessmentId: assessment.id,
       toolCode: assessment.toolCode,
-      ...recommendations
+      ...recommendations,
     };
   }
 
   static async getMyAssignedTasks(user) {
-    const serviceProvider = await AssessmentService.requireServiceProvider(user);
+    const serviceProvider =
+      await AssessmentService.requireServiceProvider(user);
 
     const tasks = await prisma.rehabTask.findMany({
       where: { providerId: serviceProvider.id },
       include: {
         patient: {
-          select: { id: true, fullName: true }
+          select: { id: true, fullName: true },
         },
         referral: {
-          select: { id: true, status: true, fromProviderId: true }
-        }
+          select: { id: true, status: true, fromProviderId: true },
+        },
       },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
     });
 
     return {
       total: tasks.length,
-      tasks
+      tasks,
     };
   }
 }

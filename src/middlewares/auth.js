@@ -14,7 +14,7 @@ export function Auth(rq, rs, next) {
     rs.locals.user = { id: null, userType: "guest", client, is_guest: true };
     return next();
   }
-  
+
   try {
     const decoded = jwt.verify(
       token.toString().substring(6).trim(),
@@ -56,7 +56,7 @@ export function Auth(rq, rs, next) {
 export function authorize(allowedUserTypes = []) {
   return (rq, rs, next) => {
     const authHeader = rq.headers.authorization;
-    
+
     const client = rq.headers["x-client"] || "web";
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -115,6 +115,103 @@ export function authorize(allowedUserTypes = []) {
       };
 
       return next();
+    } catch (err) {
+      return UtilFunctions.outputError(
+        rs,
+        "Invalid or expired token",
+        {},
+        ResponseCodes.INVALID_TOKEN,
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+  };
+}
+
+export async function hasRbacRole(userId, allowedSlugs = []) {
+  if (!userId || !Array.isArray(allowedSlugs) || allowedSlugs.length === 0) {
+    return false;
+  }
+
+  const match = await prisma.userRole.findFirst({
+    where: {
+      userId,
+      active: true,
+      role: { slug: { in: allowedSlugs } },
+      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+    },
+  });
+
+  return Boolean(match);
+}
+
+export function authorizeOrRbacRole(
+  allowedUserTypes = [],
+  allowedRoleSlugs = [],
+) {
+  return async (rq, rs, next) => {
+    const authHeader = rq.headers.authorization;
+    const client = rq.headers["x-client"] || "web";
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      WRITE.warn("Missing or invalid authorization header", {
+        method: rq.method,
+        path: rq.path,
+        ip: rq.ip,
+        timestamp: new Date().toISOString(),
+      });
+      return UtilFunctions.outputError(
+        rs,
+        "Authorization token is required",
+        {},
+        ResponseCodes.UNAUTHORIZED,
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT);
+
+      if (!decoded?.id || !decoded?.userType) {
+        WRITE.warn("Invalid token payload", {
+          ip: rq.ip,
+          path: rq.path,
+          timestamp: new Date().toISOString(),
+        });
+        throw new Error("Invalid token payload");
+      }
+
+      if (
+        allowedUserTypes.includes(decoded.userType) ||
+        (await hasRbacRole(decoded.id, allowedRoleSlugs))
+      ) {
+        rs.locals.user = {
+          id: decoded.id,
+          userType: decoded.userType,
+          client,
+          is_guest: false,
+        };
+        return next();
+      }
+
+      WRITE.warn("Insufficient user type or role", {
+        userId: decoded.id,
+        userType: decoded.userType,
+        requiredUserTypes: allowedUserTypes,
+        requiredRoles: allowedRoleSlugs,
+        method: rq.method,
+        path: rq.path,
+        timestamp: new Date().toISOString(),
+      });
+
+      return UtilFunctions.outputError(
+        rs,
+        "You do not have permission to access this resource",
+        {},
+        ResponseCodes.FORBIDDEN,
+        HttpStatus.FORBIDDEN,
+      );
     } catch (err) {
       return UtilFunctions.outputError(
         rs,
@@ -266,7 +363,12 @@ export function requirePermission(permissionCode) {
         where: { userId: decoded.id, permissionId: perm.id, allowed: true },
       });
       if (grant) {
-        rs.locals.user = { id: decoded.id, userType: decoded.userType, client, is_guest: false };
+        rs.locals.user = {
+          id: decoded.id,
+          userType: decoded.userType,
+          client,
+          is_guest: false,
+        };
         return next();
       }
 
@@ -295,7 +397,12 @@ export function requirePermission(permissionCode) {
         );
       }
 
-      rs.locals.user = { id: decoded.id, userType: decoded.userType, client, is_guest: false };
+      rs.locals.user = {
+        id: decoded.id,
+        userType: decoded.userType,
+        client,
+        is_guest: false,
+      };
       return next();
     } catch (err) {
       return UtilFunctions.outputError(
