@@ -23,22 +23,9 @@ class OutcomesService {
       user = null;
     }
 
-    // Canonical RBAC slugs for admin bypass
-    const ADMIN_BYPASS_SLUGS = ["ADMIN", "IT_SUPPORT", "SUPER_TESTER", "TESTER"];
-
-    // Allow bypass for Admins with specific roles (via UserRole)
-    if (user && user.userType === 'ADMIN') {
-      const match = await prisma.userRole.findFirst({
-        where: {
-          userId,
-          active: true,
-          role: { slug: { in: ADMIN_BYPASS_SLUGS } },
-          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-        },
-      });
-      if (match) {
-        return { id: userId, profession: 'ADMIN', verificationStatus: 'VERIFIED' };
-      }
+    // Allow admin bypass
+    if (user && user.userType && user.userType.toUpperCase() === 'ADMIN') {
+      return { id: userId, profession: 'ADMIN', verificationStatus: 'VERIFIED' };
     }
 
     const sp = await prisma.serviceProvider.findUnique({ where: { userId }, select: { id: true } });
@@ -94,7 +81,7 @@ class OutcomesService {
   }
 
   static async getProviderSummary(user) {
-    const sp = await OutcomesService.requireServiceProvider(user.id);
+    const sp = await OutcomesService.requireServiceProvider(user);
 
     const outcomes = await prisma.motorFunctionOutcome.findMany({
       where: { assessorId: sp.id },
@@ -123,7 +110,7 @@ class OutcomesService {
   }
 
   static async createOutcome(user, data) {
-    const sp = await OutcomesService.requireServiceProvider(user.id);
+    const sp = await OutcomesService.requireServiceProvider(user);
 
     const patient = await prisma.cpPatient.findUnique({ where: { id: data.patientId }, select: { id: true } });
     if (!patient) throw new gcprError(HttpStatus.NOT_FOUND, "Patient not found");
@@ -148,7 +135,7 @@ class OutcomesService {
   }
 
   static async updateOutcome(user, outcomeId, data) {
-    const sp = await OutcomesService.requireServiceProvider(user.id);
+    const sp = await OutcomesService.requireServiceProvider(user);
     const outcome = await prisma.motorFunctionOutcome.findUnique({ where: { id: outcomeId } });
     if (!outcome) throw new gcprError(HttpStatus.NOT_FOUND, "Outcome record not found");
     if (outcome.assessorId !== sp.id) throw new gcprError(HttpStatus.FORBIDDEN, "Only the assessor can update this record");
@@ -161,7 +148,7 @@ class OutcomesService {
   }
 
   static async deleteOutcome(user, outcomeId) {
-    const sp = await OutcomesService.requireServiceProvider(user.id);
+    const sp = await OutcomesService.requireServiceProvider(user);
     const outcome = await prisma.motorFunctionOutcome.findUnique({ where: { id: outcomeId } });
     if (!outcome) throw new gcprError(HttpStatus.NOT_FOUND, "Outcome record not found");
     if (outcome.assessorId !== sp.id) throw new gcprError(HttpStatus.FORBIDDEN, "Only the assessor can delete this record");
