@@ -7,7 +7,16 @@ import catchAsync from "../../middlewares/catchAsync.js";
 const notificationRouter = express.Router();
 
 // Apply authentication to all routes
-notificationRouter.use(authorize(["SERVICE_PROVIDER", "CAREGIVER"]));
+notificationRouter.use(
+  authorize([
+    "SERVICE_PROVIDER",
+    "CAREGIVER",
+    "ADMIN",
+    "SUPER_ADMIN",
+    "TESTER",
+    "SUPPORT"
+  ])
+);
 
 // ── Static paths first (before /:id params) ──
 
