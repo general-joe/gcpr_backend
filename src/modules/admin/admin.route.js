@@ -20,7 +20,7 @@ const verifyProviderSchema = z.object({
 
 const providerVerificationSchema = z.object({
   action: z.enum(["APPROVE", "REJECT", "REQUEST_CHANGES", "SUSPEND"]),
-  verificationNote: z.string().min(1).max(1000),
+  verificationNote: z.string().optional(),
   licenseStatus: z.enum(["ACTIVE", "INACTIVE"]).optional().default("ACTIVE"),
 });
 
