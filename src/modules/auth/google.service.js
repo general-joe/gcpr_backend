@@ -149,6 +149,7 @@ class GoogleService {
         id: user.id,
         email: user.email,
         userType: user.userType,
+        roles: user.roles || [],
       });
 
       const refreshToken = UtilFunctions.generateRefreshToken();
