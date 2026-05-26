@@ -22,6 +22,14 @@ class TelehealthService {
       if (user?.userType === 'ADMIN') {
         return { id: userId, userId: null, isAdmin: true };
       }
+      const userRoles = await prisma.userRole.findMany({
+        where: { userId, active: true },
+        select: { role: { select: { slug: true } } }
+      });
+      const hasAdminRole = userRoles.some(ur => ur.role.slug === 'admin');
+      if (hasAdminRole) {
+        return { id: userId, userId: null, isAdmin: true };
+      }
       throw new gcprError(HttpStatus.NOT_FOUND, "Service provider profile not found");
     }
     return { ...sp, isAdmin: false };

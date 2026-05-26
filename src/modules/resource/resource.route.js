@@ -110,7 +110,8 @@ resourceRouter.post(
     });
 
     // If not a service provider, check if user is ADMIN (for admin-created resources)
-    if (!serviceProvider && res.locals.user.userType !== "ADMIN") {
+    const isUserAdmin = res.locals.user.userType === "ADMIN" || res.locals.user.roles?.includes("admin");
+    if (!serviceProvider && !isUserAdmin) {
       return UtilFunctions.outputError(
         res,
         "Service provider profile not found",

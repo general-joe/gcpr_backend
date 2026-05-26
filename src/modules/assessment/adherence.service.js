@@ -13,7 +13,9 @@ class AdherenceService {
     }
 
     // Allow admin bypass
-    if (user && user.userType && user.userType.toUpperCase() === 'ADMIN') {
+    const isAdminUserType = user && user.userType && user.userType.toUpperCase() === 'ADMIN';
+    const isAdminRole = user && user.roles && user.roles.includes('admin');
+    if (isAdminUserType || isAdminRole) {
       return { id: userId, profession: 'ADMIN', verificationStatus: 'VERIFIED' };
     }
 
