@@ -170,6 +170,22 @@ const getAllowedProfessions = (toolConfig) => {
   return [];
 };
 
+const isAdminLikeUser = async (user, roles = ["ADMIN"]) => {
+  if (!user) return false;
+
+  const userType = String(user.userType || "").toUpperCase();
+  if (roles.includes(userType)) return true;
+
+  if (
+    Array.isArray(user.roles) &&
+    user.roles.some((role) => roles.includes(String(role).toUpperCase()))
+  ) {
+    return true;
+  }
+
+  return user.id ? hasRbacRole(user.id, roles) : false;
+};
+
 const GMFM_DIMENSIONS = [
   { code: "A", start: 1, end: 17 },
   { code: "B", start: 18, end: 37 },
@@ -246,7 +262,7 @@ class AssessmentService {
       await AssessmentService.requireServiceProvider(user);
 
     // If user is admin, allow all tools
-    const isAdmin = user && user.userType === "ADMIN";
+    const isAdmin = await isAdminLikeUser(user);
 
     // Gather all user roles (from user object and serviceProvider)
     const userRoles = new Set();
@@ -430,9 +446,8 @@ class AssessmentService {
     }
 
     const allowedProfessions = getAllowedProfessions(toolConfig);
-    // Admin users can use any tool
-    const isAdmin =
-      user && user.userType && user.userType.toUpperCase() === "ADMIN";
+    // Admin users can use any tool.
+    const isAdmin = await isAdminLikeUser(user, ["ADMIN", "TESTER"]);
     if (
       !isAdmin &&
       allowedProfessions.length > 0 &&
@@ -444,28 +459,44 @@ class AssessmentService {
       );
     }
 
-    // For admin users, use a system service provider - not tied to any specific user
+    // ClinicalAssessment.providerId must reference a real service provider.
+    // Admin accounts can bypass profession checks, but still need a valid
+    // provider record for attribution and relational integrity.
     let providerId = serviceProvider.id;
     if (isAdmin && serviceProvider.id === user.id) {
-      // Admin users don't have service provider records - use a system provider
-      let systemProvider = await prisma.serviceProvider.findFirst({
-        where: { userId: null, profession: "ADMIN" },
+      let adminProvider = await prisma.serviceProvider.findUnique({
+        where: { userId: user.id },
+        select: { id: true },
       });
 
-      if (!systemProvider) {
-        // Try to find any provider with ADMIN profession
-        systemProvider = await prisma.serviceProvider.findFirst({
-          where: { profession: "ADMIN" },
+      if (!adminProvider) {
+        adminProvider = await prisma.serviceProvider.findFirst({
+          where: {
+            verificationStatus: "VERIFIED",
+            ...(allowedProfessions.length > 0
+              ? { profession: { in: allowedProfessions } }
+              : {}),
+          },
+          orderBy: { createdAt: "asc" },
+          select: { id: true },
         });
       }
 
-      if (!systemProvider) {
+      if (!adminProvider) {
+        adminProvider = await prisma.serviceProvider.findFirst({
+          orderBy: { createdAt: "asc" },
+          select: { id: true },
+        });
+      }
+
+      if (!adminProvider) {
         throw new gcprError(
           HttpStatus.FORBIDDEN,
-          "System error: No admin service provider configured. Please contact system administrator.",
+          "No service provider profile is available to record this assessment.",
         );
       }
-      providerId = systemProvider.id;
+
+      providerId = adminProvider.id;
     }
 
     const scoring = processAssessment({
@@ -699,7 +730,7 @@ class AssessmentService {
       throw new gcprError(HttpStatus.NOT_FOUND, "Assessment not found");
     }
 
-    const isAdmin = user && user.userType === "ADMIN";
+    const isAdmin = await isAdminLikeUser(user);
     if (!isAdmin) {
       const canAccess = await AssessmentService.canProviderAccessPatient(
         serviceProvider.id,
@@ -731,7 +762,7 @@ class AssessmentService {
       await AssessmentService.requireServiceProvider(user);
     await AssessmentService.ensurePatientExists(patientId);
 
-    const isAdmin = user && user.userType === "ADMIN";
+    const isAdmin = await isAdminLikeUser(user);
     if (!isAdmin) {
       const canAccess = await AssessmentService.canProviderAccessPatient(
         serviceProvider.id,
@@ -985,7 +1016,7 @@ class AssessmentService {
       throw new gcprError(HttpStatus.NOT_FOUND, "Assessment not found");
     }
 
-    const isAdmin = user && user.userType === "ADMIN";
+    const isAdmin = await isAdminLikeUser(user);
     if (!isAdmin) {
       const canAccess = await AssessmentService.canProviderAccessPatient(
         serviceProvider.id,

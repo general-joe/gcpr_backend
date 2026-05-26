@@ -606,22 +606,6 @@ class AuthService {
       throw new gcprError(HttpStatus.UNAUTHORIZED, "Invalid credentials");
     }
 
-    const accessToken = UtilFunctions.generateAccessToken({
-      id: user.id,
-      email: user.email,
-      userType: user.userType,
-    });
-
-    const refreshToken = UtilFunctions.generateRefreshToken();
-
-    await prisma.refreshToken.create({
-      data: {
-        tokenHash: await hash(refreshToken, 10),
-        userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      },
-    });
-
     const fetchedUser = await prisma.user.findUnique({
       where: { id: user.id },
       include: {
@@ -647,6 +631,24 @@ class AuthService {
     const roles = (fetchedUser.userRoles || [])
       .filter((ur) => ur.active && ur.role && ur.role.slug)
       .map((ur) => ur.role.slug);
+
+    const accessToken = UtilFunctions.generateAccessToken({
+      id: user.id,
+      email: user.email,
+      userType: user.userType,
+      roles,
+    });
+
+    const refreshToken = UtilFunctions.generateRefreshToken();
+
+    await prisma.refreshToken.create({
+      data: {
+        tokenHash: await hash(refreshToken, 10),
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
     // Attach canonical roles array to user object for session serialization
     const userWithRoles = { ...fetchedUser, roles };
     return { accessToken, refreshToken, user: userWithRoles };
@@ -782,6 +784,7 @@ class AuthService {
       id: user.id,
       email: user.email,
       userType: user.userType,
+      roles: user.roles || [],
     });
 
     const newRefreshToken = UtilFunctions.generateRefreshToken();
