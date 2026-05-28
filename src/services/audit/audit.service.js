@@ -45,9 +45,7 @@ class AuditService {
 
     const payload = {
       ...event,
-      query: sanitizeValue(event.query),
       params: sanitizeValue(event.params),
-      body: sanitizeValue(event.body),
     };
 
     await fs.promises.mkdir(this.logDir, { recursive: true });

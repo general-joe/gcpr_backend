@@ -1,12 +1,13 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import WRITE from './logger.js';
 
 const ALLOWED_EXTENSIONS = new Set([
-    '.jpg', '.jpeg', '.png', '.gif', '.webp',  // Images
-    '.pdf',                                       // Documents
-    '.mp3', '.wav', '.m4a', '.ogg',               // Audio
-    '.mp4', '.mov', '.avi',                        // Video
+    '.jpg', '.jpeg', '.png', '.gif', '.webp',
+    '.pdf',
+    '.mp3', '.wav', '.m4a', '.ogg',
+    '.mp4', '.mov', '.avi',
 ]);
 
 const __filename = fileURLToPath(import.meta.url);
@@ -22,7 +23,6 @@ class UploadService {
             }
 
             const folderPath = path.resolve(filesBasePath, folder);
-            // Ensure directory exists
             fs.mkdirSync(folderPath, { recursive: true });
 
             const filePath = path.resolve(folderPath, filename);
@@ -30,7 +30,7 @@ class UploadService {
             const baseUrl = process.env.GCPR_API_URL
             return `${baseUrl}/${folder}/${filename}`
         } catch (error) {
-            console.log("File upload error",error)
+            WRITE.error("File upload error", { error: error.message });
             throw error
         }
     }

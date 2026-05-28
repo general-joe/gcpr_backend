@@ -27,10 +27,30 @@ dotenv.config()
 
 const app = express()
 app.set('trust proxy', 1);
+
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const isOriginAllowed = (origin) => {
+  if (!origin) return true;
+  if (allowedOrigins.length === 0) {
+    return process.env.NODE_ENV !== 'production';
+  }
+  return allowedOrigins.includes(origin);
+};
+
 const server = http.createServer(app)
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error('Not allowed by CORS'));
+    },
     methods: ["GET", "POST"]
   }
 })
@@ -85,7 +105,13 @@ const ensureGroupMembership = async (userId, groupId) => {
 
 app.use(compression())
 app.use(cors({
-    origin: true,
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error('Not allowed by CORS'));
+    },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTION',
     credentials: true,
     exposedHeaders: ['x-auth-token']
@@ -127,14 +153,12 @@ app.use((err, req, res, next) => {
     errorId,
     method: req.method,
     path: req.path,
-    query: req.query,
     userId: res.locals?.user?.id,
     ip: req.ip,
-    userAgent: req.get('user-agent'),
     timestamp: errorTimestamp,
     errorMessage: err.message,
-    errorStack: err.stack,
     errorName: err.name,
+    ...(process.env.NODE_ENV !== 'production' ? { errorStack: err.stack } : {}),
   };
 
   // Known HTTP errors (your custom errors)

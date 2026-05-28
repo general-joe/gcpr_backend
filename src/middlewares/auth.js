@@ -1,6 +1,7 @@
 import UtilFunctions from "../utils/UtilFunctions.js";
 import HttpStatus from "../utils/http-status.js";
 import prisma from "../config/database.js";
+import WRITE from "../utils/logger.js";
 
 import jwt from "jsonwebtoken";
 import ResponseCodes from "../utils/responseCodes.js";
@@ -16,10 +17,8 @@ export function Auth(rq, rs, next) {
   }
 
   try {
-    const decoded = jwt.verify(
-      token.toString().substring(6).trim(),
-      process.env.JWT,
-    );
+    const tokenString = token.startsWith("Bearer ") ? token.substring(7).trim() : token;
+    const decoded = jwt.verify(tokenString, process.env.JWT);
     const userType = decoded.userType || "guest";
     const is_guest = userType === "guest";
     const roles = decoded.roles || [];
@@ -77,7 +76,7 @@ export function authorize(allowedUserTypes = []) {
       );
     }
 
-    const token = authHeader.split(" ")[1];
+    const token = authHeader.substring(7);
 
     try {
       const decoded = jwt.verify(token, process.env.JWT);
@@ -91,12 +90,12 @@ export function authorize(allowedUserTypes = []) {
         throw new Error("Invalid token payload");
       }
 
-      // Always allow users with the 'admin' role
+      // Always allow users with the ADMIN RBAC role (case-insensitive)
       const isAdmin = await prisma.userRole.findFirst({
         where: {
           userId: decoded.id,
           active: true,
-          role: { slug: 'admin' },
+          role: { slug: { equals: "ADMIN", mode: "insensitive" } },
           OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
       });
@@ -179,7 +178,7 @@ export function authorizeOrRbacRole(
       );
     }
 
-    const token = authHeader.split(" ")[1];
+    const token = authHeader.substring(7);
 
     try {
       const decoded = jwt.verify(token, process.env.JWT);
@@ -193,12 +192,12 @@ export function authorizeOrRbacRole(
         throw new Error("Invalid token payload");
       }
 
-      // Always allow users with the 'admin' role
+      // Always allow users with the ADMIN RBAC role (case-insensitive)
       const isAdmin = await prisma.userRole.findFirst({
         where: {
           userId: decoded.id,
           active: true,
-          role: { slug: 'admin' },
+          role: { slug: { equals: "ADMIN", mode: "insensitive" } },
           OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
       });
@@ -266,7 +265,7 @@ export function requireRbacRole(allowedSlugs = []) {
       );
     }
 
-    const token = authHeader.split(" ")[1];
+    const token = authHeader.substring(7);
 
     try {
       const decoded = jwt.verify(token, process.env.JWT);
@@ -275,12 +274,12 @@ export function requireRbacRole(allowedSlugs = []) {
         throw new Error("Invalid token payload");
       }
 
-      // Always allow users with the 'admin' role
+      // Always allow users with the ADMIN RBAC role (case-insensitive)
       const isAdmin = await prisma.userRole.findFirst({
         where: {
           userId: decoded.id,
           active: true,
-          role: { slug: 'admin' },
+          role: { slug: { equals: "ADMIN", mode: "insensitive" } },
           OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
       });
@@ -361,7 +360,7 @@ export function requirePermission(permissionCode) {
       );
     }
 
-    const token = authHeader.split(" ")[1];
+    const token = authHeader.substring(7);
 
     try {
       const decoded = jwt.verify(token, process.env.JWT);
@@ -370,12 +369,12 @@ export function requirePermission(permissionCode) {
         throw new Error("Invalid token payload");
       }
 
-      // Always allow users with the 'admin' role
+      // Always allow users with the ADMIN RBAC role (case-insensitive)
       const isAdmin = await prisma.userRole.findFirst({
         where: {
           userId: decoded.id,
           active: true,
-          role: { slug: 'admin' },
+          role: { slug: { equals: "ADMIN", mode: "insensitive" } },
           OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
       });
