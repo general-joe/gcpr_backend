@@ -27,7 +27,7 @@ import supportRouter, { adminSupportRouter } from "../modules/support/support.ro
 import faqRouter, { adminFaqRouter } from "../modules/support/faq.route.js";
 import rbacRouter, { rbacCheckRouter } from "../modules/admin/rbac.route.js";
 import settingsRouter from "../modules/settings/settings.route.js";
-
+import analyticsRouter from "../modules/analytics/analytics.route.js";
 
 router.use("/auth", authRouter);
 router.use("/service-provider", serviceProviderRouter);
@@ -60,6 +60,6 @@ router.use("/admin/faq", adminFaqRouter);
 router.use("/admin/rbac", rbacRouter);
 router.use("/rbac", rbacCheckRouter);
 router.use("/settings", settingsRouter);
-
+router.use("/analytics", analyticsRouter);
 
 export default router;
