@@ -27,6 +27,7 @@ import '../modules/assessment/outcomes.swagger.js';
 import '../modules/assessment/adherence.swagger.js';
 import '../modules/admin/admin.swagger.js';
 import '../modules/admin/rbac.swagger.js';
+import '../modules/analytics/analytics.swagger.js';
 
 const getServerUrls = () => {
 	return [
