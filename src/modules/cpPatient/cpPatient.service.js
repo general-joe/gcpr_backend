@@ -1,6 +1,7 @@
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
 import NotificationService from "../notification/notification.service.js";
+import { hasRbacRole } from "../../middlewares/auth.js";
 
 class CpPatientService {
   static async requireCaregiver(userId) {
@@ -128,34 +129,117 @@ class CpPatientService {
   }
 
   static async fetchPatients(userId, page = 1, limit = 10) {
-    const caregiver = await CpPatientService.requireCaregiver(userId);
-    const skip = (page - 1) * limit;
+    if (!userId) {
+      throw new gcprError(HttpStatus.UNAUTHORIZED, "Unauthorized request");
+    }
 
-    const [patients, total] = await Promise.all([
-      prisma.cpPatient.findMany({
-        where: {
-          caregiverId: caregiver.id,
-        },
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: limit,
-      }),
-      prisma.cpPatient.count({
-        where: {
-          caregiverId: caregiver.id,
-        },
-      }),
-    ]);
+    const caregiver = await prisma.careGiver.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
 
-    return {
-      data: patients,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+    if (caregiver) {
+      const skip = (page - 1) * limit;
+      const [patients, total] = await Promise.all([
+        prisma.cpPatient.findMany({
+          where: { caregiverId: caregiver.id },
+          orderBy: { createdAt: "desc" },
+          skip,
+          take: limit,
+        }),
+        prisma.cpPatient.count({
+          where: { caregiverId: caregiver.id },
+        }),
+      ]);
+
+      return {
+        data: patients,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    }
+
+    const serviceProvider = await prisma.serviceProvider.findUnique({
+      where: { userId },
+      include: { user: { select: { userType: true } } },
+    });
+
+    if (serviceProvider) {
+      const adminRoleCheck = await hasRbacRole(userId, ["ADMIN"]);
+      const isPhysiotherapist = serviceProvider.profession === "PHYSIOTHERAPIST";
+
+      if (adminRoleCheck || isPhysiotherapist) {
+        const skip = (page - 1) * limit;
+        const [patients, total] = await Promise.all([
+          prisma.cpPatient.findMany({
+            orderBy: { createdAt: "desc" },
+            skip,
+            take: limit,
+          }),
+          prisma.cpPatient.count(),
+        ]);
+
+        return {
+          data: patients,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+          },
+        };
+      }
+
+      const referredPatientIds = await prisma.clinicalReferral.findMany({
+        where: {
+          OR: [
+            { fromProviderId: serviceProvider.id },
+            { toProviderId: serviceProvider.id },
+          ],
+        },
+        select: { patientId: true },
+        distinct: ["patientId"],
+      });
+
+      const taskPatientIds = await prisma.rehabTask.findMany({
+        where: { providerId: serviceProvider.id },
+        select: { patientId: true },
+        distinct: ["patientId"],
+      });
+
+      const accessiblePatientIds = new Set([
+        ...referredPatientIds.map((r) => r.patientId),
+        ...taskPatientIds.map((t) => t.patientId),
+      ]);
+
+      const patientList = accessiblePatientIds.size === 0
+        ? []
+        : await prisma.cpPatient.findMany({
+            where: { id: { in: [...accessiblePatientIds] } },
+            orderBy: { createdAt: "desc" },
+            skip: (page - 1) * limit,
+            take: limit,
+          });
+
+      return {
+        data: patientList,
+        pagination: {
+          page,
+          limit,
+          total: patientList.length,
+          totalPages: Math.ceil(patientList.length / limit),
+        },
+      };
+    }
+
+    throw new gcprError(
+      HttpStatus.NOT_FOUND,
+      "You do not have a caregiver or service provider profile",
+    );
   }
 
   static async getAssignedTasks(userId, patientId) {

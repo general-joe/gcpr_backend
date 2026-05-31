@@ -574,13 +574,26 @@ class AssessmentService {
   static async createReferral(user, data) {
     const serviceProvider =
       await AssessmentService.requireVerifiedServiceProvider(user);
-    await AssessmentService.ensurePatientExists(data.patientId);
 
-    if (serviceProvider.profession !== "PHYSIOTHERAPIST") {
+    const isAdminLike = await isAdminLikeUser(user, ["ADMIN", "TESTER"]);
+
+    if (!isAdminLike && serviceProvider.profession !== "PHYSIOTHERAPIST") {
       throw new gcprError(
         HttpStatus.FORBIDDEN,
         "Only physiotherapists can create referrals",
       );
+    }
+
+    let fromProviderId = serviceProvider.id;
+
+    if (isAdminLike) {
+      const realProvider = await prisma.serviceProvider.findUnique({
+        where: { userId: user.id },
+        select: { id: true },
+      });
+      if (realProvider) {
+        fromProviderId = realProvider.id;
+      }
     }
 
     if (data.toProviderId) {
@@ -627,7 +640,9 @@ class AssessmentService {
         );
       }
 
-      if (assessment.providerId !== serviceProvider.id) {
+      const isAdminLike = await isAdminLikeUser(user, ["ADMIN", "TESTER"]);
+
+      if (!isAdminLike && assessment.providerId !== serviceProvider.id) {
         throw new gcprError(
           HttpStatus.FORBIDDEN,
           "Only the assessment owner can attach referral to this assessment",
@@ -641,7 +656,7 @@ class AssessmentService {
         );
       }
 
-      if (assessment.referralId) {
+      if (assessment.referralId && assessment.status !== "REJECTED") {
         throw new gcprError(
           HttpStatus.UNPROCESSABLE_ENTITY,
           "A referral is already linked to this assessment",
@@ -653,7 +668,7 @@ class AssessmentService {
       const createdReferral = await tx.clinicalReferral.create({
         data: {
           patientId: data.patientId,
-          fromProviderId: serviceProvider.id,
+          fromProviderId,
           toProviderId: data.toProviderId ?? null,
           toProfession: data.toProfession,
           reason: data.reason,
@@ -900,15 +915,28 @@ class AssessmentService {
       throw new gcprError(HttpStatus.NOT_FOUND, "Referral not found");
     }
 
+    const isAdminLike = await isAdminLikeUser(user, ["ADMIN", "TESTER"]);
+
+    let effectiveProviderId = serviceProvider.id;
+    if (isAdminLike) {
+      const realProvider = await prisma.serviceProvider.findUnique({
+        where: { userId: user.id },
+        select: { id: true },
+      });
+      if (realProvider) effectiveProviderId = realProvider.id;
+    }
+
     const isTargetProvider =
-      referral.toProviderId === serviceProvider.id ||
+      referral.toProviderId === effectiveProviderId ||
       (referral.toProviderId === null &&
         referral.toProfession === serviceProvider.profession);
 
-    if (!isTargetProvider) {
+    const isSenderProvider = referral.fromProviderId === effectiveProviderId;
+
+    if (!isTargetProvider && !isSenderProvider) {
       throw new gcprError(
         HttpStatus.FORBIDDEN,
-        "Only the target provider can update this referral",
+        "Only the target provider or referring provider can update this referral",
       );
     }
 

@@ -8,8 +8,7 @@ import {
 } from "./serviceProvider.validator.js";
 import { serviceProviderAvailabilitySchema } from "./serviceProvider.validator.js";
 import upload from "../../middlewares/upload.js";
-import { authorize, requireRbacRole } from "../../middlewares/auth.js";
-
+import { authorize, authorizeOrRbacRole, requireRbacRole } from "../../middlewares/auth.js";
 const serviceProviderRouter = express.Router();
 
 const authRateLimiter = rateLimit({
