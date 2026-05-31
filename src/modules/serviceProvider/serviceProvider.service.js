@@ -65,7 +65,7 @@ export class ServiceProviderService {
     if (!_.isEmpty(rq.files)) {
       if (_.has(rq.files, "licenseImage")) {
         const fileName = `${serviceProviderData.userId}.jpg`;
-        console.log(fileName);
+        WRITE.debug("License image upload", { fileName });
         serviceProviderData.licenseImage = await UploadService.saveFile(
           rq.files.licenseImage[0].buffer,
           fileName,
@@ -118,7 +118,7 @@ export class ServiceProviderService {
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       });
     } catch (e) {
-      console.error("[Notification] Service provider profile completion notification failed:", e.message);
+      WRITE.error("[Notification] Service provider profile completion notification failed", { error: e.message });
     }
 
     return completeProfile;
@@ -322,7 +322,7 @@ export class ServiceProviderService {
           expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         });
       } catch (e) {
-        console.error("[Notification] Service provider profile update notification failed:", e.message);
+        WRITE.error("[Notification] Service provider profile update notification failed", { error: e.message });
       }
     }
 
@@ -376,7 +376,7 @@ export class ServiceProviderService {
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
         });
       } catch (e) {
-        console.error("[Notification] Service provider profile deletion notification failed:", e.message);
+        WRITE.error("[Notification] Service provider profile deletion notification failed", { error: e.message });
       }
     }
 
@@ -417,12 +417,9 @@ export class ServiceProviderService {
         relatedModel: "ServiceProvider",
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       });
-    } catch (e) {
-      console.error(
-        "[Notification] SP verification notification failed:",
-        e.message
-      );
-    }
+} catch (e) {
+        WRITE.error("[Notification] SP verification notification failed", { error: e.message });
+      }
 
     const io = getIO();
     if (io) {
@@ -471,12 +468,9 @@ export class ServiceProviderService {
         relatedModel: "ServiceProvider",
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       });
-    } catch (e) {
-      console.error(
-        "[Notification] SP rejection notification failed:",
-        e.message
-      );
-    }
+} catch (e) {
+        WRITE.error("[Notification] SP rejection notification failed", { error: e.message });
+      }
 
     const io = getIO();
     if (io) {
@@ -519,9 +513,9 @@ export class ServiceProviderService {
         relatedModel: "ServiceProvider",
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       });
-    } catch (e) {
-      console.error("[Notification] SP suspension notification failed:", e.message);
-    }
+} catch (e) {
+        WRITE.error("[Notification] SP suspension notification failed", { error: e.message });
+      }
 
     return updated;
   }

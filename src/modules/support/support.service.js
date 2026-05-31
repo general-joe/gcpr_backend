@@ -1,6 +1,7 @@
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
 import NotificationService from "../notification/notification.service.js";
+import WRITE from "../../utils/logger.js";
 
 async function generateTicketNumber(tx) {
   const count = await tx.supportTicket.count();
@@ -40,7 +41,7 @@ export default class SupportService {
         relatedModel: "SupportTicket"
       });
     } catch (e) {
-      console.error("[Support] User confirmation notification failed:", e.message);
+      WRITE.error("[Support] User confirmation notification failed", { error: e.message });
     }
 
     // Notify all admins of new ticket
@@ -64,7 +65,7 @@ export default class SupportService {
         });
       }
     } catch (e) {
-      console.error("[Support] Admin notification failed:", e.message);
+      WRITE.error("[Support] Admin notification failed", { error: e.message });
     }
 
     return ticket;
@@ -161,7 +162,7 @@ export default class SupportService {
         });
       }
     } catch (e) {
-      console.error("[Support] Admin reply notification failed:", e.message);
+      WRITE.error("[Support] Admin reply notification failed", { error: e.message });
     }
 
     return message;
@@ -274,7 +275,7 @@ export default class SupportService {
         relatedModel: "SupportTicket"
       });
     } catch (e) {
-      console.error("[Support] User reply notification failed:", e.message);
+      WRITE.error("[Support] User reply notification failed", { error: e.message });
     }
 
     return message;

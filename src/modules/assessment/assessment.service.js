@@ -801,11 +801,17 @@ class AssessmentService {
   }
 
   static async getIncomingReferrals(user) {
-    const serviceProvider =
-      await AssessmentService.requireServiceProvider(user);
-
-    const referrals = await prisma.clinicalReferral.findMany({
-      where: {
+    // Check if user is admin (can view all referrals)
+    const isAdmin = await isAdminLikeUser(user, ["ADMIN", "TESTER"]);
+    
+    let whereCondition;
+    if (isAdmin) {
+      // Admin users can see all incoming referrals (where toProvider is set or profession is targeted)
+      whereCondition = {};
+    } else {
+      const serviceProvider =
+        await AssessmentService.requireServiceProvider(user);
+      whereCondition = {
         OR: [
           { toProviderId: serviceProvider.id },
           {
@@ -813,7 +819,11 @@ class AssessmentService {
             toProfession: serviceProvider.profession,
           },
         ],
-      },
+      };
+    }
+
+    const referrals = await prisma.clinicalReferral.findMany({
+      where: whereCondition,
       include: {
         patient: {
           select: { id: true, fullName: true },
@@ -839,11 +849,21 @@ class AssessmentService {
   }
 
   static async getOutgoingReferrals(user) {
-    const serviceProvider =
-      await AssessmentService.requireServiceProvider(user);
+    // Check if user is admin (can view all referrals)
+    const isAdmin = await isAdminLikeUser(user, ["ADMIN", "TESTER"]);
+    
+    let whereCondition;
+    if (isAdmin) {
+      // Admin users can see all outgoing referrals
+      whereCondition = {};
+    } else {
+      const serviceProvider =
+        await AssessmentService.requireServiceProvider(user);
+      whereCondition = { fromProviderId: serviceProvider.id };
+    }
 
     const referrals = await prisma.clinicalReferral.findMany({
-      where: { fromProviderId: serviceProvider.id },
+      where: whereCondition,
       include: {
         patient: {
           select: { id: true, fullName: true },

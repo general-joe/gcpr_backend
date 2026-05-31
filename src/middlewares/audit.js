@@ -45,9 +45,7 @@ export function auditRequest() {
         ipAddress: req.ip,
         userAgent: req.get("user-agent") || null,
         eventType: ["GET", "HEAD"].includes(req.method) ? "ACCESS" : "MUTATION",
-        query: req.query,
         params: req.params,
-        body: req.body,
       };
 
       auditService.write(event).catch((error) => {

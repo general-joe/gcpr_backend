@@ -70,7 +70,7 @@ import _ from "lodash";
           expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         });
       } catch (e) {
-        console.error("[Notification] Caregiver profile completion notification failed:", e.message);
+        WRITE.error("[Notification] Caregiver profile completion notification failed", { error: e.message });
       }
     }
 
@@ -256,7 +256,7 @@ import _ from "lodash";
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
         });
       } catch (e) {
-        console.error("[Notification] Caregiver profile deletion notification failed:", e.message);
+        WRITE.error("[Notification] Caregiver profile deletion notification failed", { error: e.message });
       }
     }
 
@@ -293,7 +293,7 @@ import _ from "lodash";
           expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         });
       } catch (e) {
-        console.error("[Notification] Caregiver profile update notification failed:", e.message);
+        WRITE.error("[Notification] Caregiver profile update notification failed", { error: e.message });
       }
     }
 
