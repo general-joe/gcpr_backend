@@ -5,58 +5,39 @@ import prisma from "../../config/database.js";
 import upload from "../../middlewares/upload.js";
 import UploadService from "../../utils/uploadService.js";
 import path from "path";
-import { fileURLToPath } from "url";
-import fs from "fs";
 
 const resourceRouter = express.Router();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const resourcesBasePath = path.resolve(__dirname, "../..", "src", "files");
-const pdfBucket = "pdfs";
+const documentBucket = "pdfs";
 
 const allowedFileTypes = new Set([
   "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/jpeg",
+  "image/png",
   "video/mp4",
   "video/webm",
   "video/quicktime",
 ]);
 
-const allowedPdfTypes = new Set(["application/pdf"]);
-
 const getFileBucket = (type) => {
-  switch (type.toLowerCase()) {
-    case "video":
+  switch (type.toUpperCase()) {
+    case "VIDEO":
       return "videos";
-    case "document":
-    case "pdf":
+    case "DOCUMENT":
     default:
-      return pdfBucket;
+      return documentBucket;
   }
 };
 
-const uploadNone = upload.fields([{ name: "file", maxCount: 1 }]);
-
-const sendProtectedFile = (res, bucket, fileName) => {
-  const filePath = path.resolve(resourcesBasePath, bucket, fileName);
-  const expectedDir = path.resolve(resourcesBasePath, bucket);
-
-  if (!filePath.startsWith(expectedDir)) {
-    return UtilFunctions.outputError(res, "Invalid file path", {}, "FORBIDDEN", 403);
-  }
-
-  if (!fs.existsSync(filePath)) {
-    return UtilFunctions.outputError(res, "File not found", {}, "NOT_FOUND", 404);
-  }
-
-  return res.sendFile(filePath);
-};
+const uploadFile = upload.fields([{ name: "file", maxCount: 1 }]);
 
 // Upload resource (Service Provider only, or ADMIN with role)
 resourceRouter.post(
   "/",
   authorize(["SERVICE_PROVIDER", "ADMIN"]),
-  uploadNone,
+  uploadFile,
   async (req, res) => {
     const file = req.files?.file?.[0];
     
@@ -72,32 +53,56 @@ resourceRouter.post(
       );
     }
 
-    const resourceType = (body?.type || "document").toLowerCase();
+    const resourceType = (body?.type || "DOCUMENT").toUpperCase();
+    if (!["DOCUMENT", "VIDEO", "LINK"].includes(resourceType)) {
+      return UtilFunctions.outputError(
+        res,
+        "Invalid resource type. Must be DOCUMENT, VIDEO, or LINK",
+        {},
+        "BAD_REQUEST",
+        400
+      );
+    }
 
-    // If file is provided, validate it based on type
-    if (file) {
+    let fileUrl = null;
+    
+    // Process based on type
+    if (resourceType === "LINK") {
+      fileUrl = body?.resourceUrl || body?.link;
+      if (!fileUrl) {
+        return UtilFunctions.outputError(
+          res,
+          "resourceUrl is required for LINK type",
+          {},
+          "BAD_REQUEST",
+          400
+        );
+      }
+    } else {
+      if (!file) {
+        return UtilFunctions.outputError(
+          res,
+          "File is required for DOCUMENT and VIDEO types",
+          {},
+          "BAD_REQUEST",
+          400
+        );
+      }
+
       if (!allowedFileTypes.has(file.mimetype)) {
         return UtilFunctions.outputError(
           res,
-          `Unsupported file type. Allowed types: PDF, video`,
+          `Unsupported file type. Allowed types: PDF, Word, Images, video`,
           {},
           "UNPROCESSABLE_ENTITY",
           422
         );
       }
-    }
 
-    let fileUrl = null;
-    const bucket = getFileBucket(resourceType);
-    
-    // Process file if provided
-    if (file) {
+      const bucket = getFileBucket(resourceType);
       const safeName = `${Date.now()}-${Math.random()
         .toString(36)
-        .slice(2, 10)}${path.extname(file.originalname) || ".pdf"}`;
-
-      // Ensure resources directory exists
-      fs.mkdirSync(path.resolve(resourcesBasePath, bucket), { recursive: true });
+        .slice(2, 10)}${path.extname(file.originalname) || (resourceType === "VIDEO" ? ".mp4" : ".pdf")}`;
 
       // Save file to storage
       fileUrl = await UploadService.saveFile(file.buffer, safeName, bucket);
@@ -122,11 +127,12 @@ resourceRouter.post(
     }
 
     // Create resource record in database
-    const resource = await prisma.pdfResource.create({
+    const resource = await prisma.resource.create({
       data: {
         title: resourceTitle,
         description: body?.description || null,
-        pdfFile: fileUrl ? [fileUrl] : [],
+        type: resourceType,
+        resourceUrl: fileUrl,
         ...(serviceProvider && { serviceProviderId: serviceProvider.id }),
       },
     });
@@ -134,17 +140,17 @@ resourceRouter.post(
     return UtilFunctions.outputSuccess(
       res,
       { ...resource, name: resource.title },
-      `${resourceType.charAt(0).toUpperCase() + resourceType.slice(1)} resource uploaded successfully`
+      `${resourceType.charAt(0).toUpperCase() + resourceType.slice(1).toLowerCase()} resource uploaded successfully`
     );
   }
 );
 
-// Get all PDF resources (Service Provider, Caregiver, and ADMIN with appropriate role)
+// Get all resources (Service Provider, Caregiver, and ADMIN with appropriate role)
 resourceRouter.get(
   "/",
   authorize(["SERVICE_PROVIDER", "CAREGIVER", "ADMIN"]),
   async (req, res) => {
-    const pdfResources = await prisma.pdfResource.findMany({
+    const resourcesList = await prisma.resource.findMany({
       include: {
         serviceProvider: {
           select: {
@@ -163,7 +169,7 @@ resourceRouter.get(
       }
     });
 
-    const resources = pdfResources.map(r => ({
+    const resources = resourcesList.map(r => ({
       ...r,
       name: r.title,
     }));
@@ -171,19 +177,19 @@ resourceRouter.get(
     return UtilFunctions.outputSuccess(
       res,
       resources,
-      "PDF resources retrieved successfully"
+      "Resources retrieved successfully"
     );
   }
 );
 
-// Get specific PDF resource by ID
+// Get specific resource by ID
 resourceRouter.get(
   "/:id",
   authorize(["SERVICE_PROVIDER", "CAREGIVER", "ADMIN"]),
   async (req, res) => {
     const { id } = req.params;
     
-    const pdfResource = await prisma.pdfResource.findUnique({
+    const resource = await prisma.resource.findUnique({
       where: { id },
       include: {
         serviceProvider: {
@@ -200,10 +206,10 @@ resourceRouter.get(
       }
     });
 
-    if (!pdfResource) {
+    if (!resource) {
       return UtilFunctions.outputError(
         res,
-        "PDF resource not found",
+        "Resource not found",
         {},
         "NOT_FOUND",
         404
@@ -212,63 +218,68 @@ resourceRouter.get(
 
     return UtilFunctions.outputSuccess(
       res,
-      { ...pdfResource, name: pdfResource.title },
-      "PDF resource retrieved successfully"
+      { ...resource, name: resource.title },
+      "Resource retrieved successfully"
     );
   }
 );
 
-// Download PDF file (Caregiver, Service Provider, and ADMIN)
+// Download resource file (Caregiver, Service Provider, and ADMIN)
 resourceRouter.get(
   "/:id/download",
   authorize(["SERVICE_PROVIDER", "CAREGIVER", "ADMIN"]),
   async (req, res) => {
     const { id } = req.params;
     
-    const pdfResource = await prisma.pdfResource.findUnique({
+    const resource = await prisma.resource.findUnique({
       where: { id }
     });
 
-    if (!pdfResource) {
+    if (!resource) {
       return UtilFunctions.outputError(
         res,
-        "PDF resource not found",
+        "Resource not found",
         {},
         "NOT_FOUND",
         404
       );
     }
 
-    // Return the first PDF file URL (assuming single file per resource for simplicity)
-    if (!pdfResource.pdfFile || pdfResource.pdfFile.length === 0) {
+    if (resource.type === "LINK") {
       return UtilFunctions.outputError(
         res,
-        "No PDF file associated with this resource",
+        "External links cannot be downloaded",
+        {},
+        "BAD_REQUEST",
+        400
+      );
+    }
+
+    if (!resource.resourceUrl) {
+      return UtilFunctions.outputError(
+        res,
+        "No file associated with this resource",
         {},
         "NOT_FOUND",
         404
       );
     }
 
-    const fileUrl = pdfResource.pdfFile[0];
-    // Extract filename from URL for serving
-    const fileName = path.basename(fileUrl);
-    
-    return sendProtectedFile(res, pdfBucket, fileName);
+    return res.redirect(302, resource.resourceUrl);
   }
 );
 
-// Update PDF resource (Service Provider only - owner only, or ADMIN with role)
+// Update resource (Service Provider only - owner only, or ADMIN with role)
 resourceRouter.put(
   "/:id",
   authorize(["SERVICE_PROVIDER", "ADMIN"]),
-  upload.single("pdfFile"),
+  upload.single("file"),
   async (req, res) => {
     const { id } = req.params;
     const body = req.body || {};
     const resourceTitle = body.title || body.name;
     
-    const existingResource = await prisma.pdfResource.findUnique({
+    const existingResource = await prisma.resource.findUnique({
       where: { id },
       include: {
         serviceProvider: true
@@ -278,7 +289,7 @@ resourceRouter.put(
     if (!existingResource) {
       return UtilFunctions.outputError(
         res,
-        "PDF resource not found",
+        "Resource not found",
         {},
         "NOT_FOUND",
         404
@@ -291,7 +302,7 @@ resourceRouter.put(
     if (isServiceProvider && !isOwner) {
       return UtilFunctions.outputError(
         res,
-        "You can only update your own PDF resources",
+        "You can only update your own resources",
         {},
         "FORBIDDEN",
         403
@@ -303,33 +314,48 @@ resourceRouter.put(
       description: body.description !== undefined ? body.description : existingResource.description,
     };
 
-    // Handle file update if provided
-    if (req.file) {
-      const file = req.file;
-      if (!allowedPdfTypes.has(file.mimetype)) {
+    // If changing type or updating file
+    if (body.type) {
+      const newType = body.type.toUpperCase();
+      if (!["DOCUMENT", "VIDEO", "LINK"].includes(newType)) {
         return UtilFunctions.outputError(
           res,
-          "Unsupported file type. Only PDF files are allowed",
+          "Invalid resource type. Must be DOCUMENT, VIDEO, or LINK",
+          {},
+          "BAD_REQUEST",
+          400
+        );
+      }
+      updateData.type = newType;
+    }
+    const currentType = updateData.type || existingResource.type;
+
+    if (currentType === "LINK" && body.resourceUrl) {
+       updateData.resourceUrl = body.resourceUrl;
+    } else if (req.file && currentType !== "LINK") {
+      const file = req.file;
+      if (!allowedFileTypes.has(file.mimetype)) {
+        return UtilFunctions.outputError(
+          res,
+          "Unsupported file type",
           {},
           "UNPROCESSABLE_ENTITY",
           422
         );
       }
 
+      const bucket = getFileBucket(currentType);
       const safeName = `${Date.now()}-${Math.random()
         .toString(36)
-        .slice(2, 10)}${path.extname(file.originalname) || ".pdf"}`;
-
-      // Ensure resources directory exists
-      fs.mkdirSync(path.resolve(resourcesBasePath, pdfBucket), { recursive: true });
+        .slice(2, 10)}${path.extname(file.originalname) || (currentType === "VIDEO" ? ".mp4" : ".pdf")}`;
 
       // Save new file
-      const fileUrl = await UploadService.saveFile(file.buffer, safeName, pdfBucket);
-      updateData.pdfFile = [fileUrl];
+      const fileUrl = await UploadService.saveFile(file.buffer, safeName, bucket);
+      updateData.resourceUrl = fileUrl;
     }
 
     // Update resource
-    const updatedResource = await prisma.pdfResource.update({
+    const updatedResource = await prisma.resource.update({
       where: { id },
       data: updateData,
       include: {
@@ -350,12 +376,12 @@ resourceRouter.put(
     return UtilFunctions.outputSuccess(
       res,
       { ...updatedResource, name: updatedResource.title },
-      "PDF resource updated successfully"
+      "Resource updated successfully"
     );
   }
 );
 
-// Delete PDF resource (Service Provider only - owner only, or ADMIN with role)
+// Delete resource (Service Provider only - owner only, or ADMIN with role)
 resourceRouter.delete(
   "/:id",
   authorize(["SERVICE_PROVIDER", "ADMIN"]),
@@ -363,7 +389,7 @@ resourceRouter.delete(
     const { id } = req.params;
     
     // Check if resource exists and belongs to the service provider
-    const existingResource = await prisma.pdfResource.findUnique({
+    const existingResource = await prisma.resource.findUnique({
       where: { id },
       include: {
         serviceProvider: true
@@ -373,7 +399,7 @@ resourceRouter.delete(
     if (!existingResource) {
       return UtilFunctions.outputError(
         res,
-        "PDF resource not found",
+        "Resource not found",
         {},
         "NOT_FOUND",
         404
@@ -386,7 +412,7 @@ resourceRouter.delete(
     if (isServiceProvider && !isOwner) {
       return UtilFunctions.outputError(
         res,
-        "You can only delete your own PDF resources",
+        "You can only delete your own resources",
         {},
         "FORBIDDEN",
         403
@@ -394,14 +420,14 @@ resourceRouter.delete(
     }
 
     // Delete resource
-    await prisma.pdfResource.delete({
+    await prisma.resource.delete({
       where: { id }
     });
 
     return UtilFunctions.outputSuccess(
       res,
       {},
-      "PDF resource deleted successfully"
+      "Resource deleted successfully"
     );
   }
 );
