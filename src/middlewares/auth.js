@@ -201,19 +201,20 @@ export function authorizeOrRbacRole(
           OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
       });
-      if (
-        allowedUserTypes.includes(decoded.userType) ||
-        (await hasRbacRole(decoded.id, allowedRoleSlugs)) ||
-        isAdmin
-      ) {
-        rs.locals.user = {
-          id: decoded.id,
-          userType: decoded.userType,
-          client,
-          is_guest: false,
-        };
-        return next();
-      }
+if (
+         allowedUserTypes.includes(decoded.userType) ||
+         (await hasRbacRole(decoded.id, allowedRoleSlugs)) ||
+         isAdmin
+       ) {
+         rs.locals.user = {
+           id: decoded.id,
+           userType: decoded.userType,
+           client,
+           is_guest: false,
+           roles: decoded.roles || [],
+         };
+         return next();
+       }
 
       WRITE.warn("Insufficient user type or role", {
         userId: decoded.id,
@@ -274,31 +275,32 @@ export function requireRbacRole(allowedSlugs = []) {
         throw new Error("Invalid token payload");
       }
 
-      // Always allow users with the ADMIN RBAC role (case-insensitive)
-      const isAdmin = await prisma.userRole.findFirst({
-        where: {
-          userId: decoded.id,
-          active: true,
-          role: { slug: { equals: "ADMIN", mode: "insensitive" } },
-          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-        },
-      });
-      if (isAdmin) {
-        rs.locals.user = {
-          id: decoded.id,
-          userType: decoded.userType,
-          client,
-          is_guest: false,
-        };
-        return next();
-      }
+// Always allow users with the ADMIN RBAC role (case-insensitive)
+       const isAdmin = await prisma.userRole.findFirst({
+         where: {
+           userId: decoded.id,
+           active: true,
+           role: { slug: { equals: "ADMIN", mode: "insensitive" } },
+           OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+         },
+       });
+       if (isAdmin) {
+         rs.locals.user = {
+           id: decoded.id,
+           userType: decoded.userType,
+           client,
+           is_guest: false,
+           roles: decoded.roles || [],
+         };
+         return next();
+       }
 
-      // Check RBAC UserRole table for any of the required slugs
-      const match = await prisma.userRole.findFirst({
-        where: {
-          userId: decoded.id,
-          active: true,
-          role: { slug: { in: allowedSlugs } },
+       // Check RBAC UserRole table for any of the required slugs
+       const match = await prisma.userRole.findFirst({
+         where: {
+           userId: decoded.id,
+           active: true,
+           role: { slug: { in: allowedSlugs } },
           OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
       });
@@ -311,27 +313,28 @@ export function requireRbacRole(allowedSlugs = []) {
           path: rq.path,
           timestamp: new Date().toISOString(),
         });
-        return UtilFunctions.outputError(
-          rs,
-          "You do not have the required role to access this resource",
-          {},
-          ResponseCodes.FORBIDDEN,
-          HttpStatus.FORBIDDEN,
-        );
-      }
+return UtilFunctions.outputError(
+           rs,
+           "You do not have the required role to access this resource",
+           {},
+           ResponseCodes.FORBIDDEN,
+           HttpStatus.FORBIDDEN,
+         );
+       }
 
-      rs.locals.user = {
-        id: decoded.id,
-        userType: decoded.userType,
-        client,
-        is_guest: false,
-      };
+       rs.locals.user = {
+         id: decoded.id,
+         userType: decoded.userType,
+         client,
+         is_guest: false,
+         roles: decoded.roles || [],
+       };
 
-      return next();
-    } catch (err) {
-      return UtilFunctions.outputError(
-        rs,
-        "Invalid or expired token",
+       return next();
+     } catch (err) {
+       return UtilFunctions.outputError(
+         rs,
+         "Invalid or expired token",
         {},
         ResponseCodes.INVALID_TOKEN,
         HttpStatus.UNAUTHORIZED,
@@ -454,14 +457,15 @@ export function requirePermission(permissionCode) {
           HttpStatus.FORBIDDEN,
         );
       }
+rs.locals.user = {
+         id: decoded.id,
+         userType: decoded.userType,
+         client,
+         is_guest: false,
+         roles: decoded.roles || [],
+       };
 
-      rs.locals.user = {
-        id: decoded.id,
-        userType: decoded.userType,
-        client,
-        is_guest: false,
-      };
-      return next();
+       return next();
     } catch (err) {
       return UtilFunctions.outputError(
         rs,
