@@ -1,39 +1,88 @@
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
+import path from 'path';
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
+// Your existing allowed extensions
 const ALLOWED_EXTENSIONS = new Set([
     '.jpg', '.jpeg', '.png', '.gif', '.webp',  // Images
-    '.pdf',                                       // Documents
-    '.mp3', '.wav', '.m4a', '.ogg',               // Audio
-    '.mp4', '.mov', '.avi',                        // Video
+    '.pdf',                                    // Documents
+    '.mp3', '.wav', '.m4a', '.ogg',            // Audio
+    '.mp4', '.mov', '.avi',                    // Video
 ]);
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const filesBasePath = path.resolve(__dirname, "../files");
+// Initialize the S3 Client pointed at Cloudflare R2
+const s3Client = new S3Client({
+    region: "auto",
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    },
+});
 
 class UploadService {
-    static async saveFile (buffer, filename, folder) {
+    /**
+     * Uploads a file buffer to Cloudflare R2 and returns the public URL.
+     * @param {Buffer} buffer - The file buffer from Multer
+     * @param {String} filename - The generated safe filename
+     * @param {String} folder - The folder prefix (e.g., 'pdfs', 'videos')
+     */
+    static async saveFile(buffer, filename, folder) {
         try {
             const ext = path.extname(filename).toLowerCase();
             if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
                 throw new Error(`File type "${ext}" is not allowed`);
             }
 
-            const folderPath = path.resolve(filesBasePath, folder);
-            // Ensure directory exists
-            fs.mkdirSync(folderPath, { recursive: true });
+            // Create a clean key path (e.g., "pdfs/filename.pdf")
+            const fileKey = folder ? path.join(folder, filename).replace(/\\/g, "/") : filename;
 
-            const filePath = path.resolve(folderPath, filename);
-            fs.writeFileSync(filePath, buffer)
-            const baseUrl = process.env.GCPR_API_URL
-            return `${baseUrl}/${folder}/${filename}`
+            // Determine Content-Type based on extension to ensure browsers render correctly
+            let contentType = "application/octet-stream";
+            if (['.jpg', '.jpeg'].includes(ext)) contentType = "image/jpeg";
+            else if (ext === '.png') contentType = "image/png";
+            else if (ext === '.gif') contentType = "image/gif";
+            else if (ext === '.pdf') contentType = "application/pdf";
+            else if (ext === '.mp4') contentType = "video/mp4";
+            else if (['.mp3', '.m4a'].includes(ext)) contentType = "audio/mpeg";
+
+            const command = new PutObjectCommand({
+                Bucket: "gmnc-bucket", // You can also move this to process.env.R2_BUCKET_NAME
+                Key: fileKey,
+                Body: buffer,
+                ContentType: contentType,
+            });
+
+            // Send to Cloudflare R2
+            await s3Client.send(command);
+
+            // Return the public CDN URL
+            return `${process.env.R2_PUBLIC_DOMAIN}/${fileKey}`;
+            
         } catch (error) {
-            console.log("File upload error",error)
-            throw error
+            console.error("Cloudflare R2 File upload error:", error);
+            throw error;
         }
     }
+
+    /**
+     * Deletes a file from Cloudflare R2 using the file key
+     * @param {String} fileKey - The path of the file in the bucket (e.g., "pdfs/filename.pdf")
+     */
+    static async deleteFile(fileKey) {
+        try {
+            const command = new DeleteObjectCommand({
+                Bucket: "gmnc-bucket",
+                Key: fileKey,
+            });
+            await s3Client.send(command);
+        } catch (error) {
+            console.error("Cloudflare R2 File delete error:", error);
+            throw error;
+        }
+    }
+}
+
+export default UploadService;
 
     // static async uploadFile (file, filename, bucket = CONSTANTS.BUCKET) {
     //     if (['ci', 'local'].includes(process.env.NODE_ENV)) return
@@ -87,6 +136,3 @@ class UploadService {
     //     }
     //     return s3.listObjectsV2(params).promise()
     // }
-}
-
-export default UploadService

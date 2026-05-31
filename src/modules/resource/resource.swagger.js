@@ -8,7 +8,7 @@
  *       bearerFormat: JWT
  *
  *   schemas:
- *     PDFResource:
+ *     Resource:
  *       type: object
  *       properties:
  *         id:
@@ -18,10 +18,11 @@
  *         description:
  *           type: string
  *           nullable: true
- *         pdfFile:
- *           type: array
- *           items:
- *             type: string
+ *         type:
+ *           type: string
+ *           enum: [DOCUMENT, VIDEO, LINK]
+ *         resourceUrl:
+ *           type: string
  *         serviceProviderId:
  *           type: string
  *         serviceProvider:
@@ -44,39 +45,54 @@
  *           type: string
  *           format: date-time
  *
- *     PDFResourceUploadRequest:
+ *     ResourceUploadRequest:
  *       type: object
  *       required:
  *         - title
+ *         - type
  *       properties:
  *         title:
  *           type: string
- *           description: Title of the PDF resource
+ *           description: Title of the resource
  *         description:
  *           type: string
- *           description: Description of the PDF resource
- *         pdfFile:
+ *           description: Description of the resource
+ *         type:
+ *           type: string
+ *           enum: [DOCUMENT, VIDEO, LINK]
+ *           description: Type of the resource
+ *         file:
  *           type: string
  *           format: binary
- *           description: PDF file to upload
+ *           description: File to upload (required if type is DOCUMENT or VIDEO)
+ *         resourceUrl:
+ *           type: string
+ *           description: External URL (required if type is LINK)
  *
- *     PDFResourceUpdateRequest:
+ *     ResourceUpdateRequest:
  *       type: object
  *       properties:
  *         title:
  *           type: string
- *           description: Title of the PDF resource
+ *           description: Title of the resource
  *         description:
  *           type: string
- *           description: Description of the PDF resource
- *         pdfFile:
+ *           description: Description of the resource
+ *         type:
+ *           type: string
+ *           enum: [DOCUMENT, VIDEO, LINK]
+ *           description: Type of the resource
+ *         file:
  *           type: string
  *           format: binary
- *           description: PDF file to upload (optional)
+ *           description: File to upload (optional, for DOCUMENT/VIDEO)
+ *         resourceUrl:
+ *           type: string
+ *           description: External URL (optional, for LINK)
  *
  * /resource:
  *   post:
- *     summary: Upload a new PDF resource
+ *     summary: Upload a new resource (Document, Video, or Link)
  *     tags: [Resources]
  *     security:
  *       - bearerAuth: []
@@ -85,10 +101,13 @@
  *       content:
  *         multipart/form-data:
  *           schema:
- *             $ref: '#/components/schemas/PDFResourceUploadRequest'
+ *             $ref: '#/components/schemas/ResourceUploadRequest'
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ResourceUploadRequest'
  *     responses:
  *       200:
- *         description: PDF resource uploaded successfully
+ *         description: Resource uploaded successfully
  *         content:
  *           application/json:
  *             schema:
@@ -97,26 +116,26 @@
  *                 status:
  *                   type: string
  *                 data:
- *                   $ref: '#/components/schemas/PDFResource'
+ *                   $ref: '#/components/schemas/Resource'
  *                 message:
  *                   type: string
  *       400:
- *         description: Validation error (title required)
+ *         description: Validation error
  *       401:
  *         description: Unauthorized
  *       403:
  *         description: Forbidden - Only service providers can upload resources
  *       422:
- *         description: Unsupported file type (only PDF allowed)
+ *         description: Unsupported file type
  *
  *   get:
- *     summary: Get all PDF resources
+ *     summary: Get all resources
  *     tags: [Resources]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: PDF resources retrieved successfully
+ *         description: Resources retrieved successfully
  *         content:
  *           application/json:
  *             schema:
@@ -127,7 +146,7 @@
  *                 data:
  *                   type: array
  *                   items:
- *                     $ref: '#/components/schemas/PDFResource'
+ *                     $ref: '#/components/schemas/Resource'
  *                 message:
  *                   type: string
  *       401:
@@ -137,7 +156,7 @@
  *
  * /resource/{id}:
  *   get:
- *     summary: Get a specific PDF resource by ID
+ *     summary: Get a specific resource by ID
  *     tags: [Resources]
  *     security:
  *       - bearerAuth: []
@@ -149,7 +168,7 @@
  *           type: string
  *     responses:
  *       200:
- *         description: PDF resource retrieved successfully
+ *         description: Resource retrieved successfully
  *         content:
  *           application/json:
  *             schema:
@@ -158,7 +177,7 @@
  *                 status:
  *                   type: string
  *                 data:
- *                   $ref: '#/components/schemas/PDFResource'
+ *                   $ref: '#/components/schemas/Resource'
  *                 message:
  *                   type: string
  *       401:
@@ -166,10 +185,10 @@
  *       403:
  *         description: Forbidden - Insufficient permissions
  *       404:
- *         description: PDF resource not found
+ *         description: Resource not found
  *
  *   put:
- *     summary: Update a PDF resource
+ *     summary: Update a resource
  *     tags: [Resources]
  *     security:
  *       - bearerAuth: []
@@ -184,10 +203,13 @@
  *       content:
  *         multipart/form-data:
  *           schema:
- *             $ref: '#/components/schemas/PDFResourceUpdateRequest'
+ *             $ref: '#/components/schemas/ResourceUpdateRequest'
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ResourceUpdateRequest'
  *     responses:
  *       200:
- *         description: PDF resource updated successfully
+ *         description: Resource updated successfully
  *         content:
  *           application/json:
  *             schema:
@@ -196,7 +218,7 @@
  *                 status:
  *                   type: string
  *                 data:
- *                   $ref: '#/components/schemas/PDFResource'
+ *                   $ref: '#/components/schemas/Resource'
  *                 message:
  *                   type: string
  *       400:
@@ -206,12 +228,12 @@
  *       403:
  *         description: Forbidden - Only the owner can update this resource
  *       404:
- *         description: PDF resource not found
+ *         description: Resource not found
  *       422:
- *         description: Unsupported file type (only PDF allowed)
+ *         description: Unsupported file type
  *
  *   delete:
- *     summary: Delete a PDF resource
+ *     summary: Delete a resource
  *     tags: [Resources]
  *     security:
  *       - bearerAuth: []
@@ -223,7 +245,7 @@
  *           type: string
  *     responses:
  *       200:
- *         description: PDF resource deleted successfully
+ *         description: Resource deleted successfully
  *         content:
  *           application/json:
  *             schema:
@@ -241,11 +263,12 @@
  *       403:
  *         description: Forbidden - Only the owner can delete this resource
  *       404:
- *         description: PDF resource not found
+ *         description: Resource not found
  *
  * /resource/{id}/download:
  *   get:
- *     summary: Download a PDF resource file
+ *     summary: Download or view a resource file
+ *     description: Redirects to the Cloudflare R2 public URL for Documents and Videos. Links cannot be downloaded.
  *     tags: [Resources]
  *     security:
  *       - bearerAuth: []
@@ -256,17 +279,14 @@
  *         schema:
  *           type: string
  *     responses:
- *       200:
- *         description: PDF file stream
- *         content:
- *           application/pdf:
- *             schema:
- *               type: string
- *               format: binary
+ *       302:
+ *         description: Redirect to the Cloudflare R2 URL
+ *       400:
+ *         description: External links cannot be downloaded
  *       401:
  *         description: Unauthorized
  *       403:
  *         description: Forbidden - Insufficient permissions
  *       404:
- *         description: PDF resource not found or no file associated
+ *         description: Resource not found or no file associated
  */
