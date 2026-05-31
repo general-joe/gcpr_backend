@@ -25,7 +25,7 @@ cpPatientRouter.post(
 
 cpPatientRouter.get(
   "/",
-  authorize(["CAREGIVER"]),
+  authorize(["CAREGIVER", "SERVICE_PROVIDER"]),
   authRateLimiter,
   CpPatientController.getPatients,
 );
