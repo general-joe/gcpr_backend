@@ -54,7 +54,7 @@ model User {
   userRoles                    UserRole[]
   receivedDirectMessages       DirectMessage[]         @relation("DirectMessageReceiver")
   sentDirectMessages           DirectMessage[]         @relation("DirectMessageSender")
-  pdfResources                 PdfResource[]
+  resources                    Resource[]
   serviceProvider              ServiceProvider?
 }
 
@@ -128,7 +128,7 @@ model ServiceProvider {
   telehealthIntegrations    TelehealthIntegration[]    @relation("IntegrationOwner")
   telehealthRecordings      TelehealthRecording[]
   telehealthRoomsProvided   TelehealthRoom[]           @relation("ProviderForRoom")
-  pdfResources              PdfResource[]
+  resources                 Resource[]
   user                      User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([verificationStatus])
@@ -495,20 +495,21 @@ model CommunityInvitation {
   @@index([invitedBy])
 }
 
-model PdfResource {
-  id                String          @id @default(uuid())
+model Resource {
+  id                String           @id @default(uuid())
   title             String
   description       String?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @default(now())
+  type              ResourceType     @default(DOCUMENT)
+  resourceUrl       String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @default(now())
   serviceProviderId String?
-  pdfFile           String[]
   userId            String?
   serviceProvider   ServiceProvider? @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
-  user              User?           @relation(fields: [userId], references: [id])
+  user              User?            @relation(fields: [userId], references: [id])
 
   @@index([serviceProviderId])
-  @@map("pdfResource")
+  @@map("resource")
 }
 
 model Notification {
@@ -1608,4 +1609,10 @@ enum TicketPriority {
   MEDIUM
   HIGH
   URGENT
+}
+
+enum ResourceType {
+  DOCUMENT
+  VIDEO
+  LINK
 }
