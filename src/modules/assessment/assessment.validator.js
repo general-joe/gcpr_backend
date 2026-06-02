@@ -29,7 +29,7 @@ export const submitAssessmentSchema = z.object({
       (val) => Object.keys(val).length > 0,
       "Responses cannot be empty"
     )
-}).strict();
+}).passthrough();
 
 export const createReferralSchema = z
   .object({
