@@ -16,6 +16,17 @@ class AdminService {
   static async bootstrap(body) {
     const { secret, userId } = body ?? {};
     const expected = process.env.BOOTSTRAP_SECRET;
+    const bootstrapDisabled =
+      process.env.BOOTSTRAP_DISABLED === "true" ||
+      (process.env.NODE_ENV === "production" &&
+        process.env.ALLOW_BOOTSTRAP_IN_PRODUCTION !== "true");
+
+    if (bootstrapDisabled) {
+      throw new gcprError(
+        HttpStatus.FORBIDDEN,
+        "Bootstrap is disabled in this environment",
+      );
+    }
 
     if (!expected || secret !== expected) {
       throw new gcprError(
@@ -154,7 +165,15 @@ class AdminService {
       select: { id: true },
     });
     if (!user) throw new gcprError(HttpStatus.NOT_FOUND, "User not found");
-    await prisma.user.delete({ where: { id: userId } });
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        accountStatus: "DELETED",
+        email: { set: null },
+        phoneNumber: { set: null },
+        password: { set: "DELETED_ACCOUNT" },
+      },
+    });
   }
 
   // ── Service Provider Management ──────────────────────────────────────────────

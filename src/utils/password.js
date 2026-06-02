@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import WRITE from './logger.js';
 
 export const hash = async (password) => {
   const saltRounds = process.env.BCRYPT_SALT_ROUNDS ? parseInt(process.env.BCRYPT_SALT_ROUNDS) : 10;
@@ -7,7 +8,7 @@ export const hash = async (password) => {
     const hashpass = await bcrypt.hash(password, salt);
     return hashpass;
   } catch (error) {
-    console.error('Error hashing password', error);
+    WRITE.error('Error hashing password', { error: error.message });
     throw new Error('Password hashing failed');
   }
 };
@@ -17,7 +18,7 @@ export const compare = async (password, sysPassword) => {
     const matchPassword = await bcrypt.compare(password, sysPassword);
     return matchPassword;
   } catch (error) {
-    console.error('Error comparing password', error);
+    WRITE.error('Error comparing password', { error: error.message });
     throw new Error('Password comparison failed');
   }
 };

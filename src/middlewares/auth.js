@@ -1,6 +1,7 @@
 import UtilFunctions from "../utils/UtilFunctions.js";
 import HttpStatus from "../utils/http-status.js";
 import prisma from "../config/database.js";
+import WRITE from "../utils/logger.js";
 
 import jwt from "jsonwebtoken";
 import ResponseCodes from "../utils/responseCodes.js";
@@ -16,10 +17,8 @@ export function Auth(rq, rs, next) {
   }
 
   try {
-    const decoded = jwt.verify(
-      token.toString().substring(6).trim(),
-      process.env.JWT,
-    );
+    const tokenString = token.startsWith("Bearer ") ? token.substring(7).trim() : token;
+    const decoded = jwt.verify(tokenString, process.env.JWT);
     const userType = decoded.userType || "guest";
     const is_guest = userType === "guest";
     const roles = decoded.roles || [];
@@ -77,7 +76,7 @@ export function authorize(allowedUserTypes = []) {
       );
     }
 
-    const token = authHeader.split(" ")[1];
+    const token = authHeader.substring(7);
 
     try {
       const decoded = jwt.verify(token, process.env.JWT);
@@ -91,12 +90,12 @@ export function authorize(allowedUserTypes = []) {
         throw new Error("Invalid token payload");
       }
 
-      // Always allow users with the 'admin' role
+      // Always allow users with the ADMIN RBAC role (case-insensitive)
       const isAdmin = await prisma.userRole.findFirst({
         where: {
           userId: decoded.id,
           active: true,
-          role: { slug: 'admin' },
+          role: { slug: { equals: "ADMIN", mode: "insensitive" } },
           OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
       });
@@ -179,7 +178,7 @@ export function authorizeOrRbacRole(
       );
     }
 
-    const token = authHeader.split(" ")[1];
+    const token = authHeader.substring(7);
 
     try {
       const decoded = jwt.verify(token, process.env.JWT);
@@ -193,28 +192,29 @@ export function authorizeOrRbacRole(
         throw new Error("Invalid token payload");
       }
 
-      // Always allow users with the 'admin' role
+      // Always allow users with the ADMIN RBAC role (case-insensitive)
       const isAdmin = await prisma.userRole.findFirst({
         where: {
           userId: decoded.id,
           active: true,
-          role: { slug: 'admin' },
+          role: { slug: { equals: "ADMIN", mode: "insensitive" } },
           OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
       });
-      if (
-        allowedUserTypes.includes(decoded.userType) ||
-        (await hasRbacRole(decoded.id, allowedRoleSlugs)) ||
-        isAdmin
-      ) {
-        rs.locals.user = {
-          id: decoded.id,
-          userType: decoded.userType,
-          client,
-          is_guest: false,
-        };
-        return next();
-      }
+if (
+         allowedUserTypes.includes(decoded.userType) ||
+         (await hasRbacRole(decoded.id, allowedRoleSlugs)) ||
+         isAdmin
+       ) {
+         rs.locals.user = {
+           id: decoded.id,
+           userType: decoded.userType,
+           client,
+           is_guest: false,
+           roles: decoded.roles || [],
+         };
+         return next();
+       }
 
       WRITE.warn("Insufficient user type or role", {
         userId: decoded.id,
@@ -266,7 +266,7 @@ export function requireRbacRole(allowedSlugs = []) {
       );
     }
 
-    const token = authHeader.split(" ")[1];
+    const token = authHeader.substring(7);
 
     try {
       const decoded = jwt.verify(token, process.env.JWT);
@@ -275,31 +275,32 @@ export function requireRbacRole(allowedSlugs = []) {
         throw new Error("Invalid token payload");
       }
 
-      // Always allow users with the 'admin' role
-      const isAdmin = await prisma.userRole.findFirst({
-        where: {
-          userId: decoded.id,
-          active: true,
-          role: { slug: 'admin' },
-          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-        },
-      });
-      if (isAdmin) {
-        rs.locals.user = {
-          id: decoded.id,
-          userType: decoded.userType,
-          client,
-          is_guest: false,
-        };
-        return next();
-      }
+// Always allow users with the ADMIN RBAC role (case-insensitive)
+       const isAdmin = await prisma.userRole.findFirst({
+         where: {
+           userId: decoded.id,
+           active: true,
+           role: { slug: { equals: "ADMIN", mode: "insensitive" } },
+           OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+         },
+       });
+       if (isAdmin) {
+         rs.locals.user = {
+           id: decoded.id,
+           userType: decoded.userType,
+           client,
+           is_guest: false,
+           roles: decoded.roles || [],
+         };
+         return next();
+       }
 
-      // Check RBAC UserRole table for any of the required slugs
-      const match = await prisma.userRole.findFirst({
-        where: {
-          userId: decoded.id,
-          active: true,
-          role: { slug: { in: allowedSlugs } },
+       // Check RBAC UserRole table for any of the required slugs
+       const match = await prisma.userRole.findFirst({
+         where: {
+           userId: decoded.id,
+           active: true,
+           role: { slug: { in: allowedSlugs } },
           OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
       });
@@ -312,27 +313,28 @@ export function requireRbacRole(allowedSlugs = []) {
           path: rq.path,
           timestamp: new Date().toISOString(),
         });
-        return UtilFunctions.outputError(
-          rs,
-          "You do not have the required role to access this resource",
-          {},
-          ResponseCodes.FORBIDDEN,
-          HttpStatus.FORBIDDEN,
-        );
-      }
+return UtilFunctions.outputError(
+           rs,
+           "You do not have the required role to access this resource",
+           {},
+           ResponseCodes.FORBIDDEN,
+           HttpStatus.FORBIDDEN,
+         );
+       }
 
-      rs.locals.user = {
-        id: decoded.id,
-        userType: decoded.userType,
-        client,
-        is_guest: false,
-      };
+       rs.locals.user = {
+         id: decoded.id,
+         userType: decoded.userType,
+         client,
+         is_guest: false,
+         roles: decoded.roles || [],
+       };
 
-      return next();
-    } catch (err) {
-      return UtilFunctions.outputError(
-        rs,
-        "Invalid or expired token",
+       return next();
+     } catch (err) {
+       return UtilFunctions.outputError(
+         rs,
+         "Invalid or expired token",
         {},
         ResponseCodes.INVALID_TOKEN,
         HttpStatus.UNAUTHORIZED,
@@ -361,7 +363,7 @@ export function requirePermission(permissionCode) {
       );
     }
 
-    const token = authHeader.split(" ")[1];
+    const token = authHeader.substring(7);
 
     try {
       const decoded = jwt.verify(token, process.env.JWT);
@@ -370,12 +372,12 @@ export function requirePermission(permissionCode) {
         throw new Error("Invalid token payload");
       }
 
-      // Always allow users with the 'admin' role
+      // Always allow users with the ADMIN RBAC role (case-insensitive)
       const isAdmin = await prisma.userRole.findFirst({
         where: {
           userId: decoded.id,
           active: true,
-          role: { slug: 'admin' },
+          role: { slug: { equals: "ADMIN", mode: "insensitive" } },
           OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
       });
@@ -455,14 +457,15 @@ export function requirePermission(permissionCode) {
           HttpStatus.FORBIDDEN,
         );
       }
+rs.locals.user = {
+         id: decoded.id,
+         userType: decoded.userType,
+         client,
+         is_guest: false,
+         roles: decoded.roles || [],
+       };
 
-      rs.locals.user = {
-        id: decoded.id,
-        userType: decoded.userType,
-        client,
-        is_guest: false,
-      };
-      return next();
+       return next();
     } catch (err) {
       return UtilFunctions.outputError(
         rs,

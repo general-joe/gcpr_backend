@@ -96,6 +96,13 @@ const buildGMFMFields = (toolConfig) => {
     ? toolConfig.dimensions
     : [];
   const itemLookup = buildItemLookup(toolConfig);
+  const scoringKey = toolConfig?.scoringKey;
+  const scoringOptions = scoringKey
+    ? Object.entries(scoringKey).map(([code, label]) => ({
+        label,
+        value: String(code),
+      }))
+    : [];
 
   return dimensions.map((dimension) => {
     const [start, end] = dimension.itemRange;
@@ -110,7 +117,8 @@ const buildGMFMFields = (toolConfig) => {
         question: itemDef?.text ?? `GMFM Item ${fieldCode}`,
         dimension: itemDef?.dimension ?? dimension.code,
         itemNumber: itemDef?.number ?? itemNumber,
-        expectedAnswerFormat: "number_or_NT",
+        expectedAnswerFormat: scoringOptions.length > 0 ? "select" : "number_or_NT",
+        options: scoringOptions,
         allowedValues: [0, 1, 2, 3, "NT"],
       });
     }
@@ -145,7 +153,37 @@ const buildFormSchema = (toolConfig) => {
     Array.isArray(toolConfig?.dimensions) &&
     toolConfig.dimensions.length > 0
   ) {
-    return buildGMFMFields(toolConfig);
+    const sections = buildGMFMFields(toolConfig);
+
+    sections.push({
+      sectionCode: "clinical_notes",
+      sectionName: "Clinical Notes",
+      description:
+        "Indicate whether this assessment reflects the child's typical/regular performance.",
+      fields: [
+        {
+          fieldCode: "clinical_notes_is_regular_performance",
+          fieldKey: "isRegularPerformance",
+          question:
+            "Was this assessment indicative of this child's regular performance?",
+          expectedAnswerFormat: "boolean",
+          options: [
+            { label: "YES", value: true },
+            { label: "NO", value: false },
+          ],
+          required: false,
+        },
+        {
+          fieldCode: "clinical_notes_comment",
+          fieldKey: "clinicalNotesComment",
+          question: "COMMENTS:",
+          expectedAnswerFormat: "string",
+          required: false,
+        },
+      ],
+    });
+
+    return sections;
   }
 
   if (Array.isArray(toolConfig?.sections) && toolConfig.sections.length > 0) {
@@ -194,6 +232,11 @@ const GMFM_DIMENSIONS = [
   { code: "E", start: 65, end: 88 },
 ];
 
+const EXTRA_GMFM_KEYS_ALLOWED = new Set([
+  "isRegularPerformance",
+  "clinicalNotesComment",
+]);
+
 const VALID_GMFM_VALUES = new Set([0, 1, 2, 3, "NT"]);
 
 const validateGMFMResponses = (responses) => {
@@ -234,7 +277,7 @@ const validateGMFMResponses = (responses) => {
   });
 
   const unknownKeys = Object.keys(responses).filter(
-    (key) => !expectedKeys.has(key),
+    (key) => !expectedKeys.has(key) && !EXTRA_GMFM_KEYS_ALLOWED.has(key),
   );
 
   if (missingKeys.length || invalidValues.length || unknownKeys.length) {
@@ -339,7 +382,6 @@ class AssessmentService {
    * @returns {object|null} serviceProvider or null for bypass
    */
   static async requireServiceProvider(userOrUserId) {
-    // Accept either user object or userId
     let user = userOrUserId;
     let userId = userOrUserId;
     if (typeof userOrUserId === "object" && userOrUserId !== null) {
@@ -356,24 +398,33 @@ class AssessmentService {
       user &&
       (await hasRbacRole(userId, ["ADMIN", "TESTER"]));
 
-    if (isAdminUserType || isAdminRbac) {
-      return {
-        id: userId,
-        profession: "ADMIN",
-        verificationStatus: "VERIFIED",
-      };
-    }
+    const bypassVerification = isAdminUserType || isAdminRbac;
 
-    // Default: require real service provider profile
     const serviceProvider = await prisma.serviceProvider.findUnique({
       where: { userId },
     });
+
     if (!serviceProvider) {
+      if (bypassVerification) {
+        return {
+          id: userId,
+          profession: "ADMIN",
+          verificationStatus: "VERIFIED",
+        };
+      }
       throw new gcprError(
         HttpStatus.NOT_FOUND,
         "Service provider profile not found",
       );
     }
+
+    if (bypassVerification) {
+      return {
+        ...serviceProvider,
+        verificationStatus: "VERIFIED",
+      };
+    }
+
     return serviceProvider;
   }
 
@@ -574,34 +625,14 @@ class AssessmentService {
   static async createReferral(user, data) {
     const serviceProvider =
       await AssessmentService.requireVerifiedServiceProvider(user);
-    await AssessmentService.ensurePatientExists(data.patientId);
 
-    if (serviceProvider.profession !== "PHYSIOTHERAPIST") {
+    const isAdminLike = await isAdminLikeUser(user, ["ADMIN", "TESTER"]);
+
+    if (!isAdminLike && serviceProvider.profession !== "PHYSIOTHERAPIST") {
       throw new gcprError(
         HttpStatus.FORBIDDEN,
         "Only physiotherapists can create referrals",
       );
-    }
-
-    if (data.toProviderId) {
-      const targetProvider = await prisma.serviceProvider.findUnique({
-        where: { id: data.toProviderId },
-        select: { id: true, profession: true },
-      });
-
-      if (!targetProvider) {
-        throw new gcprError(
-          HttpStatus.NOT_FOUND,
-          "Referred provider not found",
-        );
-      }
-
-      if (targetProvider.profession !== data.toProfession) {
-        throw new gcprError(
-          HttpStatus.UNPROCESSABLE_ENTITY,
-          "Selected provider profession does not match referral target profession",
-        );
-      }
     }
 
     if (data.assessmentId) {
@@ -627,7 +658,7 @@ class AssessmentService {
         );
       }
 
-      if (assessment.providerId !== serviceProvider.id) {
+      if (!isAdminLike && assessment.providerId !== serviceProvider.id) {
         throw new gcprError(
           HttpStatus.FORBIDDEN,
           "Only the assessment owner can attach referral to this assessment",
@@ -641,7 +672,7 @@ class AssessmentService {
         );
       }
 
-      if (assessment.referralId) {
+      if (assessment.referralId && assessment.status !== "REJECTED") {
         throw new gcprError(
           HttpStatus.UNPROCESSABLE_ENTITY,
           "A referral is already linked to this assessment",
@@ -801,11 +832,17 @@ class AssessmentService {
   }
 
   static async getIncomingReferrals(user) {
-    const serviceProvider =
-      await AssessmentService.requireServiceProvider(user);
-
-    const referrals = await prisma.clinicalReferral.findMany({
-      where: {
+    // Check if user is admin (can view all referrals)
+    const isAdmin = await isAdminLikeUser(user, ["ADMIN", "TESTER"]);
+    
+    let whereCondition;
+    if (isAdmin) {
+      // Admin users can see all incoming referrals (where toProvider is set or profession is targeted)
+      whereCondition = {};
+    } else {
+      const serviceProvider =
+        await AssessmentService.requireServiceProvider(user);
+      whereCondition = {
         OR: [
           { toProviderId: serviceProvider.id },
           {
@@ -813,7 +850,11 @@ class AssessmentService {
             toProfession: serviceProvider.profession,
           },
         ],
-      },
+      };
+    }
+
+    const referrals = await prisma.clinicalReferral.findMany({
+      where: whereCondition,
       include: {
         patient: {
           select: { id: true, fullName: true },
@@ -839,11 +880,21 @@ class AssessmentService {
   }
 
   static async getOutgoingReferrals(user) {
-    const serviceProvider =
-      await AssessmentService.requireServiceProvider(user);
+    // Check if user is admin (can view all referrals)
+    const isAdmin = await isAdminLikeUser(user, ["ADMIN", "TESTER"]);
+    
+    let whereCondition;
+    if (isAdmin) {
+      // Admin users can see all outgoing referrals
+      whereCondition = {};
+    } else {
+      const serviceProvider =
+        await AssessmentService.requireServiceProvider(user);
+      whereCondition = { fromProviderId: serviceProvider.id };
+    }
 
     const referrals = await prisma.clinicalReferral.findMany({
-      where: { fromProviderId: serviceProvider.id },
+      where: whereCondition,
       include: {
         patient: {
           select: { id: true, fullName: true },
@@ -885,10 +936,12 @@ class AssessmentService {
       (referral.toProviderId === null &&
         referral.toProfession === serviceProvider.profession);
 
-    if (!isTargetProvider) {
+    const isSenderProvider = referral.fromProviderId === serviceProvider.id;
+
+    if (!isTargetProvider && !isSenderProvider) {
       throw new gcprError(
         HttpStatus.FORBIDDEN,
-        "Only the target provider can update this referral",
+        "Only the target provider or referring provider can update this referral",
       );
     }
 
@@ -925,10 +978,12 @@ class AssessmentService {
       (referral.toProviderId === null &&
         referral.toProfession === serviceProvider.profession);
 
-    if (!isTargetProvider) {
+    const isSenderProvider = referral.fromProviderId === serviceProvider.id;
+
+    if (!isTargetProvider && !isSenderProvider) {
       throw new gcprError(
         HttpStatus.FORBIDDEN,
-        "Only the referred provider can assign tasks for this referral",
+        "Only the referred provider or referring provider can assign tasks for this referral",
       );
     }
 

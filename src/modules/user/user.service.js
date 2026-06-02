@@ -157,11 +157,8 @@ class UserService {
         const currentTime = new Date().getTime();
         const ageInSeconds = (currentTime - lastFetchTime) / 1000;
 
-        // Return cached data if not expired
         if (ageInSeconds < cachedEntry.ttl) {
-          console.log(
-            `[Cache HIT] Returning cached videos for key: ${cacheKey}`,
-          );
+          WRITE.debug("Cache hit: returning cached videos", { cacheKey });
           const curatedVideos = this.getCuratedVideos();
           return {
             success: true,
@@ -175,17 +172,12 @@ class UserService {
         }
       }
 
-      // Fetch from YouTube API if no cache or cache expired
-      console.log(
-        `[Cache MISS] Fetching fresh videos from YouTube API for key: ${cacheKey}`,
-      );
       const videoList = await youtubeApi.listChannelVideos(
         apiKey,
         channelId,
         options,
       );
 
-      // Store in cache
       try {
         await prisma.videoCache.upsert({
           where: { cacheKey },
@@ -204,12 +196,9 @@ class UserService {
             isValid: true,
           },
         });
-        console.log(
-          `[Cache STORE] Stored videos in cache for key: ${cacheKey}`,
-        );
+        WRITE.debug("Cache stored", { cacheKey });
       } catch (cacheError) {
-        console.error("Error storing cache:", cacheError);
-        // Continue even if cache storage fails - API data is still valid
+        WRITE.error("Error storing cache", { error: cacheError.message });
       }
 
       const curatedVideos = this.getCuratedVideos();
@@ -218,16 +207,15 @@ class UserService {
         videos: [...(videoList.videos || []), ...curatedVideos],
       };
     } catch (error) {
-      // If API call fails, try to return expired cache as fallback
+      WRITE.error("YouTube API error", { error: error.response?.data || error.message });
+
       try {
         const fallbackCache = await prisma.videoCache.findUnique({
           where: { cacheKey },
         });
 
         if (fallbackCache && fallbackCache.cachedData) {
-          console.warn(
-            `[Cache FALLBACK] API call failed, returning expired cache for key: ${cacheKey}`,
-          );
+          WRITE.warn("API failed, returning expired cache", { cacheKey });
           const curatedVideos = this.getCuratedVideos();
           return {
             success: true,
@@ -241,7 +229,7 @@ class UserService {
           };
         }
       } catch (fallbackError) {
-        console.error("Error retrieving fallback cache:", fallbackError);
+        WRITE.error("Error retrieving fallback cache", { error: fallbackError.message });
       }
 
       throw error;
@@ -284,12 +272,16 @@ class UserService {
     return user;
   }
   static async deleteUserAccount(userId) {
-    // Soft delete: Mark the account as deleted without removing data
-    const user = await prisma.user.delete({
+    const user = await prisma.user.update({
       where: { id: userId },
+      data: {
+        accountStatus: "DELETED",
+        email: { set: null },
+        phoneNumber: { set: null },
+        password: { set: "DELETED_ACCOUNT" },
+      },
     });
 
-    // Notify user on account deletion
     try {
       await NotificationService.createNotification({
         userId,
