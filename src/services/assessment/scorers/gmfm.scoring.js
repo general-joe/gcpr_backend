@@ -66,7 +66,7 @@ export const scoreGMFM88 = ({ responses, config }) => {
   const weakest = sortedProfiles[0];
   const strongest = sortedProfiles[sortedProfiles.length - 1];
 
-  const summary = `GMFM-88 total score ${Number(totalScore.toFixed(2))}%. Best domain: ${strongest[0]} (${strongest[1].percentage}%). Most limited domain: ${weakest[0]} (${weakest[1].percentage}%).`;
+  const summary = `GMFM-88 total score ${Number(totalScore.toFixed(2))}%. Best domain: ${strongest[1].name} (${strongest[1].percentage}%). Most limited domain: ${weakest[1].name} (${weakest[1].percentage}%).`;
 
   const interpretation = `Gross motor function profile shows ${classifyPercent(
     totalScore

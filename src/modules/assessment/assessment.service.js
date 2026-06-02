@@ -96,6 +96,13 @@ const buildGMFMFields = (toolConfig) => {
     ? toolConfig.dimensions
     : [];
   const itemLookup = buildItemLookup(toolConfig);
+  const scoringKey = toolConfig?.scoringKey;
+  const scoringOptions = scoringKey
+    ? Object.entries(scoringKey).map(([code, label]) => ({
+        label,
+        value: String(code),
+      }))
+    : [];
 
   return dimensions.map((dimension) => {
     const [start, end] = dimension.itemRange;
@@ -110,7 +117,8 @@ const buildGMFMFields = (toolConfig) => {
         question: itemDef?.text ?? `GMFM Item ${fieldCode}`,
         dimension: itemDef?.dimension ?? dimension.code,
         itemNumber: itemDef?.number ?? itemNumber,
-        expectedAnswerFormat: "number_or_NT",
+        expectedAnswerFormat: scoringOptions.length > 0 ? "select" : "number_or_NT",
+        options: scoringOptions,
         allowedValues: [0, 1, 2, 3, "NT"],
       });
     }
@@ -145,7 +153,37 @@ const buildFormSchema = (toolConfig) => {
     Array.isArray(toolConfig?.dimensions) &&
     toolConfig.dimensions.length > 0
   ) {
-    return buildGMFMFields(toolConfig);
+    const sections = buildGMFMFields(toolConfig);
+
+    sections.push({
+      sectionCode: "clinical_notes",
+      sectionName: "Clinical Notes",
+      description:
+        "Indicate whether this assessment reflects the child's typical/regular performance.",
+      fields: [
+        {
+          fieldCode: "clinical_notes_is_regular_performance",
+          fieldKey: "isRegularPerformance",
+          question:
+            "Was this assessment indicative of this child's regular performance?",
+          expectedAnswerFormat: "boolean",
+          options: [
+            { label: "YES", value: true },
+            { label: "NO", value: false },
+          ],
+          required: false,
+        },
+        {
+          fieldCode: "clinical_notes_comment",
+          fieldKey: "clinicalNotesComment",
+          question: "COMMENTS:",
+          expectedAnswerFormat: "string",
+          required: false,
+        },
+      ],
+    });
+
+    return sections;
   }
 
   if (Array.isArray(toolConfig?.sections) && toolConfig.sections.length > 0) {
@@ -194,6 +232,11 @@ const GMFM_DIMENSIONS = [
   { code: "E", start: 65, end: 88 },
 ];
 
+const EXTRA_GMFM_KEYS_ALLOWED = new Set([
+  "isRegularPerformance",
+  "clinicalNotesComment",
+]);
+
 const VALID_GMFM_VALUES = new Set([0, 1, 2, 3, "NT"]);
 
 const validateGMFMResponses = (responses) => {
@@ -234,7 +277,7 @@ const validateGMFMResponses = (responses) => {
   });
 
   const unknownKeys = Object.keys(responses).filter(
-    (key) => !expectedKeys.has(key),
+    (key) => !expectedKeys.has(key) && !EXTRA_GMFM_KEYS_ALLOWED.has(key),
   );
 
   if (missingKeys.length || invalidValues.length || unknownKeys.length) {
