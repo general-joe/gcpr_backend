@@ -486,8 +486,9 @@ class AssessmentService {
     await AssessmentService.ensurePatientExists(data.patientId);
 
     const normalizedToolCode = normalizeToolCode(data.toolCode);
+    const responses = data.responses || {};
     if (normalizedToolCode === "GMFM_88") {
-      validateGMFMResponses(data.responses || {});
+      validateGMFMResponses(responses);
     }
 
     const { config: toolConfig } = getToolConfigByCode(normalizedToolCode);
@@ -554,7 +555,7 @@ class AssessmentService {
 
     const scoring = processAssessment({
       toolCode: normalizedToolCode,
-      responses: data.responses,
+      responses,
     });
 
     const structuredReport = scoring.result?.scores
@@ -573,7 +574,11 @@ class AssessmentService {
           providerId: providerId,
           toolCode: normalizedToolCode,
           toolVersion: data.toolVersion ?? "1.0.0",
-          responses: data.responses,
+          responses: {
+            ...responses,
+            isRegularPerformance: data.isRegularPerformance,
+            clinicalNotesComment: data.clinicalNotesComment,
+          },
           status: data.status ?? "COMPLETED",
           assessedAt: new Date(),
         },
