@@ -23,6 +23,10 @@ export const submitAssessmentSchema = z.object({
 
   status: z.enum(["DRAFT", "COMPLETED"]).optional(),
 
+  isRegularPerformance: z.boolean().optional(),
+
+  clinicalNotesComment: z.string().optional(),
+
   responses: z
     .record(z.string(), z.any())
     .refine(
