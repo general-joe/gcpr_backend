@@ -235,6 +235,8 @@ const GMFM_DIMENSIONS = [
 const EXTRA_GMFM_KEYS_ALLOWED = new Set([
   "isRegularPerformance",
   "clinicalNotesComment",
+  "clinical_notes_is_regular_performance",
+  "clinical_notes_comment",
 ]);
 
 const VALID_GMFM_VALUES = new Set([0, 1, 2, 3, "NT"]);
@@ -484,8 +486,9 @@ class AssessmentService {
     await AssessmentService.ensurePatientExists(data.patientId);
 
     const normalizedToolCode = normalizeToolCode(data.toolCode);
+    const responses = data.responses || {};
     if (normalizedToolCode === "GMFM_88") {
-      validateGMFMResponses(data.responses || {});
+      validateGMFMResponses(responses);
     }
 
     const { config: toolConfig } = getToolConfigByCode(normalizedToolCode);
@@ -552,7 +555,7 @@ class AssessmentService {
 
     const scoring = processAssessment({
       toolCode: normalizedToolCode,
-      responses: data.responses,
+      responses,
     });
 
     const structuredReport = scoring.result?.scores
@@ -571,7 +574,11 @@ class AssessmentService {
           providerId: providerId,
           toolCode: normalizedToolCode,
           toolVersion: data.toolVersion ?? "1.0.0",
-          responses: data.responses,
+          responses: {
+            ...responses,
+            isRegularPerformance: data.isRegularPerformance,
+            clinicalNotesComment: data.clinicalNotesComment,
+          },
           status: data.status ?? "COMPLETED",
           assessedAt: new Date(),
         },
