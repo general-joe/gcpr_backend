@@ -449,11 +449,19 @@ class AssessmentService {
       user &&
       (await hasRbacRole(userId, ["ADMIN", "TESTER"]));
 
-    // Allow admin users to bypass service provider verification
     if (isAdminUserType || isAdminRbac) {
+      const realProvider = await prisma.serviceProvider.findUnique({
+        where: { userId },
+        select: { id: true, profession: true, verificationStatus: true },
+      });
+
+      if (realProvider && realProvider.verificationStatus === "VERIFIED") {
+        return realProvider;
+      }
+
       return {
         id: userId,
-        profession: "ADMIN",
+        profession: realProvider?.profession ?? "ADMIN",
         verificationStatus: "VERIFIED",
       };
     }
@@ -642,6 +650,23 @@ class AssessmentService {
       );
     }
 
+    let fromProviderId = serviceProvider.id;
+    if (isAdminLike && (!serviceProvider.id || serviceProvider.id === user.id)) {
+      const realProvider = await prisma.serviceProvider.findFirst({
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      });
+
+      if (!realProvider) {
+        throw new gcprError(
+          HttpStatus.FORBIDDEN,
+          "No service provider profile is available to record this referral.",
+        );
+      }
+
+      fromProviderId = realProvider.id;
+    }
+
     if (data.assessmentId) {
       const assessment = await prisma.clinicalAssessment.findUnique({
         where: { id: data.assessmentId },
@@ -691,7 +716,7 @@ class AssessmentService {
       const createdReferral = await tx.clinicalReferral.create({
         data: {
           patientId: data.patientId,
-          fromProviderId: serviceProvider.id,
+          fromProviderId,
           toProviderId: data.toProviderId ?? null,
           toProfession: data.toProfession,
           reason: data.reason,
@@ -938,12 +963,41 @@ class AssessmentService {
       throw new gcprError(HttpStatus.NOT_FOUND, "Referral not found");
     }
 
+    const isAdminLike = await isAdminLikeUser(user, ["ADMIN", "TESTER"]);
+
+    let resolvedProviderId = serviceProvider.id;
+    if (isAdminLike) {
+      let realProvider = serviceProvider;
+      if (!realProvider || typeof realProvider.id !== 'string' || realProvider.id === user.id) {
+        realProvider = await prisma.serviceProvider.findUnique({
+          where: { userId: user.id },
+          select: { id: true },
+        });
+      }
+
+      if (!realProvider) {
+        realProvider = await prisma.serviceProvider.findFirst({
+          orderBy: { createdAt: 'asc' },
+          select: { id: true },
+        });
+      }
+
+      if (!realProvider) {
+        throw new gcprError(
+          HttpStatus.FORBIDDEN,
+          "No service provider profile is available to update this referral.",
+        );
+      }
+
+      resolvedProviderId = realProvider.id;
+    }
+
     const isTargetProvider =
-      referral.toProviderId === serviceProvider.id ||
+      referral.toProviderId === resolvedProviderId ||
       (referral.toProviderId === null &&
         referral.toProfession === serviceProvider.profession);
 
-    const isSenderProvider = referral.fromProviderId === serviceProvider.id;
+    const isSenderProvider = referral.fromProviderId === resolvedProviderId;
 
     if (!isTargetProvider && !isSenderProvider) {
       throw new gcprError(
@@ -963,6 +1017,24 @@ class AssessmentService {
   static async createRehabTaskFromReferral(user, referralId, data) {
     const serviceProvider =
       await AssessmentService.requireVerifiedServiceProvider(user);
+    const isAdminLike = await isAdminLikeUser(user, ["ADMIN", "TESTER"]);
+
+    let resolvedProviderId = serviceProvider.id;
+    if (isAdminLike && (!serviceProvider.id || serviceProvider.id === user.id)) {
+      const realProvider = await prisma.serviceProvider.findFirst({
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      });
+
+      if (!realProvider) {
+        throw new gcprError(
+          HttpStatus.FORBIDDEN,
+          "No service provider profile is available to assign this task.",
+        );
+      }
+
+      resolvedProviderId = realProvider.id;
+    }
 
     const referral = await prisma.clinicalReferral.findUnique({
       where: { id: referralId },
@@ -981,11 +1053,11 @@ class AssessmentService {
     }
 
     const isTargetProvider =
-      referral.toProviderId === serviceProvider.id ||
+      referral.toProviderId === resolvedProviderId ||
       (referral.toProviderId === null &&
         referral.toProfession === serviceProvider.profession);
 
-    const isSenderProvider = referral.fromProviderId === serviceProvider.id;
+    const isSenderProvider = referral.fromProviderId === resolvedProviderId;
 
     if (!isTargetProvider && !isSenderProvider) {
       throw new gcprError(
