@@ -235,6 +235,8 @@ const GMFM_DIMENSIONS = [
 const EXTRA_GMFM_KEYS_ALLOWED = new Set([
   "isRegularPerformance",
   "clinicalNotesComment",
+  "clinical_notes_is_regular_performance",
+  "clinical_notes_comment",
 ]);
 
 const VALID_GMFM_VALUES = new Set([0, 1, 2, 3, "NT"]);
