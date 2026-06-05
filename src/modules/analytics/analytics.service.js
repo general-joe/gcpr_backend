@@ -41,10 +41,72 @@ const getDateRange = (filter) => {
  * @param {number} max
  */
 const generateMockWeeklyTrend = (min = 10, max = 100) => {
-  return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(day => ({
+  return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => ({
     day,
-    value: Math.floor(Math.random() * (max - min + 1)) + min
+    value: Math.floor(Math.random() * (max - min + 1)) + min,
   }));
+};
+
+/**
+ * Return an array of 7 day ranges (Mon-Sun) ending on the given endDate.
+ * Each entry: { start: Date, end: Date, label: 'Mon' }
+ */
+const getWeekDayRanges = (endDate) => {
+  const now = new Date(endDate);
+  const day = now.getDay();
+  const mondayDiff = day === 0 ? -6 : 1 - day; // move to Monday
+  const monday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + mondayDiff,
+  );
+  monday.setHours(0, 0, 0, 0);
+
+  const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  return labels.map((label, i) => {
+    const start = new Date(monday);
+    start.setDate(monday.getDate() + i);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 1);
+    return { start, end, label };
+  });
+};
+
+/**
+ * Count `rehabTask` records per day for the week (Mon-Sun) ending at endDate.
+ * whereBase is a prisma where filter to apply to each day's query.
+ */
+const getRehabTaskCountsPerDay = async (whereBase = {}, endDate) => {
+  const ranges = getWeekDayRanges(endDate);
+  const promises = ranges.map(({ start, end, label }) =>
+    prisma.rehabTask
+      .count({ where: { ...whereBase, createdAt: { gte: start, lt: end } } })
+      .then((count) => ({ day: label, value: count })),
+  );
+  return Promise.all(promises);
+};
+
+/**
+ * Compute adherence percentage (completed / assigned * 100) per day for a provider
+ * whereBase should include provider filters (e.g. { providerId }).
+ */
+const getAdherencePercentPerDay = async (whereBase = {}, endDate) => {
+  const ranges = getWeekDayRanges(endDate);
+  const promises = ranges.map(async ({ start, end, label }) => {
+    const assigned = await prisma.rehabTask.count({
+      where: { ...whereBase, createdAt: { gte: start, lt: end } },
+    });
+    const completed = await prisma.rehabTask.count({
+      where: {
+        ...whereBase,
+        status: "COMPLETED",
+        createdAt: { gte: start, lt: end },
+      },
+    });
+    const value = assigned > 0 ? Math.round((completed / assigned) * 100) : 0;
+    return { day: label, value };
+  });
+  return Promise.all(promises);
 };
 
 class AnalyticsService {
@@ -75,18 +137,27 @@ class AnalyticsService {
       prisma.user.count({ where: { accountStatus: "ACTIVE" } }),
       prisma.user.count({ where: createdFilter }),
       prisma.serviceProvider.count(),
-      prisma.serviceProvider.count({ where: { verificationStatus: "VERIFIED" } }),
-      prisma.serviceProvider.count({ where: { verificationStatus: "PENDING_REVIEW" } }),
-      prisma.serviceProvider.count({ where: { verificationStatus: "SUSPENDED" } }), // Treating suspended as flagged
+      prisma.serviceProvider.count({
+        where: { verificationStatus: "VERIFIED" },
+      }),
+      prisma.serviceProvider.count({
+        where: { verificationStatus: "PENDING_REVIEW" },
+      }),
+      prisma.serviceProvider.count({
+        where: { verificationStatus: "SUSPENDED" },
+      }), // Treating suspended as flagged
       prisma.supportTicket.count({ where: { status: "OPEN" } }),
       // For critical, if enum exists. Assuming HIGH or CRITICAL. Let's count by matching the string or using a mock wrapper
-      prisma.supportTicket.count({ where: { status: "OPEN" } }).then(c => Math.floor(c * 0.2)), // 20% of open are critical for mock robustness
+      prisma.supportTicket
+        .count({ where: { status: "OPEN" } })
+        .then((c) => Math.floor(c * 0.2)), // 20% of open are critical for mock robustness
       prisma.rehabTask.count({ where: createdFilter }),
       prisma.user.count({ where: { verified: false, profileCompleted: true } }),
     ]);
 
-    const activeUserPercentage = totalUsers > 0 ? ((activeUsers / totalUsers) * 100).toFixed(1) : 0;
-    
+    const activeUserPercentage =
+      totalUsers > 0 ? ((activeUsers / totalUsers) * 100).toFixed(1) : 0;
+
     // Mocking adherence as computing it across all active tasks is heavy.
     const adherenceOnTrack = 78.5; // %
     const adherenceAtRisk = 21.5; // %
@@ -114,7 +185,7 @@ class AnalyticsService {
         },
         pendingApprovals: {
           queueCount: unverifiedUsers + pendingProviders,
-        }
+        },
       },
       charts: {
         providerVerification: [
@@ -122,9 +193,12 @@ class AnalyticsService {
           { status: "Pending", count: pendingProviders },
           { status: "Flagged", count: flaggedProviders },
         ],
-        cpImprovementTrend: generateMockWeeklyTrend(5, 40),
-        assignedDailyTasks: generateMockWeeklyTrend(20, 150),
-      }
+        cpImprovementTrend: await getRehabTaskCountsPerDay(
+          { status: "COMPLETED" },
+          endDate,
+        ),
+        assignedDailyTasks: await getRehabTaskCountsPerDay({}, endDate),
+      },
     };
   }
 
@@ -156,40 +230,52 @@ class AnalyticsService {
       rejectedApprovals,
     ] = await Promise.all([
       prisma.appointment.count({
-        where: { ...providerFilter, status: "COMPLETED", ...createdFilter }
+        where: { ...providerFilter, status: "COMPLETED", ...createdFilter },
       }),
       prisma.clinicalReferral.count({
-        where: { toProviderId: providerId, status: "PENDING", ...createdFilter }
+        where: {
+          toProviderId: providerId,
+          status: "PENDING",
+          ...createdFilter,
+        },
       }),
       prisma.clinicalReferral.count({
-        where: { toProviderId: providerId, status: "ACCEPTED", ...createdFilter }
+        where: {
+          toProviderId: providerId,
+          status: "ACCEPTED",
+          ...createdFilter,
+        },
       }),
       prisma.clinicalReferral.count({
-        where: { toProviderId: providerId, status: "DECLINED", ...createdFilter }
+        where: {
+          toProviderId: providerId,
+          status: "DECLINED",
+          ...createdFilter,
+        },
       }),
       prisma.rehabTask.count({
-        where: { ...providerFilter, ...createdFilter }
+        where: { ...providerFilter, ...createdFilter },
       }),
       prisma.rehabTask.count({
-        where: { ...providerFilter, status: "COMPLETED", ...createdFilter }
+        where: { ...providerFilter, status: "COMPLETED", ...createdFilter },
       }),
       // Using Appointment for generic approvals as surrogate
       prisma.appointment.count({
-        where: { ...providerFilter, status: "PENDING", ...createdFilter }
+        where: { ...providerFilter, status: "PENDING", ...createdFilter },
       }),
       prisma.appointment.count({
-        where: { ...providerFilter, status: "APPROVED", ...createdFilter }
+        where: { ...providerFilter, status: "APPROVED", ...createdFilter },
       }),
       prisma.appointment.count({
-        where: { ...providerFilter, status: "DECLINED", ...createdFilter }
+        where: { ...providerFilter, status: "DECLINED", ...createdFilter },
       }),
     ]);
 
     const averageRating = 4.8; // Mocked rating, add review model if exists
 
     // Mock Adherence for Provider
-    const adherenceOnTrack = 82.0; 
-    const adherenceAtRisk = 18.0; 
+    const adherenceOnTrack = 82.0;
+    const adherenceAtRisk = 18.0;
 
     return {
       kpis: {
@@ -214,18 +300,27 @@ class AnalyticsService {
           pending: pendingApprovals,
           approved: approvedApprovals,
           rejected: rejectedApprovals,
-        }
+        },
       },
       charts: {
-        patientProgress: generateMockWeeklyTrend(1, 10),
-        adherenceTrend: generateMockWeeklyTrend(60, 100), // Percentages
-        assignedDailyTasks: generateMockWeeklyTrend(5, 30),
+        patientProgress: await getRehabTaskCountsPerDay(
+          { ...providerFilter, status: "COMPLETED" },
+          endDate,
+        ),
+        adherenceTrend: await getAdherencePercentPerDay(
+          providerFilter,
+          endDate,
+        ),
+        assignedDailyTasks: await getRehabTaskCountsPerDay(
+          providerFilter,
+          endDate,
+        ),
         patientRecovery: {
           improved: 60,
           stable: 30,
-          regressed: 10
-        }
-      }
+          regressed: 10,
+        },
+      },
     };
   }
 
@@ -250,33 +345,42 @@ class AnalyticsService {
     ] = await Promise.all([
       prisma.supportTicket.count({ where: { status: "OPEN" } }),
       // Assuming 'IN_PROGRESS' is a status, fallback to OPEN if not
-      prisma.supportTicket.count({ where: { status: "OPEN" } }).then(c => Math.floor(c * 0.4)),
-      prisma.supportTicket.count({ where: { status: "OPEN" } }).then(c => Math.floor(c * 0.15)),
-      prisma.supportTicket.count({ where: { resolvedAt: { not: null }, ...createdFilter } }),
+      prisma.supportTicket
+        .count({ where: { status: "OPEN" } })
+        .then((c) => Math.floor(c * 0.4)),
+      prisma.supportTicket
+        .count({ where: { status: "OPEN" } })
+        .then((c) => Math.floor(c * 0.15)),
+      prisma.supportTicket.count({
+        where: { resolvedAt: { not: null }, ...createdFilter },
+      }),
       prisma.supportTicket.count({ where: createdFilter }),
 
       // Detailed Lists
       prisma.supportTicket.findMany({
         where: { status: "OPEN" },
         take: 5,
-        orderBy: { createdAt: 'desc' },
-        include: { user: { select: { fullName: true, email: true } } }
+        orderBy: { createdAt: "desc" },
+        include: { user: { select: { fullName: true, email: true } } },
       }),
       prisma.supportTicket.findMany({
         where: { status: "OPEN" }, // Mock IN_PROGRESS
         take: 5,
-        orderBy: { updatedAt: 'desc' },
-        include: { user: { select: { fullName: true, email: true } } }
+        orderBy: { updatedAt: "desc" },
+        include: { user: { select: { fullName: true, email: true } } },
       }),
       prisma.supportTicket.findMany({
         where: { status: "OPEN" }, // Mock ESCALATED
         take: 5,
-        orderBy: { createdAt: 'asc' }, // Oldest open
-        include: { user: { select: { fullName: true, email: true } } }
-      })
+        orderBy: { createdAt: "asc" }, // Oldest open
+        include: { user: { select: { fullName: true, email: true } } },
+      }),
     ]);
 
-    const efficiency = totalTicketsPeriod > 0 ? ((resolvedTickets / totalTicketsPeriod) * 100).toFixed(1) : 0;
+    const efficiency =
+      totalTicketsPeriod > 0
+        ? ((resolvedTickets / totalTicketsPeriod) * 100).toFixed(1)
+        : 0;
     const backlogCount = newQueue + inProgressQueue;
 
     // Formatting Lists
@@ -306,13 +410,13 @@ class AnalyticsService {
         resolvedToday: {
           efficiencyPercentage: parseFloat(efficiency),
           backlogCount: backlogCount,
-        }
+        },
       },
       queues: {
         newRequests: newTicketsList.map(formatTicket),
         inProgress: inProgressTicketsList.map(formatTicket),
         escalated: escalatedTicketsList.map(formatTicket),
-      }
+      },
     };
   }
 }
