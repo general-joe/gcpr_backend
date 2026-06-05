@@ -208,11 +208,15 @@ class AnalyticsService {
    * @param {string} providerId
    */
   async getProviderAnalytics(filter, providerId) {
+    if (!providerId) {
+      throw new Error("Provider ID is required for provider analytics");
+    }
+
     const { startDate, endDate } = getDateRange(filter);
     const dateFilter = { gte: startDate, lte: endDate };
     const createdFilter = { createdAt: dateFilter };
 
-    const providerFilter = providerId ? { providerId } : {};
+    const providerFilter = { providerId };
 
     const [
       sessionsCompleted,

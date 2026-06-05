@@ -117,15 +117,48 @@ export function authorize(allowedUserTypes = []) {
         );
       }
 
+      // Fetch service provider ID if user is a service provider
+      let serviceProviderId = null;
+      if (decoded.userType === 'SERVICE_PROVIDER') {
+        try {
+          const serviceProvider = await prisma.serviceProvider.findUnique({
+            where: { userId: decoded.id },
+            select: { id: true },
+          });
+          serviceProviderId = serviceProvider?.id || null;
+          if (!serviceProviderId) {
+            WRITE.warn("Service provider profile not found for user", {
+              userId: decoded.id,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        } catch (dbError) {
+          WRITE.error("Error fetching service provider profile", {
+            userId: decoded.id,
+            error: dbError.message,
+            timestamp: new Date().toISOString(),
+          });
+          // Don't fail authentication, just log the error
+        }
+      }
+
       rs.locals.user = {
         id: decoded.id,
         userType: decoded.userType,
         client,
         is_guest: false,
+        serviceProviderId,
       };
 
       return next();
     } catch (err) {
+      WRITE.error("Authorization middleware error", {
+        error: err.message,
+        stack: err.stack,
+        ip: rq.ip,
+        path: rq.path,
+        timestamp: new Date().toISOString(),
+      });
       return UtilFunctions.outputError(
         rs,
         "Invalid or expired token",
@@ -206,12 +239,38 @@ if (
          (await hasRbacRole(decoded.id, allowedRoleSlugs)) ||
          isAdmin
        ) {
+         // Fetch service provider ID if user is a service provider
+         let serviceProviderId = null;
+         if (decoded.userType === 'SERVICE_PROVIDER') {
+           try {
+             const serviceProvider = await prisma.serviceProvider.findUnique({
+               where: { userId: decoded.id },
+               select: { id: true },
+             });
+             serviceProviderId = serviceProvider?.id || null;
+             if (!serviceProviderId) {
+               WRITE.warn("Service provider profile not found for user", {
+                 userId: decoded.id,
+                 timestamp: new Date().toISOString(),
+               });
+             }
+           } catch (dbError) {
+             WRITE.error("Error fetching service provider profile", {
+               userId: decoded.id,
+               error: dbError.message,
+               timestamp: new Date().toISOString(),
+             });
+             // Don't fail authentication, just log the error
+           }
+         }
+
          rs.locals.user = {
            id: decoded.id,
            userType: decoded.userType,
            client,
            is_guest: false,
            roles: decoded.roles || [],
+           serviceProviderId,
          };
          return next();
        }
@@ -285,12 +344,38 @@ export function requireRbacRole(allowedSlugs = []) {
          },
        });
        if (isAdmin) {
+         // Fetch service provider ID if user is a service provider
+         let serviceProviderId = null;
+         if (decoded.userType === 'SERVICE_PROVIDER') {
+           try {
+             const serviceProvider = await prisma.serviceProvider.findUnique({
+               where: { userId: decoded.id },
+               select: { id: true },
+             });
+             serviceProviderId = serviceProvider?.id || null;
+             if (!serviceProviderId) {
+               WRITE.warn("Service provider profile not found for user", {
+                 userId: decoded.id,
+                 timestamp: new Date().toISOString(),
+               });
+             }
+           } catch (dbError) {
+             WRITE.error("Error fetching service provider profile", {
+               userId: decoded.id,
+               error: dbError.message,
+               timestamp: new Date().toISOString(),
+             });
+             // Don't fail authentication, just log the error
+           }
+         }
+
          rs.locals.user = {
            id: decoded.id,
            userType: decoded.userType,
            client,
            is_guest: false,
            roles: decoded.roles || [],
+           serviceProviderId,
          };
          return next();
        }
@@ -322,12 +407,38 @@ return UtilFunctions.outputError(
          );
        }
 
+       // Fetch service provider ID if user is a service provider
+       let serviceProviderId = null;
+       if (decoded.userType === 'SERVICE_PROVIDER') {
+         try {
+           const serviceProvider = await prisma.serviceProvider.findUnique({
+             where: { userId: decoded.id },
+             select: { id: true },
+           });
+           serviceProviderId = serviceProvider?.id || null;
+           if (!serviceProviderId) {
+             WRITE.warn("Service provider profile not found for user", {
+               userId: decoded.id,
+               timestamp: new Date().toISOString(),
+             });
+           }
+         } catch (dbError) {
+           WRITE.error("Error fetching service provider profile", {
+             userId: decoded.id,
+             error: dbError.message,
+             timestamp: new Date().toISOString(),
+           });
+           // Don't fail authentication, just log the error
+         }
+       }
+
        rs.locals.user = {
          id: decoded.id,
          userType: decoded.userType,
          client,
          is_guest: false,
          roles: decoded.roles || [],
+         serviceProviderId,
        };
 
        return next();
