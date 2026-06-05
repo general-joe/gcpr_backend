@@ -1,6 +1,7 @@
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
 import NotificationService from "../notification/notification.service.js";
+import WRITE from "../../utils/logger.js";
 
 export default class ReportService {
   static async createReport(userId, data) {
@@ -59,7 +60,7 @@ export default class ReportService {
         });
       }
     } catch (e) {
-      console.error("[Report] Admin notification failed:", e.message);
+      WRITE.error("[Report] Admin notification failed", { error: e.message });
     }
 
     return report;
@@ -176,7 +177,7 @@ export default class ReportService {
         relatedModel: "Report"
       });
     } catch (e) {
-      console.error("[Report] Reporter notification failed:", e.message);
+      WRITE.error("[Report] Reporter notification failed", { error: e.message });
     }
 
     return updated;

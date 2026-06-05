@@ -3,6 +3,7 @@ import admin from 'firebase-admin';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import WRITE from './logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,11 +11,6 @@ const __dirname = path.dirname(__filename);
 let firebaseApp = null;
 let firebaseInitError = null;
 
-/**
- * Initialize Firebase Admin SDK (Singleton)
- * Expects FIREBASE_SERVICE_ACCOUNT_JSON environment variable with path to service account key or JSON string
- * Throws on error in production, logs warning in development
- */
 const initializeFirebase = () => {
   if (firebaseApp) return firebaseApp;
   if (firebaseInitError) return null;
@@ -23,7 +19,7 @@ const initializeFirebase = () => {
     if (!serviceAccountPath) {
       const msg = 'Firebase service account not configured. Push notifications will be disabled.';
       if (process.env.NODE_ENV === 'production') throw new Error(msg);
-      else console.warn(msg);
+      else WRITE.warn(msg);
       firebaseInitError = msg;
       return null;
     }
@@ -31,7 +27,6 @@ const initializeFirebase = () => {
     try {
       serviceAccount = JSON.parse(serviceAccountPath);
     } catch {
-      // If not valid JSON, treat as file path
       const fullPath = path.resolve(serviceAccountPath);
       if (!fs.existsSync(fullPath)) {
         throw new Error(`Firebase service account file not found: ${fullPath}`);
@@ -42,12 +37,12 @@ const initializeFirebase = () => {
     firebaseApp = admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });
-    console.log('Firebase Admin SDK initialized successfully');
+    WRITE.info('Firebase Admin SDK initialized successfully');
     return firebaseApp;
   } catch (error) {
     firebaseInitError = error.message;
     if (process.env.NODE_ENV === 'production') throw error;
-    else console.error('Failed to initialize Firebase:', error.message);
+    else WRITE.error('Failed to initialize Firebase', { error: error.message });
     return null;
   }
 };
@@ -109,8 +104,7 @@ const sendPushNotification = async (token, notification) => {
     const response = await admin.messaging().send(message);
     return response;
   } catch (error) {
-    // Log with context
-    console.error(`[Push] Error sending notification to token ${token}:`, error);
+    WRITE.error(`Error sending notification to token`, { error: error.message, token });
     throw error;
   }
 };
@@ -190,7 +184,7 @@ const sendMulticastPushNotification = async (tokens, notification) => {
       failureCount: response.failureCount,
     };
   } catch (error) {
-    console.error(`[Push] Error sending multicast notification to tokens:`, error);
+    WRITE.error('Error sending multicast notification', { error: error.message });
     throw error;
   }
 };
@@ -215,7 +209,7 @@ const subscribeToTopic = async (tokens, topic) => {
     const response = await admin.messaging().subscribeToTopic(tokens, topic);
     return response;
   } catch (error) {
-    console.error(`[Push] Error subscribing tokens to topic '${topic}':`, error);
+    WRITE.error(`Error subscribing tokens to topic`, { error: error.message, topic });
     throw error;
   }
 };
@@ -240,7 +234,7 @@ const unsubscribeFromTopic = async (tokens, topic) => {
     const response = await admin.messaging().unsubscribeFromTopic(tokens, topic);
     return response;
   } catch (error) {
-    console.error(`[Push] Error unsubscribing tokens from topic '${topic}':`, error);
+    WRITE.error(`Error unsubscribing tokens from topic`, { error: error.message, topic });
     throw error;
   }
 };
@@ -301,7 +295,7 @@ const sendNotificationToTopic = async (topic, notification) => {
     const response = await admin.messaging().send(message);
     return response;
   } catch (error) {
-    console.error(`[Push] Error sending notification to topic '${topic}':`, error);
+    WRITE.error(`Error sending notification to topic`, { error: error.message, topic });
     throw error;
   }
 };

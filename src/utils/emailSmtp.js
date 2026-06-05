@@ -1,4 +1,3 @@
-// src/utils/emailSmtp.js
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -6,6 +5,7 @@ import sgMail from "@sendgrid/mail";
 import dotenv from "dotenv";
 import { enqueueJob } from "../services/queue/queue.service.js";
 import { EMAIL_JOB_NAMES, QUEUE_NAMES } from "../services/queue/queue.jobs.js";
+import WRITE from "./logger.js";
 
 dotenv.config();
 
@@ -98,7 +98,7 @@ export async function sendEmailNow(to, templateName, variables = {}) {
 
     return { success: true, messageId };
   } catch (error) {
-    console.error("EMAIL SEND FAILED:", error.message);
+    WRITE.error("Email send failed", { error: error.message });
     return { success: false, error: error.message };
   }
 }

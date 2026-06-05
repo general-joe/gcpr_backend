@@ -23,13 +23,17 @@ export const submitAssessmentSchema = z.object({
 
   status: z.enum(["DRAFT", "COMPLETED"]).optional(),
 
+  isRegularPerformance: z.boolean().optional(),
+
+  clinicalNotesComment: z.string().optional(),
+
   responses: z
     .record(z.string(), z.any())
     .refine(
       (val) => Object.keys(val).length > 0,
       "Responses cannot be empty"
     )
-}).strict();
+}).passthrough();
 
 export const createReferralSchema = z
   .object({

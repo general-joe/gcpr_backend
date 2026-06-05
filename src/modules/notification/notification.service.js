@@ -66,6 +66,203 @@ export default class NotificationService {
       },
     });
 
+    const io = getIO();
+    if (io) {
+      io.to(`user-${userId}`).emit("notification-update", {
+        type: "MARK_AS_READ",
+        notificationId,
+      });
+    }
+
+    return notification;
+  }
+
+  static async markAllAsRead(userId) {
+    const result = await prisma.notification.updateMany({
+      where: {
+        userId,
+        status: "UNREAD",
+      },
+      data: {
+        status: "READ",
+      },
+    });
+
+    const io = getIO();
+    if (io) {
+      io.to(`user-${userId}`).emit("notification-update", {
+        type: "MARK_ALL_AS_READ",
+        userId,
+      });
+    }
+
+    return result;
+  }
+
+  static async archive(notificationId, userId) {
+    const notification = await prisma.notification.updateMany({
+      where: {
+        id: notificationId,
+        userId,
+      },
+      data: {
+        status: "ARCHIVED",
+      },
+    });
+
+    const io = getIO();
+    if (io) {
+      io.to(`user-${userId}`).emit("notification-update", {
+        type: "ARCHIVE",
+        notificationId,
+      });
+    }
+
+    return notification;
+  }
+
+  static async deleteNotification(notificationId, userId) {
+    await prisma.notification.deleteMany({
+      where: {
+        id: notificationId,
+        userId,
+      },
+    });
+
+    const io = getIO();
+    if (io) {
+      io.to(`user-${userId}`).emit("notification-update", {
+        type: "DELETE",
+        notificationId,
+      });
+    }
+  }
+
+  static async createNotification(notificationData) {
+    const notification = await prisma.notification.create({
+      data: notificationData,
+    });
+
+    const io = getIO();
+    if (io) {
+      io.to(`user-${notificationData.userId}`).emit(
+        "new-notification",
+        notification,
+      );
+
+      const unreadCount = await this.getUnreadCount(notificationData.userId);
+      io.to(`user-${notificationData.userId}`).emit(
+        "notification-badge-update",
+        {
+          userId: notificationData.userId,
+          count: unreadCount,
+        },
+      );
+    }
+
+    await this.sendPushNotificationToUserNow(notificationData.userId, notification);
+
+    return notification;
+  }
+
+  static async sendPushNotificationToUserNow(userId, notification) {
+    try {
+      WRITE.info("Sending push notification", {
+        userId,
+        notificationId: notification.id,
+        category: notification.category,
+        relatedModel: notification.relatedModel,
+        relatedId: notification.relatedId,
+      });
+
+      const tokens = await prisma.pushNotificationToken.findMany({
+        where: {
+          userId,
+          isActive: true,
+        },
+      });
+
+      WRITE.debug("Found push tokens", {
+        userId,
+        tokenCount: tokens.length,
+      });
+
+      if (tokens.length === 0) {
+        WRITE.warn("No active push tokens", {
+          userId,
+          notificationId: notification.id,
+        });
+        return;
+      }
+
+      const firebaseTokens = tokens.map((t) => t.token);
+
+      const pushPayload = {
+        title: notification.title || "GCPR Notification",
+        body: notification.content || "You have a new notification",
+        data: {
+          notificationId: notification.id,
+          category: notification.category,
+          relatedId: notification.relatedId || "",
+          relatedModel: notification.relatedModel || "",
+        },
+      };
+
+      if (firebaseTokens.length === 1) {
+        const response = await sendPushNotification(
+          firebaseTokens[0],
+          pushPayload,
+        );
+        WRITE.info("Push notification sent", {
+          userId,
+          notificationId: notification.id,
+          tokenCount: firebaseTokens.length,
+          response,
+        });
+        return response;
+      }
+
+      const response = await sendMulticastPushNotification(
+        firebaseTokens,
+        pushPayload,
+      );
+      WRITE.info("Multicast push notification sent", {
+        userId,
+        notificationId: notification.id,
+        tokenCount: firebaseTokens.length,
+        successCount: response.successCount,
+        failureCount: response.failureCount,
+      });
+      return response;
+    } catch (error) {
+      WRITE.error("Failed to send push notification", {
+        error: error.message,
+        userId,
+        notificationId: notification.id,
+      });
+    }
+  }
+
+  static async getUnreadCount(userId) {
+    return await prisma.notification.count({
+      where: {
+        userId,
+        status: "UNREAD",
+      },
+    });
+  }
+
+  static async markAsRead(notificationId, userId) {
+    const notification = await prisma.notification.updateMany({
+      where: {
+        id: notificationId,
+        userId,
+      },
+      data: {
+        status: "READ",
+      },
+    });
+
     // Emit real-time update via Socket.IO
     const io = getIO();
     if (io) {
@@ -178,34 +375,6 @@ export default class NotificationService {
       notificationType: notification.type,
       category: notification.category,
     });
-
-    const queueResult = await enqueueJob(
-      QUEUE_NAMES.NOTIFICATION,
-      NOTIFICATION_JOB_NAMES.DELIVER_PUSH,
-      { userId, notification },
-      {
-        jobId: `notification:${notification.id}`,
-      },
-    );
-
-    WRITE.info("Notification queue dispatch result", {
-      userId,
-      notificationId: notification.id,
-      queued: queueResult.queued,
-      queueName: queueResult.queueName,
-      jobId: queueResult.jobId,
-    });
-
-    if (!queueResult.queued) {
-      WRITE.warn(
-        "Notification queue disabled or unavailable; sending immediately",
-        {
-          userId,
-          notificationId: notification.id,
-        },
-      );
-      await this.sendPushNotificationToUserNow(userId, notification);
-    }
   }
 
   static async sendPushNotificationToUserNow(userId, notification) {

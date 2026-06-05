@@ -56,10 +56,14 @@ const buildIdentifierWhere = (identifier) => {
 
 class AuthService {
   static async registerUser(rq, userData) {
-    WRITE.info("User request data", { userData });
+    WRITE.info("User registration started", {
+      userType: userData.role ?? userData.userType,
+      hasEmail: Boolean(userData.email),
+      hasPhone: Boolean(userData.phoneNumber),
+      otpChannel: userData.otpChannel,
+    });
     userData.userType =userData.role;
     delete userData.role;
- WRITE.info("User request data after mutation", { userData });
     if (rq.files?.profileImage) {
       const fileName = `${userData.id}.jpg`;
       userData.profileImage = await UploadService.saveFile(
@@ -139,10 +143,11 @@ class AuthService {
       // normalize Ghana numbers before SendOTP / SendSMS
 
       const otpResponse = await SendOTP(newUser.phoneNumber);
-
-      WRITE.info("Hubtel raw OTP response", { otpResponse });
-
       const otpData = extractOtpPayload(otpResponse);
+
+      WRITE.debug("Hubtel OTP request completed", {
+        hasRequestId: Boolean(otpData?.requestId),
+      });
 
       if (!otpData?.requestId || !otpData?.prefix) {
         throw new Error(
@@ -201,19 +206,14 @@ class AuthService {
         name: newUser.fullName,
       });
       if (!emailResult.success) {
-        console.error(
-          "OTP EMAIL FAILED for",
-          newUser.email,
-          ":",
-          emailResult.error,
-        );
+        WRITE.warn("OTP EMAIL FAILED", {
+          userId: newUser.id,
+          error: emailResult.error,
+        });
       } else {
-        console.log(
-          "OTP EMAIL SENT to",
-          newUser.email,
-          "messageId:",
-          emailResult.messageId,
-        );
+        WRITE.debug("OTP EMAIL SENT", {
+          messageId: emailResult.messageId,
+        });
       }
     }
 
@@ -598,7 +598,7 @@ class AuthService {
     });
 
     if (!user) {
-      throw new gcprError(HttpStatus.NOT_FOUND, "User not found");
+      throw new gcprError(HttpStatus.UNAUTHORIZED, "Invalid credentials");
     }
 
     const validPassword = await compare(password, user.password);
