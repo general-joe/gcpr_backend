@@ -67,10 +67,13 @@ const ALL_TOOL_CONFIGS = [
 
 const ITEM_TYPE_TO_FORMAT = {
   TEXT: "string",
+  TEXTAREA: "textarea",
   NUMBER: "number",
   BOOLEAN: "boolean",
   DATE: "date",
   SELECT: "string",
+  CHECKBOX: "checkbox",
+  RADIO: "radio",
 };
 
 const toTitleFromId = (value) =>
