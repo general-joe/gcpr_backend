@@ -146,14 +146,58 @@ class CpPatientService {
           orderBy: { createdAt: "desc" },
           skip,
           take: limit,
+          include: {
+              caregiver: {
+                select: {
+                  id: true,
+                  user: {
+                    select: { id: true, fullName: true },
+                  },
+                },
+              },
+          },
         }),
         prisma.cpPatient.count({
           where: { caregiverId: caregiver.id },
         }),
       ]);
 
+      // Enrich patients with additional data (assessments, appointments, referrals, tasks)
+      const enrichedPatients = await Promise.all(
+        patients.map(async (p) => {
+          const [latestAssessment, nextAppointment, latestReferral, openTasks] = await Promise.all([
+            prisma.assessment.findFirst({
+              where: { patientId: p.id },
+              orderBy: { createdAt: "desc" },
+              select: { id: true, status: true },
+            }),
+            prisma.appointment.findFirst({
+              where: { patientId: p.id, scheduledDate: { gte: new Date() } },
+              orderBy: { scheduledDate: "asc" },
+              select: { id: true, scheduledDate: true },
+            }),
+            prisma.clinicalReferral.findFirst({
+              where: { patientId: p.id },
+              orderBy: { createdAt: "desc" },
+              select: { id: true, status: true },
+            }),
+            prisma.rehabTask.count({
+              where: { patientId: p.id, status: { in: ["ASSIGNED", "IN_PROGRESS"] } },
+            }),
+          ]);
+
+          return {
+            ...p,
+            latestAssessmentStatus: latestAssessment?.status || null,
+            nextAppointmentDate: nextAppointment?.scheduledDate || null,
+            latestReferralStatus: latestReferral?.status || null,
+            openTasksCount: openTasks,
+          };
+        })
+      );
+
       return {
-        data: patients,
+        data: enrichedPatients,
         pagination: {
           page,
           limit,
@@ -179,12 +223,56 @@ class CpPatientService {
             orderBy: { createdAt: "desc" },
             skip,
             take: limit,
+            include: {
+              caregiver: {
+                select: {
+                  id: true,
+                  user: {
+                    select: { id: true, fullName: true },
+                  },
+                },
+              },
+            },
           }),
           prisma.cpPatient.count(),
         ]);
 
+        // Enrich patients with additional data
+        const enrichedPatients = await Promise.all(
+          patients.map(async (p) => {
+            const [latestAssessment, nextAppointment, latestReferral, openTasks] = await Promise.all([
+              prisma.assessment.findFirst({
+                where: { patientId: p.id },
+                orderBy: { createdAt: "desc" },
+                select: { id: true, status: true },
+              }),
+              prisma.appointment.findFirst({
+                where: { patientId: p.id, scheduledDate: { gte: new Date() } },
+                orderBy: { scheduledDate: "asc" },
+                select: { id: true, scheduledDate: true },
+              }),
+              prisma.clinicalReferral.findFirst({
+                where: { patientId: p.id },
+                orderBy: { createdAt: "desc" },
+                select: { id: true, status: true },
+              }),
+              prisma.rehabTask.count({
+                where: { patientId: p.id, status: { in: ["ASSIGNED", "IN_PROGRESS"] } },
+              }),
+            ]);
+
+            return {
+              ...p,
+              latestAssessmentStatus: latestAssessment?.status || null,
+              nextAppointmentDate: nextAppointment?.scheduledDate || null,
+              latestReferralStatus: latestReferral?.status || null,
+              openTasksCount: openTasks,
+            };
+          })
+        );
+
         return {
-          data: patients,
+          data: enrichedPatients,
           pagination: {
             page,
             limit,
@@ -223,15 +311,59 @@ class CpPatientService {
             orderBy: { createdAt: "desc" },
             skip: (page - 1) * limit,
             take: limit,
+            include: {
+              caregiver: {
+                select: {
+                  id: true,
+                  user: {
+                    select: { id: true, fullName: true },
+                  },
+                },
+              },
+            },
           });
 
+      // Enrich patients with additional data
+      const enrichedPatients = await Promise.all(
+        patientList.map(async (p) => {
+          const [latestAssessment, nextAppointment, latestReferral, openTasks] = await Promise.all([
+            prisma.assessment.findFirst({
+              where: { patientId: p.id },
+              orderBy: { createdAt: "desc" },
+              select: { id: true, status: true },
+            }),
+            prisma.appointment.findFirst({
+              where: { patientId: p.id, scheduledDate: { gte: new Date() } },
+              orderBy: { scheduledDate: "asc" },
+              select: { id: true, scheduledDate: true },
+            }),
+            prisma.clinicalReferral.findFirst({
+              where: { patientId: p.id },
+              orderBy: { createdAt: "desc" },
+              select: { id: true, status: true },
+            }),
+            prisma.rehabTask.count({
+              where: { patientId: p.id, status: { in: ["ASSIGNED", "IN_PROGRESS"] } },
+            }),
+          ]);
+
+          return {
+            ...p,
+            latestAssessmentStatus: latestAssessment?.status || null,
+            nextAppointmentDate: nextAppointment?.scheduledDate || null,
+            latestReferralStatus: latestReferral?.status || null,
+            openTasksCount: openTasks,
+          };
+        })
+      );
+
       return {
-        data: patientList,
+        data: enrichedPatients,
         pagination: {
           page,
           limit,
-          total: patientList.length,
-          totalPages: Math.ceil(patientList.length / limit),
+          total: enrichedPatients.length,
+          totalPages: Math.ceil(enrichedPatients.length / limit),
         },
       };
     }

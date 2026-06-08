@@ -19,7 +19,15 @@ class AnalyticsController {
 
   getProviderDashboard = catchAsync(async (req, res) => {
     const { filter } = filterSchema.parse(req.query);
-    const providerId = req.user?.serviceProvider?.id || req.user?.id; // Assuming user injects serviceProvider
+    const providerId = res.locals.user?.serviceProviderId;
+    
+    if (!providerId) {
+      return res.status(403).json({
+        status: "error",
+        message: "Service provider profile not found",
+      });
+    }
+    
     const data = await AnalyticsService.getProviderAnalytics(filter, providerId);
 
     res.status(200).json({
