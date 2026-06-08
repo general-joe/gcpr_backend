@@ -61,6 +61,7 @@ rbacRouter.put(
 
 // ─── User Role Assignment ─────────────────────────────────────────────────────
 rbacRouter.get("/users/:userId/roles", rbacAdminLimiter, requireRbacRole(["ADMIN"]), RbacController.getUserRoles);
+rbacRouter.get("/users/roles", rbacAdminLimiter, requireRbacRole(["ADMIN"]), RbacController.getUsersRoles);
 rbacRouter.post("/users/:userId/roles", rbacAdminLimiter, requireRbacRole(["ADMIN"]), RbacController.assignRoleToUser);
 rbacRouter.delete("/users/:userId/roles/:roleId", rbacAdminLimiter, requireRbacRole(["ADMIN"]), RbacController.revokeRoleFromUser);
 

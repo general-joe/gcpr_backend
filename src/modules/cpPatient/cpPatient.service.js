@@ -166,30 +166,30 @@ class CpPatientService {
       const enrichedPatients = await Promise.all(
         patients.map(async (p) => {
           const [latestAssessment, nextAppointment, latestReferral, openTasks] = await Promise.all([
-            prisma.assessment.findFirst({
+                  prisma.clinicalAssessment.findFirst({
               where: { patientId: p.id },
               orderBy: { createdAt: "desc" },
               select: { id: true, status: true },
             }),
-            prisma.appointment.findFirst({
-              where: { patientId: p.id, scheduledDate: { gte: new Date() } },
-              orderBy: { scheduledDate: "asc" },
-              select: { id: true, scheduledDate: true },
-            }),
+               prisma.appointment.findFirst({
+                 where: { patientId: p.id, appointmentDate: { gte: new Date() } },
+                 orderBy: { appointmentDate: "asc" },
+                 select: { id: true, appointmentDate: true },
+               }),
             prisma.clinicalReferral.findFirst({
               where: { patientId: p.id },
               orderBy: { createdAt: "desc" },
               select: { id: true, status: true },
             }),
-            prisma.rehabTask.count({
-              where: { patientId: p.id, status: { in: ["ASSIGNED", "IN_PROGRESS"] } },
-            }),
+               prisma.rehabTask.count({
+                 where: { patientId: p.id, NOT: { status: "COMPLETED" } },
+               }),
           ]);
 
           return {
             ...p,
             latestAssessmentStatus: latestAssessment?.status || null,
-            nextAppointmentDate: nextAppointment?.scheduledDate || null,
+            nextAppointmentDate: nextAppointment?.appointmentDate || null,
             latestReferralStatus: latestReferral?.status || null,
             openTasksCount: openTasks,
           };
@@ -241,30 +241,30 @@ class CpPatientService {
         const enrichedPatients = await Promise.all(
           patients.map(async (p) => {
             const [latestAssessment, nextAppointment, latestReferral, openTasks] = await Promise.all([
-              prisma.assessment.findFirst({
+                prisma.clinicalAssessment.findFirst({
                 where: { patientId: p.id },
                 orderBy: { createdAt: "desc" },
                 select: { id: true, status: true },
               }),
-              prisma.appointment.findFirst({
-                where: { patientId: p.id, scheduledDate: { gte: new Date() } },
-                orderBy: { scheduledDate: "asc" },
-                select: { id: true, scheduledDate: true },
-              }),
+                prisma.appointment.findFirst({
+                  where: { patientId: p.id, appointmentDate: { gte: new Date() } },
+                  orderBy: { appointmentDate: "asc" },
+                  select: { id: true, appointmentDate: true },
+                }),
               prisma.clinicalReferral.findFirst({
                 where: { patientId: p.id },
                 orderBy: { createdAt: "desc" },
                 select: { id: true, status: true },
               }),
-              prisma.rehabTask.count({
-                where: { patientId: p.id, status: { in: ["ASSIGNED", "IN_PROGRESS"] } },
-              }),
+                prisma.rehabTask.count({
+                  where: { patientId: p.id, NOT: { status: "COMPLETED" } },
+                }),
             ]);
 
             return {
               ...p,
               latestAssessmentStatus: latestAssessment?.status || null,
-              nextAppointmentDate: nextAppointment?.scheduledDate || null,
+                nextAppointmentDate: nextAppointment?.appointmentDate || null,
               latestReferralStatus: latestReferral?.status || null,
               openTasksCount: openTasks,
             };
@@ -327,15 +327,15 @@ class CpPatientService {
       const enrichedPatients = await Promise.all(
         patientList.map(async (p) => {
           const [latestAssessment, nextAppointment, latestReferral, openTasks] = await Promise.all([
-            prisma.assessment.findFirst({
+            prisma.clinicalAssessment.findFirst({
               where: { patientId: p.id },
               orderBy: { createdAt: "desc" },
               select: { id: true, status: true },
             }),
             prisma.appointment.findFirst({
-              where: { patientId: p.id, scheduledDate: { gte: new Date() } },
-              orderBy: { scheduledDate: "asc" },
-              select: { id: true, scheduledDate: true },
+              where: { patientId: p.id, appointmentDate: { gte: new Date() } },
+              orderBy: { appointmentDate: "asc" },
+              select: { id: true, appointmentDate: true },
             }),
             prisma.clinicalReferral.findFirst({
               where: { patientId: p.id },
@@ -343,14 +343,14 @@ class CpPatientService {
               select: { id: true, status: true },
             }),
             prisma.rehabTask.count({
-              where: { patientId: p.id, status: { in: ["ASSIGNED", "IN_PROGRESS"] } },
+              where: { patientId: p.id, NOT: { status: "COMPLETED" } },
             }),
           ]);
 
           return {
             ...p,
             latestAssessmentStatus: latestAssessment?.status || null,
-            nextAppointmentDate: nextAppointment?.scheduledDate || null,
+            nextAppointmentDate: nextAppointment?.appointmentDate || null,
             latestReferralStatus: latestReferral?.status || null,
             openTasksCount: openTasks,
           };
