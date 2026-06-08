@@ -177,6 +177,33 @@ export default class RbacService {
     });
   }
 
+  /**
+   * Get roles for multiple users in a single query. Returns an object
+   * mapping userId -> array of userRole records (same shape as getUserRoles).
+   */
+  static async getUsersRoles(userIds = []) {
+    if (!Array.isArray(userIds) || userIds.length === 0) return {};
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId: { in: userIds }, active: true },
+      include: {
+        role: {
+          include: {
+            rolePermissions: {
+              include: { permission: { select: { id: true, code: true, name: true } } }
+            }
+          }
+        }
+      }
+    });
+
+    const map = {};
+    for (const ur of userRoles) {
+      map[ur.userId] = map[ur.userId] || [];
+      map[ur.userId].push(ur);
+    }
+    return map;
+  }
+
   static async assignRoleToUser(userId, data) {
     const [user, role] = await Promise.all([
       prisma.user.findUnique({ where: { id: userId } }),

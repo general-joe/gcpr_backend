@@ -72,6 +72,17 @@ export default class RbacController {
     UtilFunctions.outputSuccess(res, result, "User roles retrieved successfully");
   });
 
+  static getUsersRoles = catchAsync(async (req, res) => {
+    // Expect comma-separated userIds in query param `userIds`
+    const { userIds } = req.query;
+    if (!userIds) {
+      return UtilFunctions.outputError(res, "userIds query param is required", {}, "VALIDATION_ERROR", 400);
+    }
+    const ids = String(userIds).split(",").map(s => s.trim()).filter(Boolean);
+    const result = await RbacService.getUsersRoles(ids);
+    UtilFunctions.outputSuccess(res, result, "User roles retrieved successfully");
+  });
+
   static assignRoleToUser = catchAsync(async (req, res) => {
     const result = await RbacService.assignRoleToUser(req.params.userId, req.validatedData ?? req.body);
     UtilFunctions.outputSuccess(res, result, "Role assigned to user");

@@ -95,7 +95,7 @@ export function authorize(allowedUserTypes = []) {
         where: {
           userId: decoded.id,
           active: true,
-          role: { slug: { equals: "ADMIN", mode: "insensitive" } },
+          role: { slug: "ADMIN" },
           OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
       });
@@ -230,7 +230,7 @@ export function authorizeOrRbacRole(
         where: {
           userId: decoded.id,
           active: true,
-          role: { slug: { equals: "ADMIN", mode: "insensitive" } },
+          role: { slug: "ADMIN" },
           OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
       });
@@ -339,7 +339,7 @@ export function requireRbacRole(allowedSlugs = []) {
          where: {
            userId: decoded.id,
            active: true,
-           role: { slug: { equals: "ADMIN", mode: "insensitive" } },
+           role: { slug: "ADMIN" },
            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
          },
        });
@@ -488,7 +488,7 @@ export function requirePermission(permissionCode) {
         where: {
           userId: decoded.id,
           active: true,
-          role: { slug: { equals: "ADMIN", mode: "insensitive" } },
+          role: { slug: "ADMIN" },
           OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
       });
