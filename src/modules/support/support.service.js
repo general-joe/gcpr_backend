@@ -2,6 +2,8 @@ import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
 import NotificationService from "../notification/notification.service.js";
 import WRITE from "../../utils/logger.js";
+import { sendEmail } from "../../utils/emailSmtp.js";
+import { SendSMS } from "../../utils/hubtel-sms.js";
 
 async function generateTicketNumber(tx) {
   const count = await tx.supportTicket.count();
@@ -103,7 +105,7 @@ export default class SupportService {
         messages: {
           orderBy: { createdAt: "asc" },
           include: {
-            sender: { select: { id: true, fullName: true, role: true, profileImage: true } }
+            sender: { select: { id: true, fullName: true, userType: true, profileImage: true } }
           }
         }
       }
@@ -129,7 +131,7 @@ export default class SupportService {
       prisma.ticketMessage.create({
         data: { ticketId, senderId: userId, content, isAdminReply: false },
         include: {
-          sender: { select: { id: true, fullName: true, role: true } }
+          sender: { select: { id: true, fullName: true, userType: true } }
         }
       }),
       prisma.supportTicket.update({
@@ -175,10 +177,45 @@ export default class SupportService {
       throw new gcprError(HttpStatus.FORBIDDEN, "You do not have access to this ticket");
     }
 
-    return prisma.supportTicket.update({
+    const updated = await prisma.supportTicket.update({
       where: { id: ticketId },
       data: { status: "CLOSED", closedAt: new Date() }
     });
+
+    // Notify the ticket owner (confirmation)
+    try {
+      await NotificationService.createNotification({
+        userId: ticket.userId,
+        type: "IN_APP",
+        category: "SYSTEM",
+        title: "Support Ticket Closed",
+        content: `Your support ticket #${ticket.ticketNumber} has been closed.`,
+        relatedId: ticketId,
+        relatedModel: "SupportTicket",
+      });
+    } catch (e) {
+      WRITE.error("[Support] Close ticket notification failed", { error: e.message });
+    }
+
+    // Attempt to send an email to the ticket owner (if email available). Otherwise fall back to SMS.
+    try {
+      const user = await prisma.user.findUnique({ where: { id: ticket.userId }, select: { email: true, fullName: true, phoneNumber: true } });
+      if (user?.email) {
+        await sendEmail(user.email, "success", { name: user.fullName || "there", fullName: user.fullName });
+      } else if (user?.phoneNumber) {
+        // Fallback to Hubtel SMS
+        try {
+          const res = await SendSMS(user.phoneNumber, `Your support ticket #${ticket.ticketNumber} has been closed.`);
+          WRITE.info("[Support] SMS sent via Hubtel", { to: user.phoneNumber, result: res });
+        } catch (err) {
+          WRITE.warn("[Support] Hubtel SMS failed", { error: err?.message || err, userId: ticket.userId });
+        }
+      }
+    } catch (e) {
+      WRITE.error("[Support] Close ticket notification/email failed", { error: e.message });
+    }
+
+    return updated;
   }
 
   // ─── Admin Ticket Operations ───────────────────────────────────────────────
@@ -220,7 +257,7 @@ export default class SupportService {
         messages: {
           orderBy: { createdAt: "asc" },
           include: {
-            sender: { select: { id: true, fullName: true, role: true, profileImage: true } }
+            sender: { select: { id: true, fullName: true, userType: true, profileImage: true } }
           }
         }
       }
@@ -254,7 +291,7 @@ export default class SupportService {
       prisma.ticketMessage.create({
         data: { ticketId, senderId: adminId, content, isAdminReply: true },
         include: {
-          sender: { select: { id: true, fullName: true, role: true } }
+          sender: { select: { id: true, fullName: true, userType: true } }
         }
       }),
       prisma.supportTicket.update({
