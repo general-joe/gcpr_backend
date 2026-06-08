@@ -147,14 +147,14 @@ class CpPatientService {
           skip,
           take: limit,
           include: {
-            caregiver: {
-              select: {
-                id: true,
-                user: {
-                  select: { id: true, fullName: true, name: true },
+              caregiver: {
+                select: {
+                  id: true,
+                  user: {
+                    select: { id: true, fullName: true },
+                  },
                 },
               },
-            },
           },
         }),
         prisma.cpPatient.count({
@@ -228,7 +228,7 @@ class CpPatientService {
                 select: {
                   id: true,
                   user: {
-                    select: { id: true, fullName: true, name: true },
+                    select: { id: true, fullName: true },
                   },
                 },
               },
@@ -316,7 +316,7 @@ class CpPatientService {
                 select: {
                   id: true,
                   user: {
-                    select: { id: true, fullName: true, name: true },
+                    select: { id: true, fullName: true },
                   },
                 },
               },
