@@ -56,6 +56,8 @@ model User {
   sentDirectMessages           DirectMessage[]         @relation("DirectMessageSender")
   resources                    Resource[]
   serviceProvider              ServiceProvider?
+  userSignatures               UserSignature[]
+  documentSignatures           DocumentSignature[]
 }
 
 model Otp {
@@ -1615,4 +1617,35 @@ enum ResourceType {
   DOCUMENT
   VIDEO
   LINK
+}
+
+/// Digital signature models
+model UserSignature {
+  id         String   @id @default(uuid())
+  userId     String
+  signatureUrl String
+  mimeType   String?
+  data       String?  // optional base64 payload for small signatures
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DocumentSignature {
+  id           String   @id @default(uuid())
+  signerId     String
+  signatureUrl String
+  relatedModel String   // e.g. "clinicalReferral", "cpPatient", "document"
+  relatedId    String
+  documentHash String?
+  hmac         String?
+  ip           String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  signer User @relation(fields: [signerId], references: [id], onDelete: Cascade)
+
+  @@index([relatedModel, relatedId])
 }
