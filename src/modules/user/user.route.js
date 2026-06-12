@@ -8,18 +8,18 @@ const userRouter = express.Router();
 /**
  * GET /users/profile
  * Get user profile
- * Available to: SERVICE_PROVIDER, CAREGIVER
+ * Available to: SERVICE_PROVIDER, CAREGIVER, ADMIN
  */
 userRouter.get(
   "/profile",
-  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
+  authorize(["SERVICE_PROVIDER", "CAREGIVER", "ADMIN"]),
   UserController.getProfile,
 );
 
 /**
  * GET /users/videos
  * List all videos from the YouTube channel with database caching
- * Available to: ALL USERS (SERVICE_PROVIDER and CAREGIVER)
+ * Available to: ALL USERS (SERVICE_PROVIDER, CAREGIVER, ADMIN)
  *
  * Query Parameters:
  *  - pageSize: number of videos per page (default: 25)
@@ -28,7 +28,7 @@ userRouter.get(
  */
 userRouter.get(
   "/videos",
-  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
+  authorize(["SERVICE_PROVIDER", "CAREGIVER", "ADMIN"]),
   UserController.listVideos,
 );
 

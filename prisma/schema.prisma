@@ -58,6 +58,11 @@ model User {
   serviceProvider              ServiceProvider?
   userSignatures               UserSignature[]
   documentSignatures           DocumentSignature[]
+  grantedConsents              ConsentRecord[]
+  carePlanSignatures           CarePlanSignature[]
+
+  @@index([id])
+  @@map("user")
 }
 
 model Otp {
@@ -132,6 +137,7 @@ model ServiceProvider {
   telehealthRoomsProvided   TelehealthRoom[]           @relation("ProviderForRoom")
   resources                 Resource[]
   user                      User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  carePlans                 CarePlan[]
 
   @@index([verificationStatus])
   @@map("serviceProvider")
@@ -200,6 +206,8 @@ model CpPatient {
   rehabTasks                RehabTask[]
   adherenceLogs             TaskAdherenceLog[]
   caregiver                 CareGiver                  @relation(fields: [caregiverId], references: [id], onDelete: Cascade)
+  carePlans                 CarePlan[]                 @relation("CarePlans")
+  consents                  ConsentRecord[]
 
   @@index([caregiverId])
   @@map("cpPatient")
@@ -239,6 +247,7 @@ model ClinicalAssessment {
   provider    ServiceProvider            @relation("ProviderAssessments", fields: [providerId], references: [id], onDelete: Cascade)
   referral    ClinicalReferral?          @relation("ReferralAssessment", fields: [referralId], references: [id])
   reports     ClinicalAssessmentReport[]
+  carePlans   CarePlan[]
 
   @@index([patientId])
   @@index([providerId])
@@ -266,6 +275,8 @@ model ClinicalReferral {
   status            ReferralStatus      @default(PENDING)
   createdAt         DateTime            @default(now())
   toProviderId      String?
+  slaDeadline       DateTime?
+  escalatedAt       DateTime?
   relatedAssessment ClinicalAssessment? @relation("ReferralAssessment")
   fromProvider      ServiceProvider     @relation("ProviderReferrals", fields: [fromProviderId], references: [id], onDelete: Cascade)
   patient           CpPatient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
@@ -1355,10 +1366,96 @@ enum ProfessionalBody {
   PSCG
 }
 
+model CarePlan {
+  id                 String @id @default(uuid())
+  patientId          String
+  assessmentId       String
+  primaryProviderId  String
+  reviewDate         DateTime?
+  status             CarePlanStatus @default(ACTIVE)
+  goals              Json
+  interventions      Json
+  createdAt          DateTime @default(now())
+  createdBy          String?
+
+  patient         CpPatient          @relation("CarePlans", fields: [patientId], references: [id], onDelete: Cascade)
+  assessment      ClinicalAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  primaryProvider ServiceProvider    @relation(fields: [primaryProviderId], references: [id], onDelete: Cascade)
+  signatures      CarePlanSignature[]
+
+  @@index([patientId])
+  @@index([assessmentId])
+  @@index([primaryProviderId])
+  @@map("carePlan")
+}
+
+model CarePlanSignature {
+  id             String    @id @default(uuid())
+  carePlanId     String
+  signerId       String
+  signedAt       DateTime @default(now())
+  documentHash   String?
+  signerType     CarePlanSignerType @default(PROVIDER)
+
+  carePlan CarePlan @relation(fields: [carePlanId], references: [id], onDelete: Cascade)
+  signer   User     @relation(fields: [signerId], references: [id], onDelete: Cascade)
+
+  @@index([carePlanId])
+  @@index([signerId])
+}
+
+model ConsentRecord {
+  id                  String    @id @default(uuid())
+  patientId           String
+  consentType         ConsentType
+  grantedByUserId     String
+  grantedAt           DateTime @default(now())
+  revokedAt           DateTime?
+  scope               String?
+  documentId          String?
+  method              ConsentMethod @default(DIGITAL_SIGNATURE)
+
+  patient     CpPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  grantedBy   User       @relation(fields: [grantedByUserId], references: [id])
+
+  @@index([patientId])
+  @@index([grantedByUserId])
+  @@map("consentRecord")
+}
+
+enum CarePlanStatus {
+  ACTIVE
+  COMPLETED
+  SUPERSEDED
+}
+
+enum CarePlanSignerType {
+  PROVIDER
+  REVIEWER
+  CAREGIVER
+}
+
+enum ConsentType {
+  TREATMENT
+  DATA_SHARING
+  RECORDING
+  PHOTO_VIDEO
+  RESEARCH
+}
+
+enum ConsentMethod {
+  DIGITAL_SIGNATURE
+  SMS
+  PAPER
+}
+
 enum AssessmentStatus {
   DRAFT
+  PENDING_REVIEW
   COMPLETED
   REVIEWED
+  REVIEWED_NEEDS_REVISION
+  APPROVED
 }
 
 enum ReferralStatus {
@@ -1366,6 +1463,8 @@ enum ReferralStatus {
   ACCEPTED
   DECLINED
   COMPLETED
+  EXPIRED
+  CANCELLED
 }
 
 enum RehabTaskStatus {
