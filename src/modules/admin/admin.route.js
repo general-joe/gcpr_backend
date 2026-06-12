@@ -77,7 +77,7 @@ adminRouter.patch(
 adminRouter.delete(
   "/users/:id",
   limiter,
-  requireRbacRole(["ADMIN"]),
+  requireRbacRole(["ADMIN", "SUPPORT"]),
   AdminController.deleteUser,
 );
 
