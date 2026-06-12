@@ -14,6 +14,15 @@ const professionEnum = z.enum([
   "PHARMACIST"
 ]);
 
+const assessmentStatusEnum = z.enum([
+  "DRAFT",
+  "PENDING_REVIEW",
+  "COMPLETED",
+  "REVIEWED",
+  "REVIEWED_NEEDS_REVISION",
+  "APPROVED",
+]);
+
 export const submitAssessmentSchema = z.object({
   patientId: z.string().uuid(),
 
@@ -21,7 +30,7 @@ export const submitAssessmentSchema = z.object({
 
   toolVersion: z.string().optional(),
 
-  status: z.enum(["DRAFT", "COMPLETED"]).optional(),
+  status: assessmentStatusEnum.optional(),
 
   isRegularPerformance: z.boolean().optional(),
 
@@ -34,6 +43,11 @@ export const submitAssessmentSchema = z.object({
       "Responses cannot be empty"
     )
 }).passthrough();
+
+export const updateAssessmentStatusSchema = z.object({
+  status: assessmentStatusEnum,
+  clinicalNotesComment: z.string().optional(),
+});
 
 export const createReferralSchema = z
   .object({

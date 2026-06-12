@@ -716,6 +716,7 @@ class AssessmentService {
     }
 
     const referral = await prisma.$transaction(async (tx) => {
+      const slaDeadline = new Date(Date.now() + 72 * 60 * 60 * 1000);
       const createdReferral = await tx.clinicalReferral.create({
         data: {
           patientId: data.patientId,
@@ -723,6 +724,7 @@ class AssessmentService {
           toProviderId: data.toProviderId ?? null,
           toProfession: data.toProfession,
           reason: data.reason,
+          slaDeadline,
         },
       });
 
@@ -1009,6 +1011,13 @@ class AssessmentService {
       );
     }
 
+    if (status === 'DECLINED' || status === 'EXPIRED') {
+      await prisma.rehabTask.updateMany({
+        where: { referralId, status: { in: ['PENDING', 'ASSIGNED'] } },
+        data: { status: 'CANCELLED' },
+      });
+    }
+
     const updated = await prisma.clinicalReferral.update({
       where: { id: referralId },
       data: { status },
@@ -1199,6 +1208,66 @@ class AssessmentService {
     return {
       total: tasks.length,
       tasks,
+    };
+  }
+
+  static async updateAssessmentStatus(user, assessmentId, status, comment) {
+    const isAdmin = await isAdminLikeUser(user);
+    const serviceProvider = isAdmin
+      ? null
+      : await AssessmentService.requireServiceProvider(user);
+
+    const assessment = await prisma.clinicalAssessment.findUnique({
+      where: { id: assessmentId },
+      include: {
+        reports: true,
+        patient: {
+          select: { id: true, fullName: true },
+        },
+      },
+    });
+
+    if (!assessment) {
+      throw new gcprError(HttpStatus.NOT_FOUND, "Assessment not found");
+    }
+
+    if (!isAdmin && assessment.providerId !== serviceProvider.id) {
+      throw new gcprError(
+        HttpStatus.FORBIDDEN,
+        "Only the assessment creator or admin can update status",
+      );
+    }
+
+    if (!["PENDING_REVIEW", "REVIEWED", "REVIEWED_NEEDS_REVISION", "APPROVED"].includes(status)) {
+      throw new gcprError(HttpStatus.BAD_REQUEST, "Unsupported assessment status");
+    }
+
+    const updated = await prisma.clinicalAssessment.update({
+      where: { id: assessmentId },
+      data: {
+        status,
+        ...(comment ? { clinicalNotesComment: comment } : {}),
+      },
+      include: {
+        reports: true,
+        patient: { select: { id: true, fullName: true } },
+        provider: { select: { user: { select: { id: true, fullName: true } } } },
+      },
+    });
+
+    if (
+      status === "APPROVED" &&
+      (!updated.reports || updated.reports.length === 0)
+    ) {
+      throw new gcprError(
+        HttpStatus.BAD_REQUEST,
+        "Cannot approve an assessment without a report",
+      );
+    }
+
+    return {
+      assessment: updated,
+      report: updated.reports[0] ?? null,
     };
   }
 }
