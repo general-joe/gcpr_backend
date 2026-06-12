@@ -1,5 +1,6 @@
 import prisma from "../../config/database.js";
 import NotificationService from "../../modules/notification/notification.service.js";
+import logger from "../../utils/logger.js";
 
 export async function runTelehealthReminderJob() {
   try {
@@ -48,7 +49,7 @@ export async function runTelehealthReminderJob() {
                 expiresAt: room.scheduledEnd ? new Date(new Date(room.scheduledEnd).getTime() + 60 * 60 * 1000) : null
               });
             } catch (e) {
-              WRITE.warn("[TelehealthReminder] Notification failed", { userId, error: e.message });
+              logger.warn("[TelehealthReminder] Notification failed", { userId, error: e.message });
             }
           }
 
@@ -66,13 +67,13 @@ export async function runTelehealthReminderJob() {
     }
   } catch (e) {
     if (e?.code === "P2021" || e?.code === "P2022") {
-      WRITE.warn("[TelehealthReminder] Skipping job; telehealth schema is unavailable", {
+      logger.warn("[TelehealthReminder] Skipping job; telehealth schema is unavailable", {
         code: e.code,
         error: e.message,
       });
       return;
     }
 
-    WRITE.error("[TelehealthReminder] Job failed", { error: e.message });
+    logger.error("[TelehealthReminder] Job failed", { error: e.message });
   }
 }

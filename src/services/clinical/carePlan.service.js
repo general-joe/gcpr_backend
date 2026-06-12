@@ -46,7 +46,7 @@ class CarePlanService {
       },
       include: {
         patient: true,
-        provider: true,
+        primaryProvider: true,
         assessment: true,
       },
     });
@@ -74,7 +74,7 @@ class CarePlanService {
       },
       include: {
         patient: true,
-        provider: {
+        primaryProvider: {
           include: {
             user: true,
           },
@@ -101,7 +101,7 @@ class CarePlanService {
       where,
       include: {
         patient: true,
-        provider: {
+        primaryProvider: {
           include: {
             user: true,
           },
@@ -117,7 +117,7 @@ class CarePlanService {
     const carePlan = await prisma.carePlan.findUnique({
       where: { id: carePlanId },
       include: {
-        provider: true,
+        primaryProvider: true,
       },
     });
 
@@ -130,7 +130,7 @@ class CarePlanService {
       data: { status },
       include: {
         patient: true,
-        provider: {
+        primaryProvider: {
           include: {
             user: true,
           },
@@ -157,7 +157,7 @@ class CarePlanService {
       },
       include: {
         patient: true,
-        provider: {
+        primaryProvider: {
           include: {
             user: true,
           },
