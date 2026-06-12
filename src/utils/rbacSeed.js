@@ -1,36 +1,9 @@
-/**
- * RBAC Seed Utility
- *
- * Seeds the default AppRoles and Permissions into the database.
- * Run once during initial setup or call via POST /admin/rbac/seed (ADMIN only).
- *
- * Default Roles
- * ─────────────
- * ADMIN               – Full platform control
- * IT_SUPPORT          – Technical troubleshooting
- * SUPPORT_AGENT       – Ticket / customer support
- * EMERGENCY_RESPONSE  – Urgent intervention workflows
- * CLINICAL_REVIEWER   – Reviews assessments and referrals
- * COMMUNITY_MODERATOR – Community moderation
- * CONTENT_MANAGER     – FAQ / resources management
- * PROVIDER_VERIFIER   – License verification
- * ANALYTICS_MANAGER   – Metrics oversight
- * TELEHEALTH_COORDINATOR – Manage telehealth operations
- */
-
 import prisma from "../config/database.js";
 
 const DEFAULT_ROLES = [
   { slug: "ADMIN",                  name: "Administrator",            description: "Full platform control" },
   { slug: "IT_SUPPORT",             name: "IT Support",               description: "Technical troubleshooting" },
-  { slug: "SUPPORT_AGENT",          name: "Support Agent",            description: "Ticket and customer support" },
-  { slug: "EMERGENCY_RESPONSE",     name: "Emergency Response",       description: "Urgent intervention workflows" },
-  { slug: "CLINICAL_REVIEWER",      name: "Clinical Reviewer",        description: "Reviews clinical assessments and referrals" },
-  { slug: "COMMUNITY_MODERATOR",    name: "Community Moderator",      description: "Moderates community content and members" },
-  { slug: "CONTENT_MANAGER",        name: "Content Manager",          description: "Manages FAQ and resource content" },
-  { slug: "PROVIDER_VERIFIER",      name: "Provider Verifier",        description: "Verifies provider licenses" },
-  { slug: "ANALYTICS_MANAGER",      name: "Analytics Manager",        description: "Metrics and analytics oversight" },
-  { slug: "TELEHEALTH_COORDINATOR", name: "Telehealth Coordinator",   description: "Manages telehealth operations" },
+  { slug: "SUPPORT",          name: "Support Agent",            description: "Ticket and customer support" },
 ];
 
 const DEFAULT_PERMISSIONS = [
@@ -89,14 +62,8 @@ const ADMIN_PERMISSION_CODES = DEFAULT_PERMISSIONS.map(p => p.code);
 const ROLE_PERMISSION_MAP = {
   ADMIN:                  ADMIN_PERMISSION_CODES,
   IT_SUPPORT:             ["users.list", "users.read"],
-  SUPPORT_AGENT:          ["support.list", "support.manage", "users.read"],
-  EMERGENCY_RESPONSE:     ["users.read", "patient.read", "patient.list"],
-  CLINICAL_REVIEWER:      ["patient.list", "patient.read", "provider.read"],
-  COMMUNITY_MODERATOR:    ["community.list", "community.delete", "community.member.remove"],
-  CONTENT_MANAGER:        ["faq.manage", "content.manage"],
-  PROVIDER_VERIFIER:      ["provider.list", "provider.read", "provider.verify"],
-  ANALYTICS_MANAGER:      ["metrics.system", "metrics.providers"],
-  TELEHEALTH_COORDINATOR: ["telehealth.manage"],
+  SUPPORT:          ["support.list", "support.manage", "users.read"],
+ 
 };
 
 

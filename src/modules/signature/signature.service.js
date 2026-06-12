@@ -36,7 +36,7 @@ class SignatureService {
     return prisma.userSignature.findFirst({ where: { userId, isDefault: true } });
   }
 
-  static async attachSignatureAudit({ signerId, signatureUrl, relatedModel, relatedId, documentHash, hmac, ip, userAgent }) {
+  static async attachSignatureAudit({ signerId, signatureUrl, relatedModel, relatedId, documentHash, hmac, ip, userAgent, signerType, documentType }) {
     return prisma.documentSignature.create({
       data: {
         signerId,
@@ -47,6 +47,8 @@ class SignatureService {
         hmac,
         ip,
         userAgent,
+        signerType: signerType || null,
+        documentType: documentType || null,
       },
     });
   }
