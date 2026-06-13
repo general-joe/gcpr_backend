@@ -4,15 +4,16 @@ import { runMetricsSnapshot } from "./metricsSnapshot.job.js";
 import { runTelehealthReminderJob } from "./telehealthReminder.job.js";
 import { runAdherenceAutoMarkJob } from "./adherenceAutoMark.job.js";
 import { runReferralSlaJob } from "./referralSla.job.js";
+import logger from "../../utils/logger.js";
 
 export function startCronJobs() {
   cron.schedule("0 1 * * *", async () => {
-    WRITE.info("[Cron] Running license sync job");
+    logger.info("[Cron] Running license sync job");
     await runLicenseSync();
   });
 
   cron.schedule("0 2 * * *", async () => {
-    WRITE.info("[Cron] Running metrics snapshot job");
+    logger.info("[Cron] Running metrics snapshot job");
     await runMetricsSnapshot();
   });
 
@@ -21,7 +22,7 @@ export function startCronJobs() {
   });
 
   cron.schedule("5 0 * * *", async () => {
-    WRITE.info("[Cron] Running adherence auto-mark job");
+    logger.info("[Cron] Running adherence auto-mark job");
     await runAdherenceAutoMarkJob();
   });
 
@@ -29,5 +30,5 @@ export function startCronJobs() {
     await runReferralSlaJob();
   });
 
-  WRITE.info("[Cron] All background jobs scheduled");
+  logger.info("[Cron] All background jobs scheduled");
 }

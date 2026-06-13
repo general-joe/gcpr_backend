@@ -177,18 +177,22 @@ export default class ServiceProviderController {
   static deleteServiceProvider = catchAsync(async (req, res) => {
     const requesterId = res.locals.user.id;
     const { id } = req.params;
+    const userType = res.locals.user.userType;
 
-    const requester = await ServiceProviderService.getServiceProviderByUserId(
-      requesterId
-    );
-    if (!requester || requester.id !== id) {
-      return UtilFunctions.outputError(
-        res,
-        "You can only delete your own service provider profile",
-        {},
-        "FORBIDDEN",
-        403
+    // ADMIN can delete any service provider profile
+    if (userType !== "ADMIN") {
+      const requester = await ServiceProviderService.getServiceProviderByUserId(
+        requesterId
       );
+      if (!requester || requester.id !== id) {
+        return UtilFunctions.outputError(
+          res,
+          "You can only delete your own service provider profile",
+          {},
+          "FORBIDDEN",
+          403
+        );
+      }
     }
 
     const existingProvider =
