@@ -75,7 +75,7 @@ serviceProviderRouter.put(
 
 serviceProviderRouter.delete(
   "/:id",
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(["SERVICE_PROVIDER", "ADMIN"]),
   ServiceProviderController.deleteServiceProvider,
 );
 
