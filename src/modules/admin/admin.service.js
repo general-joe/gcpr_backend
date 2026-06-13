@@ -170,7 +170,7 @@ class AdminService {
       data: {
         accountStatus: "DELETED",
         email: { set: null },
-        phoneNumber: { set: null },
+        phoneNumber: { set: "DELETED_ACCOUNT" },
         password: { set: "DELETED_ACCOUNT" },
       },
     });
