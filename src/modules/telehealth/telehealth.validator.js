@@ -22,5 +22,5 @@ export const inviteUsersSchema = z.object({
 });
 
 export const updateRoomStatusSchema = z.object({
-  status: z.enum(["scheduled", "live", "completed", "canceled"])
+  status: z.enum(["scheduled", "live", "completed", "canceled", "rescheduled"])
 });
