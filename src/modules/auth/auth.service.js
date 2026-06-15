@@ -124,7 +124,7 @@ class AuthService {
         password: hashedPassword,
         dateOfBirth: userData.dateOfBirth
           ? new Date(userData.dateOfBirth)
-          : undefined,
+          : new Date(),
       },
     });
 
@@ -677,7 +677,7 @@ class AuthService {
 
     const isFirstUser = roles.length === 0;
     const isPrivilegedUserType =
-      user.userType === "ADMIN" || user.userType === "SERVICE_PROVIDER";
+      user.userType === "ADMIN";
 
     if (isFirstUser && isPrivilegedUserType) {
       await seedRbac({ timeout: 30000 });

@@ -179,24 +179,15 @@ export default class ServiceProviderController {
     const { id } = req.params;
     const userType = res.locals.user.userType;
 
-    // ADMIN can delete any service provider profile
-    if (userType !== "ADMIN") {
-      const requester = await ServiceProviderService.getServiceProviderByUserId(
-        requesterId
-      );
-      if (!requester || requester.id !== id) {
-        return UtilFunctions.outputError(
-          res,
-          "You can only delete your own service provider profile",
-          {},
-          "FORBIDDEN",
-          403
-        );
-      }
+    // Look up the service provider - the id could be either a serviceProviderId or a userId
+    let existingProvider =
+      await ServiceProviderService.getServiceProviderById(id);
+
+    // If not found by provider id, try looking up by userId
+    if (!existingProvider) {
+      existingProvider = await ServiceProviderService.getServiceProviderByUserId(id);
     }
 
-    const existingProvider =
-      await ServiceProviderService.getServiceProviderById(id);
     if (!existingProvider) {
       return UtilFunctions.outputError(
         res,
@@ -207,7 +198,25 @@ export default class ServiceProviderController {
       );
     }
 
-    await ServiceProviderService.deleteServiceProvider(id);
+    const providerId = existingProvider.id;
+
+    // ADMIN can delete any service provider profile
+    if (userType !== "ADMIN") {
+      const requester = await ServiceProviderService.getServiceProviderByUserId(
+        requesterId
+      );
+      if (!requester || requester.id !== providerId) {
+        return UtilFunctions.outputError(
+          res,
+          "You can only delete your own service provider profile",
+          {},
+          "FORBIDDEN",
+          403
+        );
+      }
+    }
+
+    await ServiceProviderService.deleteServiceProvider(providerId);
     UtilFunctions.outputSuccess(res, {}, "Service provider deleted successfully");
   });
 
