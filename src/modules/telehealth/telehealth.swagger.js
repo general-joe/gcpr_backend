@@ -244,7 +244,7 @@
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [scheduled, live, completed, canceled]
+  *                 enum: [scheduled, live, completed, canceled, rescheduled]
  *     responses:
  *       200:
  *         description: Status updated
