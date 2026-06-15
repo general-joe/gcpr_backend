@@ -47,7 +47,7 @@ caregiverRouter.put(
 
 caregiverRouter.delete(
   "/:id",
-  authorize(["CAREGIVER"]),
+  authorize(["CAREGIVER", "ADMIN"]),
   authRateLimiter,
   CareGiverController.deleteCareGiverProfile
 );

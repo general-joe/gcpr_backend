@@ -66,14 +66,17 @@ export async function runTelehealthReminderJob() {
       }
     }
   } catch (e) {
-    if (e?.code === "P2021" || e?.code === "P2022") {
+    const code = e?.code;
+    const message = String(e?.message ?? '');
+    const isMissingSchema = code === 'P2021' || code === 'P2022' || /(?:table|relation).*required|does not exist|telehealth/i.test(message);
+    if (isMissingSchema) {
       logger.warn("[TelehealthReminder] Skipping job; telehealth schema is unavailable", {
-        code: e.code,
-        error: e.message,
+        code,
+        error: message,
       });
       return;
     }
 
-    logger.error("[TelehealthReminder] Job failed", { error: e.message });
+    logger.error("[TelehealthReminder] Job failed", { error: message });
   }
 }

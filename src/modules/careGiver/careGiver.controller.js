@@ -93,17 +93,31 @@ class CareGiverController {
   static deleteCareGiverProfile = catchAsync(async (req, res) => {
     const { id } = req.params;
     const userId = res.locals.user.id;
+    const userType = res.locals.user.userType;
 
-    // Ensure caregiver exists and belongs to the user (for INDIVIDUAL)
-    const existingCareGiver = await CareGiverService.fetchCareGiverById(id);
+    // Look up the caregiver - the id could be either a caregiverId or a userId
+    let existingCareGiver = await CareGiverService.fetchCareGiverById(id);
+
+    // If not found by caregiver id, try looking up by userId
+    if (!existingCareGiver) {
+      const caregiversByUser = await CareGiverService.getCareGiversByUserId(id);
+      if (caregiversByUser && caregiversByUser.length > 0) {
+        existingCareGiver = caregiversByUser[0];
+      }
+    }
+
     if (!existingCareGiver) {
       return UtilFunctions.outputError(res, "Caregiver not found", 404);
     }
-    if (existingCareGiver.type === "INDIVIDUAL" && existingCareGiver.userId !== userId) {
-      return UtilFunctions.outputError(res, "Unauthorized to delete this caregiver profile", 403);
+
+    // ADMIN can delete any caregiver profile
+    if (userType !== "ADMIN") {
+      if (existingCareGiver.type === "INDIVIDUAL" && existingCareGiver.userId !== userId) {
+        return UtilFunctions.outputError(res, "Unauthorized to delete this caregiver profile", 403);
+      }
     }
 
-    await CareGiverService.deleteProfile(id);
+    await CareGiverService.deleteProfile(existingCareGiver.id);
 
     UtilFunctions.outputSuccess(
       res,
