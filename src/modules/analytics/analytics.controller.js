@@ -22,9 +22,25 @@ class AnalyticsController {
     const providerId = res.locals.user?.serviceProviderId;
     
     if (!providerId) {
-      return res.status(403).json({
-        status: "error",
-        message: "Service provider profile not found",
+      // User is authenticated (e.g. admin) but has no service provider profile.
+      // Return empty/default analytics instead of erroring.
+      return res.status(200).json({
+        status: "success",
+        data: {
+          kpis: {
+            sessionsCompleted: { count: 0, averageRating: 0 },
+            referrals: { pending: 0, approved: 0, declined: 0 },
+            carePlanAdherence: { onTrackPercentage: 0, atRiskPercentage: 0 },
+            assignedTasks: { open: 0, done: 0 },
+            approvals: { pending: 0, approved: 0, rejected: 0 },
+          },
+          charts: {
+            patientProgress: [],
+            adherenceTrend: [],
+            assignedDailyTasks: [],
+            patientRecovery: { improved: 0, stable: 0, regressed: 0 },
+          },
+        },
       });
     }
     

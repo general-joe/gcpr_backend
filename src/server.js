@@ -14,6 +14,7 @@ import CONSTANTS from './utils/constants.js'
 import MOMENT from 'moment'
 import _ from 'lodash'
 import gcprError from './utils/http-error.js'
+import morganStream from './utils/morganStream.js'
 import router from './routes/index.route.js'
 import swaggerUi from 'swagger-ui-express'
 import swaggerSpec from './config/swagger.js'
@@ -103,7 +104,16 @@ const ensureGroupMembership = async (userId, groupId) => {
   });
 };
 
-app.use(compression())
+app.use(compression({
+  // Do not compress SSE endpoints — compression buffers the stream,
+  // preventing real-time delivery and breaking the raw byte reader on the client
+  filter: (req, res) => {
+    if (req.path === "/admin/logs/stream/live" || req.path === "/admin/logs/migrate") {
+      return false;
+    }
+    return compression.filter(req, res);
+  },
+}));
 app.use(cors({
     origin: (origin, callback) => {
       if (isOriginAllowed(origin)) {
@@ -121,7 +131,7 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ limit: '50mb', extended: true }))
 app.use(cookieParser())
-app.use(morgan("dev"));
+app.use(morgan("dev", { stream: morganStream }));
 app.use(auditRequest());
 
 // Serve Swagger docs

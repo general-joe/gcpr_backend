@@ -18,8 +18,41 @@ function getOpenAI() {
     );
   }
 
-  _openai = new OpenAI({ apiKey });
+  _openai = new OpenAI({ apiKey, timeout: 60000 });
   return _openai;
+}
+
+// ─── Retry helper ─────────────────────────────────────────────────────────────
+
+async function callOpenAIWithRetry(fn, maxRetries = 3) {
+  let lastError;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+
+      const shouldRetry =
+        err.status === 429 ||
+        (err.status >= 500 && err.status < 600);
+
+      if (!shouldRetry || attempt === maxRetries - 1) {
+        break;
+      }
+
+      const backoffMs = Math.min(1000 * 2 ** attempt + Math.random() * 1000, 15000);
+      WRITE.warn("[Chat] OpenAI transient error, retrying", {
+        attempt: attempt + 1,
+        backoffMs: Math.round(backoffMs),
+        status: err.status,
+        err: err.message,
+      });
+      await new Promise((r) => setTimeout(r, backoffMs));
+    }
+  }
+
+  throw lastError;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -165,12 +198,14 @@ class ChatService {
     let completion;
 
     try {
-      completion = await openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
-        messages: openaiMessages,
-        max_tokens: 1024,
-        temperature: 0.7,
-      });
+      completion = await callOpenAIWithRetry(() =>
+        openai.chat.completions.create({
+          model: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+          messages: openaiMessages,
+          max_tokens: 1024,
+          temperature: 0.7,
+        })
+      );
     } catch (err) {
       WRITE.error("[Chat] OpenAI API error", {
         sessionId,
