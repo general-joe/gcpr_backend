@@ -184,7 +184,7 @@ class TelehealthService {
 
     if (filter === "upcoming") {
       where.scheduledStart = { gte: now };
-      where.status = { in: ["scheduled", "live"] };
+      where.status = { in: ["scheduled", "live", "rescheduled"] };
     } else if (filter === "past") {
       where.OR = [
         { scheduledStart: { lt: now } },
@@ -343,10 +343,31 @@ class TelehealthService {
     };
   }
 
+  static VALID_STATUS_TRANSITIONS = {
+    scheduled: ["live", "canceled", "rescheduled"],
+    live: ["completed", "canceled"],
+    completed: ["rescheduled"],
+    canceled: ["scheduled", "rescheduled"],
+    rescheduled: ["scheduled", "live", "canceled"]
+  };
+
+  static ensureValidTransition(currentStatus, newStatus) {
+    if (currentStatus === newStatus) return;
+    const allowed = TelehealthService.VALID_STATUS_TRANSITIONS[currentStatus];
+    if (!allowed || !allowed.includes(newStatus)) {
+      throw new gcprError(
+        HttpStatus.BAD_REQUEST,
+        `Invalid status transition from '${currentStatus}' to '${newStatus}'`
+      );
+    }
+  }
+
   static async updateRoomStatus(user, roomId, status) {
     if (user.userType !== "SERVICE_PROVIDER") throw new gcprError(HttpStatus.FORBIDDEN, "Only service providers can update room status");
     const room = await prisma.telehealthRoom.findUnique({ where: { id: roomId } });
     if (!room) throw new gcprError(HttpStatus.NOT_FOUND, "Telehealth room not found");
+
+    TelehealthService.ensureValidTransition(room.status, status);
 
     return prisma.telehealthRoom.update({ where: { id: roomId }, data: { status } });
   }

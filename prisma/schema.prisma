@@ -1582,6 +1582,7 @@ enum TelehealthRoomStatus {
   live
   completed
   canceled
+  rescheduled
 }
 
 enum TelehealthParticipantStatus {
