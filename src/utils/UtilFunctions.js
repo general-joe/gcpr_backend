@@ -118,7 +118,12 @@ class UtilFunctions {
   }
 
   static generateAccessToken(payload) {
-    return jwt.sign(payload, process.env.JWT, {
+    const { tokenVersion, ...rest } = payload;
+    const jwtPayload = { ...rest };
+    if (tokenVersion !== undefined) {
+      jwtPayload.tv = tokenVersion;
+    }
+    return jwt.sign(jwtPayload, process.env.JWT, {
       algorithm: "HS256",
       expiresIn: "4h",
     });
