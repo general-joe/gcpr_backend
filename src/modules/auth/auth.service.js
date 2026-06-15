@@ -656,8 +656,6 @@ class AuthService {
     const fetchedUser = await prisma.user.findUnique({
       where: { id: user.id },
       include: {
-        caregiver: true,
-        serviceProvider: true,
         userRoles: {
           include: {
             role: {
@@ -675,15 +673,12 @@ class AuthService {
     });
 
     // Map userRoles to canonical slugs
+    // Only include active userRoles where the role still exists
     const roles = (fetchedUser.userRoles || [])
       .filter((ur) => ur.active && ur.role && ur.role.slug)
       .map((ur) => ur.role.slug);
 
-    const isFirstUser = roles.length === 0;
-    const isPrivilegedUserType =
-      user.userType === "ADMIN";
-
-    if (isFirstUser && isPrivilegedUserType) {
+    if (roles.length === 0 && user.userType === "ADMIN") {
       await seedRbac({ timeout: 30000 });
 
       const adminRole = await prisma.appRole.findUnique({
@@ -691,16 +686,26 @@ class AuthService {
       });
 
       if (adminRole) {
-        await prisma.userRole.create({
-          data: {
+        const existingAdminRole = await prisma.userRole.findFirst({
+          where: {
             userId: user.id,
             roleId: adminRole.id,
-            scopeType: "GLOBAL",
             active: true,
           },
         });
 
-        roles.push("admin");
+        if (!existingAdminRole) {
+          await prisma.userRole.create({
+            data: {
+              userId: user.id,
+              roleId: adminRole.id,
+              scopeType: "GLOBAL",
+              active: true,
+            },
+          });
+        }
+
+        roles.push("ADMIN");
       }
     }
 
@@ -722,9 +727,33 @@ class AuthService {
       },
     });
 
-    // Attach canonical roles array to user object for session serialization
-    const userWithRoles = { ...fetchedUser, roles };
-    return { accessToken, refreshToken, user: userWithRoles };
+    // Build a clean user object for session serialization
+    // Strip out Prisma-specific relation data (userRoles, caregiver, serviceProvider)
+    // and attach only the canonical roles array and permissions
+    const permissions = (fetchedUser.userRoles || [])
+      .filter((ur) => ur.active && ur.role && ur.role.rolePermissions)
+      .flatMap((ur) =>
+        (ur.role.rolePermissions || [])
+          .filter((rp) => rp.permission)
+          .map((rp) => rp.permission.code)
+      );
+
+    const userPayload = {
+      id: fetchedUser.id,
+      fullName: fetchedUser.fullName,
+      name: fetchedUser.fullName,
+      email: fetchedUser.email,
+      phoneNumber: fetchedUser.phoneNumber,
+      userType: fetchedUser.userType,
+      profileImage: fetchedUser.profileImage,
+      verified: fetchedUser.verified,
+      accountStatus: fetchedUser.accountStatus,
+      avatar: fetchedUser.profileImage || null,
+      roles,          // canonical role slugs from DB
+      permissions,    // flat permission codes from assigned roles
+    };
+
+    return { accessToken, refreshToken, user: userPayload };
   }
 
   static async resendOtp(identifier) {
@@ -809,6 +838,73 @@ class AuthService {
     } else {
       throw new gcprError(HttpStatus.BAD_REQUEST, "Invalid OTP configuration");
     }
+  }
+
+  static async getMe(userId) {
+    const fetchedUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phoneNumber: true,
+        userType: true,
+        profileImage: true,
+        verified: true,
+        accountStatus: true,
+        userRoles: {
+          where: {
+            active: true,
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+          },
+          select: {
+            role: {
+              select: {
+                slug: true,
+                rolePermissions: {
+                  select: {
+                    permission: {
+                      select: { code: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!fetchedUser) {
+      throw new gcprError(HttpStatus.NOT_FOUND, "User not found");
+    }
+
+    const roles = (fetchedUser.userRoles || [])
+      .filter((ur) => ur.active && ur.role && ur.role.slug)
+      .map((ur) => ur.role.slug);
+
+    const permissions = (fetchedUser.userRoles || [])
+      .filter((ur) => ur.active && ur.role && ur.role.rolePermissions)
+      .flatMap((ur) =>
+        (ur.role.rolePermissions || [])
+          .filter((rp) => rp.permission)
+          .map((rp) => rp.permission.code)
+      );
+
+    return {
+      id: fetchedUser.id,
+      fullName: fetchedUser.fullName,
+      name: fetchedUser.fullName,
+      email: fetchedUser.email,
+      phoneNumber: fetchedUser.phoneNumber,
+      userType: fetchedUser.userType,
+      profileImage: fetchedUser.profileImage,
+      verified: fetchedUser.verified,
+      accountStatus: fetchedUser.accountStatus,
+      avatar: fetchedUser.profileImage || null,
+      roles,
+      permissions,
+    };
   }
 
   static async refreshToken(refreshToken, userId) {

@@ -381,6 +381,12 @@ class AssessmentService {
     return ownAssessmentsCount > 0 || referralCount > 0 || taskCount > 0;
   }
 
+  static async canAccessPatientReports(user, serviceProvider, patientId) {
+    if (await isAdminLikeUser(user)) return true;
+    if (serviceProvider.profession === "PHYSIOTHERAPIST") return true;
+    return AssessmentService.canProviderAccessPatient(serviceProvider.id, patientId);
+  }
+
   /**
    * Allow Admins with certain roles to bypass service provider check.
    * @param {object|string|number} userOrUserId - user object or userId
@@ -800,8 +806,9 @@ class AssessmentService {
 
     const isAdmin = await isAdminLikeUser(user);
     if (!isAdmin) {
-      const canAccess = await AssessmentService.canProviderAccessPatient(
-        serviceProvider.id,
+      const canAccess = await AssessmentService.canAccessPatientReports(
+        user,
+        serviceProvider,
         assessment.patientId,
       );
       if (!canAccess) {
@@ -832,8 +839,9 @@ class AssessmentService {
 
     const isAdmin = await isAdminLikeUser(user);
     if (!isAdmin) {
-      const canAccess = await AssessmentService.canProviderAccessPatient(
-        serviceProvider.id,
+      const canAccess = await AssessmentService.canAccessPatientReports(
+        user,
+        serviceProvider,
         patientId,
       );
       if (!canAccess) {
