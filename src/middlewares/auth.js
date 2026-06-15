@@ -6,6 +6,34 @@ import WRITE from "../utils/logger.js";
 import jwt from "jsonwebtoken";
 import ResponseCodes from "../utils/responseCodes.js";
 
+/**
+ * Validates that the tokenVersion (tv) in the JWT matches the
+ * user's current tokenVersion in the database. Returns true if valid.
+ * Old tokens without `tv` are allowed through for backwards compatibility.
+ */
+async function validateTokenVersion(decoded, clientIp, path) {
+  if (!decoded?.id || decoded.tv === undefined) return true;
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: { tokenVersion: true },
+    });
+    if (!user || user.tokenVersion !== decoded.tv) {
+      WRITE.warn("Token version mismatch – token revoked", {
+        userId: decoded.id,
+        ip: clientIp,
+        path,
+        timestamp: new Date().toISOString(),
+      });
+      return false;
+    }
+    return true;
+  } catch {
+    // If DB is unreachable, fail-open to avoid locking everyone out
+    return true;
+  }
+}
+
 // for open routes, set user as guest
 export function Auth(rq, rs, next) {
   const token = rq.headers.authorization;
@@ -88,6 +116,17 @@ export function authorize(allowedUserTypes = []) {
           timestamp: new Date().toISOString(),
         });
         throw new Error("Invalid token payload");
+      }
+
+      // Validate tokenVersion — reject revoked tokens
+      if (!(await validateTokenVersion(decoded, rq.ip, rq.path))) {
+        return UtilFunctions.outputError(
+          rs,
+          "Token has been revoked. Please log in again.",
+          {},
+          ResponseCodes.INVALID_TOKEN,
+          HttpStatus.UNAUTHORIZED,
+        );
       }
 
       // Always allow users with the ADMIN RBAC role (case-insensitive)
@@ -225,6 +264,17 @@ export function authorizeOrRbacRole(
         throw new Error("Invalid token payload");
       }
 
+      // Validate tokenVersion — reject revoked tokens
+      if (!(await validateTokenVersion(decoded, rq.ip, rq.path))) {
+        return UtilFunctions.outputError(
+          rs,
+          "Token has been revoked. Please log in again.",
+          {},
+          ResponseCodes.INVALID_TOKEN,
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
       // Always allow users with the ADMIN RBAC role (case-insensitive)
       const isAdmin = await prisma.userRole.findFirst({
         where: {
@@ -332,6 +382,17 @@ export function requireRbacRole(allowedSlugs = []) {
 
       if (!decoded?.id || !decoded?.userType) {
         throw new Error("Invalid token payload");
+      }
+
+      // Validate tokenVersion — reject revoked tokens
+      if (!(await validateTokenVersion(decoded, rq.ip, rq.path))) {
+        return UtilFunctions.outputError(
+          rs,
+          "Token has been revoked. Please log in again.",
+          {},
+          ResponseCodes.INVALID_TOKEN,
+          HttpStatus.UNAUTHORIZED,
+        );
       }
 
 // Always allow users with the ADMIN RBAC role (case-insensitive)
@@ -481,6 +542,17 @@ export function requirePermission(permissionCode) {
 
       if (!decoded?.id || !decoded?.userType) {
         throw new Error("Invalid token payload");
+      }
+
+      // Validate tokenVersion — reject revoked tokens
+      if (!(await validateTokenVersion(decoded, rq.ip, rq.path))) {
+        return UtilFunctions.outputError(
+          rs,
+          "Token has been revoked. Please log in again.",
+          {},
+          ResponseCodes.INVALID_TOKEN,
+          HttpStatus.UNAUTHORIZED,
+        );
       }
 
       // Always allow users with the ADMIN RBAC role (case-insensitive)
