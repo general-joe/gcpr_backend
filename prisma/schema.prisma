@@ -60,6 +60,7 @@ model User {
   documentSignatures           DocumentSignature[]
   grantedConsents              ConsentRecord[]
   carePlanSignatures           CarePlanSignature[]
+  tokenVersion                 Int                        @default(0)
 
   @@index([id])
   @@map("user")

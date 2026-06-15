@@ -426,6 +426,7 @@ class AuthService {
         id: user.id,
         email: user.email,
         userType: user.userType,
+        tokenVersion: user.tokenVersion,
       });
 
       WRITE.info("OTP verification completed successfully", {
@@ -571,7 +572,10 @@ class AuthService {
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { password: await hash(newPassword) },
+      data: {
+        password: await hash(newPassword),
+        tokenVersion: { increment: 1 },
+      },
     });
 
     await prisma.otp.delete({ where: { id: user.otp.id } });
@@ -705,6 +709,7 @@ class AuthService {
       email: user.email,
       userType: user.userType,
       roles,
+      tokenVersion: user.tokenVersion,
     });
 
     const refreshToken = UtilFunctions.generateRefreshToken();
@@ -853,6 +858,7 @@ class AuthService {
       email: user.email,
       userType: user.userType,
       roles: user.roles || [],
+      tokenVersion: user.tokenVersion,
     });
 
     const newRefreshToken = UtilFunctions.generateRefreshToken();
