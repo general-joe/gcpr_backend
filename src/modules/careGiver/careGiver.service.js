@@ -3,6 +3,7 @@ import UploadService from "../../utils/uploadService.js";
 import constants from "../../utils/constants.js";
 import { getIO } from "../../socket.io.js";
 import NotificationService from "../notification/notification.service.js";
+import logger from "../../utils/logger.js";
 import _ from "lodash";
 
  class CareGiverService {
@@ -27,29 +28,76 @@ import _ from "lodash";
       caregiverData.verificationDocuments = uploadedDocs;
     }
 
-    // Create caregiver profile
-    const caregiver = await prisma.careGiver.create({
-      data: {
-        type: caregiverData.type,
+    // Use upsert for INDIVIDUAL caregivers (has userId) to prevent unique constraint violations.
+    // For GROUP caregivers (no userId), always create a new record.
+    let caregiver;
+    if (caregiverData.userId) {
+      caregiver = await prisma.careGiver.upsert({
+        where: { userId: caregiverData.userId },
+        create: {
+          type: caregiverData.type,
 
-        // INDIVIDUAL
-        occupation: caregiverData.occupation,
-        educationLevel: caregiverData.educationLevel,
-        idType: caregiverData.idType,
-        idNumber: caregiverData.idNumber,
-        userId: caregiverData.userId,
+          // INDIVIDUAL
+          occupation: caregiverData.occupation,
+          educationLevel: caregiverData.educationLevel,
+          idType: caregiverData.idType,
+          idNumber: caregiverData.idNumber,
+          userId: caregiverData.userId,
 
-        // GROUP
-        nameOfGroup: caregiverData.nameOfGroup,
-        locationOfGroup: caregiverData.locationOfGroup,
-        groupContact: caregiverData.groupContact,
-        groupDigitalAddress: caregiverData.groupDigitalAddress,
-        groupEmail: caregiverData.groupEmail,
-        managerName: caregiverData.managerName,
-        managerContact: caregiverData.managerContact,
-        verificationDocuments: caregiverData.verificationDocuments || [],
-      },
-    });
+          // GROUP
+          nameOfGroup: caregiverData.nameOfGroup,
+          locationOfGroup: caregiverData.locationOfGroup,
+          groupContact: caregiverData.groupContact,
+          groupDigitalAddress: caregiverData.groupDigitalAddress,
+          groupEmail: caregiverData.groupEmail,
+          managerName: caregiverData.managerName,
+          managerContact: caregiverData.managerContact,
+          verificationDocuments: caregiverData.verificationDocuments || [],
+        },
+        update: {
+          type: caregiverData.type,
+
+          // INDIVIDUAL
+          occupation: caregiverData.occupation,
+          educationLevel: caregiverData.educationLevel,
+          idType: caregiverData.idType,
+          idNumber: caregiverData.idNumber,
+
+          // GROUP
+          nameOfGroup: caregiverData.nameOfGroup,
+          locationOfGroup: caregiverData.locationOfGroup,
+          groupContact: caregiverData.groupContact,
+          groupDigitalAddress: caregiverData.groupDigitalAddress,
+          groupEmail: caregiverData.groupEmail,
+          managerName: caregiverData.managerName,
+          managerContact: caregiverData.managerContact,
+          verificationDocuments: caregiverData.verificationDocuments || [],
+        },
+      });
+    } else {
+      caregiver = await prisma.careGiver.create({
+        data: {
+          type: caregiverData.type,
+
+          // INDIVIDUAL fields (null for GROUP)
+          occupation: caregiverData.occupation,
+          educationLevel: caregiverData.educationLevel,
+          idType: caregiverData.idType,
+          idNumber: caregiverData.idNumber,
+          userId: null,
+
+          // GROUP
+          nameOfGroup: caregiverData.nameOfGroup,
+          locationOfGroup: caregiverData.locationOfGroup,
+          groupContact: caregiverData.groupContact,
+          groupDigitalAddress: caregiverData.groupDigitalAddress,
+          groupEmail: caregiverData.groupEmail,
+          managerName: caregiverData.managerName,
+          managerContact: caregiverData.managerContact,
+          verificationDocuments: caregiverData.verificationDocuments || [],
+        },
+      });
+    }
 
     // Mark user profile as completed
     if (caregiverData.userId) {
@@ -70,7 +118,7 @@ import _ from "lodash";
           expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         });
       } catch (e) {
-        WRITE.error("[Notification] Caregiver profile completion notification failed", { error: e.message });
+        logger.error("[Notification] Caregiver profile completion notification failed", { error: e.message });
       }
     }
 
@@ -256,7 +304,7 @@ import _ from "lodash";
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
         });
       } catch (e) {
-        WRITE.error("[Notification] Caregiver profile deletion notification failed", { error: e.message });
+        logger.error("[Notification] Caregiver profile deletion notification failed", { error: e.message });
       }
     }
 
@@ -293,7 +341,7 @@ import _ from "lodash";
           expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         });
       } catch (e) {
-        WRITE.error("[Notification] Caregiver profile update notification failed", { error: e.message });
+        logger.error("[Notification] Caregiver profile update notification failed", { error: e.message });
       }
     }
 

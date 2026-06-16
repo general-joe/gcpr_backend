@@ -206,6 +206,108 @@ class ScheduleAppointmentService {
       const provider = await ScheduleAppointmentService.ensureVerifiedProvider(payload.providerId);
       WRITE.debug("Provider verified", { operationId, providerId: provider.id, providerName: provider.user.fullName });
 
+      // ── Check provider's appointment settings ──────────────────────
+      const providerSettings = await prisma.providerAppointmentSettings.findUnique({
+        where: { providerId: provider.id },
+      });
+
+      if (providerSettings) {
+        // Check if patient booking is allowed
+        if (!providerSettings.allowPatientBooking) {
+          WRITE.warn("Provider has disabled patient booking", {
+            operationId,
+            providerId: provider.id,
+          });
+          throw new gcprError(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "This provider is not currently accepting self-scheduled appointments",
+          );
+        }
+
+        // Check minimum notice period (ensure appointment is far enough in advance)
+        const minNoticeMs = providerSettings.minAppointmentNotice * 60 * 60 * 1000;
+        const earliestAllowed = new Date(Date.now() + minNoticeMs);
+        if (appointmentDate < earliestAllowed) {
+          WRITE.warn("Appointment does not meet minimum notice period", {
+            operationId,
+            providerId: provider.id,
+            minAppointmentNotice: providerSettings.minAppointmentNotice,
+            appointmentDate,
+            earliestAllowed,
+          });
+          throw new gcprError(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            `Appointments must be scheduled at least ${providerSettings.minAppointmentNotice} hours in advance`,
+          );
+        }
+
+        // Check max daily appointments
+        if (providerSettings.maxDailyAppointments > 0) {
+          const dayStart = new Date(appointmentDate);
+          dayStart.setHours(0, 0, 0, 0);
+          const dayEnd = new Date(appointmentDate);
+          dayEnd.setHours(23, 59, 59, 999);
+
+          const dailyCount = await prisma.appointment.count({
+            where: {
+              providerId: provider.id,
+              appointmentDate: {
+                gte: dayStart,
+                lte: dayEnd,
+              },
+            },
+          });
+
+          if (dailyCount >= providerSettings.maxDailyAppointments) {
+            WRITE.warn("Provider has reached max daily appointments", {
+              operationId,
+              providerId: provider.id,
+              maxDailyAppointments: providerSettings.maxDailyAppointments,
+              currentCount: dailyCount,
+            });
+            throw new gcprError(
+              HttpStatus.UNPROCESSABLE_ENTITY,
+              `This provider has reached their maximum daily appointment limit (${providerSettings.maxDailyAppointments})`,
+            );
+          }
+        }
+
+        // Check working hours
+        const { dayOfWeek, time } = ScheduleAppointmentService.getDateTimeParts(appointmentDate);
+        if (providerSettings.workingHours && Array.isArray(providerSettings.workingHours) && providerSettings.workingHours.length > 0) {
+          const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+          const dayName = dayNames[dayOfWeek];
+          const dayConfig = providerSettings.workingHours.find(
+            (wh) => wh.day === dayName
+          );
+          if (!dayConfig || !dayConfig.enabled) {
+            WRITE.warn("Provider not available on this day per settings", {
+              operationId,
+              providerId: provider.id,
+              day: dayName,
+            });
+            throw new gcprError(
+              HttpStatus.UNPROCESSABLE_ENTITY,
+              `Provider is not available on ${dayName}`,
+            );
+          }
+          if (time < dayConfig.start || time > dayConfig.end) {
+            WRITE.warn("Appointment time outside provider working hours", {
+              operationId,
+              providerId: provider.id,
+              day: dayName,
+              time,
+              workingHours: `${dayConfig.start} - ${dayConfig.end}`,
+            });
+            throw new gcprError(
+              HttpStatus.UNPROCESSABLE_ENTITY,
+              `Provider's hours on ${dayName} are ${dayConfig.start} - ${dayConfig.end}`,
+            );
+          }
+        }
+      }
+      // ── End provider settings check ───────────────────────────────
+
       const createdAppointment = await prisma.$transaction(async (tx) => {
         const { dayOfWeek, time } =
           ScheduleAppointmentService.getDateTimeParts(appointmentDate);
