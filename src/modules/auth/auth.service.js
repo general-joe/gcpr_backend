@@ -780,6 +780,7 @@ class AuthService {
       phoneNumber: fetchedUser.phoneNumber,
       userType: fetchedUser.userType,
       profileImage: fetchedUser.profileImage,
+      profileCompleted: fetchedUser.profileCompleted,
       verified: fetchedUser.verified,
       accountStatus: fetchedUser.accountStatus,
       avatar: fetchedUser.profileImage || null,
@@ -886,6 +887,7 @@ class AuthService {
         phoneNumber: true,
         userType: true,
         profileImage: true,
+        profileCompleted: true,
         verified: true,
         accountStatus: true,
         userRoles: {
@@ -935,6 +937,7 @@ class AuthService {
       phoneNumber: fetchedUser.phoneNumber,
       userType: fetchedUser.userType,
       profileImage: fetchedUser.profileImage,
+      profileCompleted: fetchedUser.profileCompleted,
       verified: fetchedUser.verified,
       accountStatus: fetchedUser.accountStatus,
       avatar: fetchedUser.profileImage || null,
