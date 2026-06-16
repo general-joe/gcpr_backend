@@ -12,6 +12,7 @@ import {
   verifyOtpSchema,
 } from "./auth.validator.js";
 import upload from "../../middlewares/upload.js";
+import { Auth } from "../../middlewares/auth.js";
 
 const authRouter = express.Router();
 
@@ -74,6 +75,9 @@ authRouter.post(
   validate(refreshTokenSchema),
   authController.refreshToken,
 );
+
+// Get current user with fresh roles from DB
+authRouter.get("/me", Auth, authController.getMe);
 
 // Google OAuth Routes
 authRouter.get("/google", authController.googleLogin);

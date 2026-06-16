@@ -11,6 +11,30 @@ async function generateTicketNumber(tx) {
   return `TKT-${year}-${(count + 1).toString().padStart(5, "0")}`;
 }
 
+async function getSupportTicketAssignedRecipient(ticketId, excludeUserId = null) {
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: ticketId },
+    select: { assignedTo: true }
+  });
+
+  if (!ticket?.assignedTo || ticket.assignedTo === excludeUserId) return null;
+  return ticket.assignedTo;
+}
+
+async function notifyAssignedSupportRecipient(ticketId, payload, excludeUserId = null) {
+  const assignedUserId = await getSupportTicketAssignedRecipient(ticketId, excludeUserId);
+  if (!assignedUserId) return;
+
+  await NotificationService.createNotification({
+    userId: assignedUserId,
+    type: "IN_APP",
+    category: "SYSTEM",
+    relatedModel: "SupportTicket",
+    relatedId: ticketId,
+    ...payload
+  });
+}
+
 export default class SupportService {
   // ─── User Ticket Operations ────────────────────────────────────────────────
 
@@ -44,30 +68,6 @@ export default class SupportService {
       });
     } catch (e) {
       WRITE.error("[Support] User confirmation notification failed", { error: e.message });
-    }
-
-    // Notify all admins of new ticket
-    try {
-      const adminRole = await prisma.appRole.findUnique({ where: { slug: 'ADMIN' } });
-      const admins = adminRole
-        ? await prisma.user.findMany({
-            where: { userRoles: { some: { roleId: adminRole.id, active: true } } },
-            select: { id: true }
-          })
-        : [];
-      for (const admin of admins) {
-        await NotificationService.createNotification({
-          userId: admin.id,
-          type: "IN_APP",
-          category: "SYSTEM",
-          title: "New Support Ticket",
-          content: `Ticket #${ticket.ticketNumber}: ${data.subject}`,
-          relatedId: ticket.id,
-          relatedModel: "SupportTicket"
-        });
-      }
-    } catch (e) {
-      WRITE.error("[Support] Admin notification failed", { error: e.message });
     }
 
     return ticket;
@@ -143,28 +143,17 @@ export default class SupportService {
       })
     ]);
 
-    // Notify admins
     try {
-      const adminRole = await prisma.appRole.findUnique({ where: { slug: 'ADMIN' } });
-      const admins = adminRole
-        ? await prisma.user.findMany({
-            where: { userRoles: { some: { roleId: adminRole.id, active: true } } },
-            select: { id: true }
-          })
-        : [];
-      for (const admin of admins) {
-        await NotificationService.createNotification({
-          userId: admin.id,
-          type: "IN_APP",
-          category: "SYSTEM",
+      await notifyAssignedSupportRecipient(
+        ticket.id,
+        {
           title: "New Message on Support Ticket",
-          content: `User replied on ticket #${ticket.ticketNumber}`,
-          relatedId: ticketId,
-          relatedModel: "SupportTicket"
-        });
-      }
+          content: `User replied on ticket #${ticket.ticketNumber}`
+        },
+        userId
+      );
     } catch (e) {
-      WRITE.error("[Support] Admin reply notification failed", { error: e.message });
+      WRITE.error("[Support] Assigned support notification failed", { error: e.message });
     }
 
     return message;
@@ -271,16 +260,48 @@ export default class SupportService {
     if (!ticket) throw new gcprError(HttpStatus.NOT_FOUND, "Support ticket not found");
 
     const isResolved = data.status === "RESOLVED";
+    const isClosed = data.status === "CLOSED";
 
-    return prisma.supportTicket.update({
+    const updated = await prisma.supportTicket.update({
       where: { id: ticketId },
       data: {
         ...(data.status && { status: data.status }),
         ...(data.priority && { priority: data.priority }),
         ...(data.assignedTo !== undefined && { assignedTo: data.assignedTo }),
-        ...(isResolved && { resolvedAt: new Date() })
+        ...(isResolved && { resolvedAt: new Date() }),
+        ...(isClosed && { closedAt: new Date() })
       }
     });
+
+    const assignedNotificationUserId = data.assignedTo && data.assignedTo !== ticket.assignedTo
+      ? data.assignedTo
+      : null;
+
+    if (assignedNotificationUserId || ((isResolved || isClosed) && updated.assignedTo)) {
+      try {
+        const notificationUserId = assignedNotificationUserId || updated.assignedTo;
+        const title = assignedNotificationUserId && !((isResolved || isClosed) && updated.assignedTo === assignedNotificationUserId)
+          ? "Support Ticket Assigned"
+          : "Support Ticket Updated";
+        const content = title === "Support Ticket Assigned"
+          ? `You have been assigned to support ticket #${updated.ticketNumber}`
+          : `Support ticket #${updated.ticketNumber} is now ${updated.status.toLowerCase()}`;
+
+        await NotificationService.createNotification({
+          userId: notificationUserId,
+          type: "IN_APP",
+          category: "SYSTEM",
+          title,
+          content,
+          relatedId: updated.id,
+          relatedModel: "SupportTicket"
+        });
+      } catch (e) {
+        WRITE.error("[Support] Ticket notification failed", { error: e.message });
+      }
+    }
+
+    return updated;
   }
 
   static async adminAddMessage(adminId, ticketId, content) {

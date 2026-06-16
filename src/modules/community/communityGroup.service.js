@@ -4,6 +4,9 @@ import UtilFunctions from "../../utils/UtilFunctions.js";
 import UploadService from "../../utils/uploadService.js";
 import constants from "../../utils/constants.js";
 import { getIO } from "../../socket.io.js";
+import NotificationService from "../notification/notification.service.js";
+
+const WRITE = global.WRITE;
 
 class CommunityGroupService {
   /**
@@ -726,6 +729,30 @@ class CommunityGroupService {
     const io = getIO();
     if (io) {
       io.to(`community-group-${groupId}`).emit('new-community-message', message);
+    }
+
+    // Send push notifications to community members (not in-app, like WhatsApp)
+    try {
+      const groupWithCommunity = await prisma.communityGroup.findUnique({
+        where: { id: groupId },
+        select: { communityId: true },
+      });
+
+      if (groupWithCommunity) {
+        await NotificationService.createCommunityMessageNotification({
+          ...message,
+          communityId: groupWithCommunity.communityId,
+          groupId,
+          group: true,
+        });
+      }
+    } catch (error) {
+      // Don't fail the message send if notification fails
+      WRITE.error("Failed to send community message notification", {
+        error: error.message,
+        messageId: message.id,
+        groupId,
+      });
     }
 
     return message;
