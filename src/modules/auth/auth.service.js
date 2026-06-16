@@ -656,6 +656,38 @@ class AuthService {
     const fetchedUser = await prisma.user.findUnique({
       where: { id: user.id },
       include: {
+        caregiver: {
+          select: {
+            id: true,
+            userId: true,
+            fullName: true,
+            phoneNumber: true,
+            address: true,
+            relationship: true,
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+              },
+            },
+          },
+        },
+        serviceProvider: {
+          select: {
+            id: true,
+            userId: true,
+            organizationName: true,
+            profession: true,
+            licenseNumber: true,
+            verified: true,
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+              },
+            },
+          },
+        },
         userRoles: {
           include: {
             role: {
@@ -728,7 +760,7 @@ class AuthService {
     });
 
     // Build a clean user object for session serialization
-    // Strip out Prisma-specific relation data (userRoles, caregiver, serviceProvider)
+    // Strip out Prisma-specific relation data (userRoles)
     // and attach only the canonical roles array and permissions
     const permissions = (fetchedUser.userRoles || [])
       .filter((ur) => ur.active && ur.role && ur.role.rolePermissions)
@@ -751,6 +783,8 @@ class AuthService {
       avatar: fetchedUser.profileImage || null,
       roles,          // canonical role slugs from DB
       permissions,    // flat permission codes from assigned roles
+      caregiver: fetchedUser.caregiver || null,
+      serviceProvider: fetchedUser.serviceProvider || null,
     };
 
     return { accessToken, refreshToken, user: userPayload };
