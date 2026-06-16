@@ -1,3 +1,4 @@
+
 import prisma from "../../config/database.js";
 import { getIO } from "../../socket.io.js";
 import WRITE from "../../utils/logger.js";
@@ -5,23 +6,11 @@ import {
   sendPushNotification,
   sendMulticastPushNotification,
 } from "../../utils/firebaseService.js";
-
-const PUSH_DATA_ALLOWLIST = new Set([
-  "appointmentId",
-  "carePlanId",
-  "communityId",
-  "consentId",
-  "directMessageId",
-  "joinUrl",
-  "messageId",
-  "referralId",
-  "reminderType",
-  "reportId",
-  "roomId",
-  "scheduledEnd",
-  "scheduledStart",
-  "ticketNumber",
-]);
+import { enqueueJob } from "../../services/queue/queue.service.js";
+import {
+  NOTIFICATION_JOB_NAMES,
+  QUEUE_NAMES,
+} from "../../services/queue/queue.jobs.js";
 
 export default class NotificationService {
   static async getUserNotifications(
@@ -55,136 +44,6 @@ export default class NotificationService {
         limit,
         totalPages: Math.ceil(total / limit),
       },
-    };
-  }
-
-  static async createNotification(notificationData) {
-    const notification = await prisma.notification.create({
-      data: notificationData,
-    });
-
-    const io = getIO();
-    if (io) {
-      io.to(`user-${notificationData.userId}`).emit(
-        "new-notification",
-        notification,
-      );
-
-      const unreadCount = await this.getUnreadCount(notificationData.userId);
-      io.to(`user-${notificationData.userId}`).emit(
-        "notification-badge-update",
-        {
-          userId: notificationData.userId,
-          count: unreadCount,
-        },
-      );
-    }
-
-    await this.sendPushNotificationToUserNow(notificationData.userId, notification);
-
-    return notification;
-  }
-
-  static async sendPushNotificationToUserNow(userId, notification) {
-    try {
-      WRITE.info("Sending push notification", {
-        userId,
-        notificationId: notification.id,
-        category: notification.category,
-        relatedModel: notification.relatedModel,
-        relatedId: notification.relatedId,
-      });
-
-      const tokens = await prisma.pushNotificationToken.findMany({
-        where: {
-          userId,
-          isActive: true,
-        },
-      });
-
-      WRITE.debug("Found push tokens", {
-        userId,
-        tokenCount: tokens.length,
-      });
-
-      if (tokens.length === 0) {
-        WRITE.warn("No active push tokens", {
-          userId,
-          notificationId: notification.id,
-        });
-        return;
-      }
-
-      const firebaseTokens = tokens.map((t) => t.token);
-
-      const pushPayload = {
-        title: notification.title || "GCPR Notification",
-        body: notification.content || "You have a new notification",
-        data: this.buildPushData(notification),
-      };
-
-      if (firebaseTokens.length === 1) {
-        const response = await sendPushNotification(
-          firebaseTokens[0],
-          pushPayload,
-        );
-        WRITE.info("Push notification sent", {
-          userId,
-          notificationId: notification.id,
-          tokenCount: firebaseTokens.length,
-          response,
-        });
-        return response;
-      }
-
-      const response = await sendMulticastPushNotification(
-        firebaseTokens,
-        pushPayload,
-      );
-      WRITE.info("Multicast push notification sent", {
-        userId,
-        notificationId: notification.id,
-        tokenCount: firebaseTokens.length,
-        successCount: response.successCount,
-        failureCount: response.failureCount,
-      });
-      return response;
-    } catch (error) {
-      WRITE.error("Failed to send push notification", {
-        error: error.message,
-        userId,
-        notificationId: notification.id,
-      });
-    }
-  }
-
-  static buildPushData(notification) {
-    const sourceData = notification.data && typeof notification.data === "object"
-      ? notification.data
-      : {};
-    const normalized = {};
-
-    for (const key of PUSH_DATA_ALLOWLIST) {
-      const value = sourceData[key];
-      if (value === null || value === undefined) {
-        normalized[key] = "";
-      } else if (typeof value === "string") {
-        normalized[key] = value;
-      } else if (typeof value === "object") {
-        normalized[key] = JSON.stringify(value);
-      } else {
-        normalized[key] = String(value);
-      }
-    }
-
-    return {
-      notificationId: String(notification.id || ""),
-      userId: String(notification.userId || ""),
-      type: String(notification.type || ""),
-      category: String(notification.category || ""),
-      relatedId: String(notification.relatedId || ""),
-      relatedModel: String(notification.relatedModel || ""),
-      ...normalized,
     };
   }
 
@@ -280,24 +139,131 @@ export default class NotificationService {
     }
   }
 
+  static async createNotification(notificationData) {
+    const notification = await prisma.notification.create({
+      data: notificationData,
+    });
+
+    const io = getIO();
+    if (io) {
+      io.to(`user-${notificationData.userId}`).emit(
+        "new-notification",
+        notification,
+      );
+
+      const unreadCount = await this.getUnreadCount(notificationData.userId);
+      io.to(`user-${notificationData.userId}`).emit(
+        "notification-badge-update",
+        {
+          userId: notificationData.userId,
+          count: unreadCount,
+        },
+      );
+    }
+
+    await this.sendPushNotificationToUserNow(notificationData.userId, notification);
+
+    return notification;
+  }
+
+  static async sendPushNotificationToUserNow(userId, notification) {
+    try {
+      WRITE.info("Sending push notification", {
+        userId,
+        notificationId: notification.id,
+        category: notification.category,
+        relatedModel: notification.relatedModel,
+        relatedId: notification.relatedId,
+      });
+
+      const tokens = await prisma.pushNotificationToken.findMany({
+        where: {
+          userId,
+          isActive: true,
+        },
+      });
+
+      WRITE.debug("Found push tokens", {
+        userId,
+        tokenCount: tokens.length,
+      });
+
+      if (tokens.length === 0) {
+        WRITE.warn("No active push tokens", {
+          userId,
+          notificationId: notification.id,
+        });
+        return;
+      }
+
+      const firebaseTokens = tokens.map((t) => t.token);
+
+      const pushPayload = {
+        title: notification.title || "GCPR Notification",
+        body: notification.content || "You have a new notification",
+        data: {
+          notificationId: notification.id,
+          category: notification.category,
+          relatedId: notification.relatedId || "",
+          relatedModel: notification.relatedModel || "",
+        },
+      };
+
+      if (firebaseTokens.length === 1) {
+        const response = await sendPushNotification(
+          firebaseTokens[0],
+          pushPayload,
+        );
+        WRITE.info("Push notification sent", {
+          userId,
+          notificationId: notification.id,
+          tokenCount: firebaseTokens.length,
+          response,
+        });
+        return response;
+      }
+
+      const response = await sendMulticastPushNotification(
+        firebaseTokens,
+        pushPayload,
+      );
+      WRITE.info("Multicast push notification sent", {
+        userId,
+        notificationId: notification.id,
+        tokenCount: firebaseTokens.length,
+        successCount: response.successCount,
+        failureCount: response.failureCount,
+      });
+      return response;
+    } catch (error) {
+      WRITE.error("Failed to send push notification", {
+        error: error.message,
+        userId,
+        notificationId: notification.id,
+      });
+    }
+  }
+
   static async createDirectMessageNotification(message) {
-    await this.createNotification({
-      userId: message.receiverId,
-      type: "IN_APP",
-      category: "DIRECT_MESSAGE",
+    // Direct messages use push notifications only (like WhatsApp), not in-app
+    const truncatedContent = message.content
+      ? message.content.length > 50
+        ? message.content.substring(0, 50) + "..."
+        : message.content
+      : "You have a new message";
+
+    await this.sendPushNotificationToUserNow(message.receiverId, {
+      id: `dm-${message.id}`,
       title: "New Direct Message",
-      content: message.content
-        ? message.content.length > 50
-          ? message.content.substring(0, 50) + "..."
-          : message.content
-        : "You have a new message",
+      content: truncatedContent,
+      category: "DIRECT_MESSAGE",
       relatedId: message.id,
       relatedModel: "DirectMessage",
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
   }
 
   static async createCommunityMessageNotification(message) {
+    // Community messages use push notifications only, not in-app
     const members = await prisma.communityMember.findMany({
       where: {
         communityId: message.group ? undefined : message.communityId,
@@ -314,46 +280,8 @@ export default class NotificationService {
         : message.content
       : "You have a new community message";
 
-    const notifications = members.map((member) => ({
-      userId: member.userId,
-      type: "IN_APP",
-      category: "COMMUNITY_MESSAGE",
-      title: "New Community Message",
-      content: truncatedContent,
-      relatedId: message.id,
-      relatedModel: "CommunityMessage",
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    }));
-
-    if (notifications.length > 0) {
-      await prisma.notification.createMany({ data: notifications });
-
+    if (members.length > 0) {
       const userIds = members.map((m) => m.userId);
-      const unreadCounts = await prisma.notification.groupBy({
-        by: ["userId"],
-        where: { userId: { in: userIds }, status: "UNREAD" },
-        _count: { id: true },
-      });
-      const countMap = new Map(
-        unreadCounts.map((c) => [c.userId, c._count.id]),
-      );
-
-      const io = getIO();
-      if (io) {
-        for (const notification of notifications) {
-          io.to(`user-${notification.userId}`).emit(
-            "new-notification",
-            notification,
-          );
-          io.to(`user-${notification.userId}`).emit(
-            "notification-badge-update",
-            {
-              userId: notification.userId,
-              count: countMap.get(notification.userId) || 0,
-            },
-          );
-        }
-      }
 
       await this.sendBulkPushNotifications(userIds, {
         title: "New Community Message",
