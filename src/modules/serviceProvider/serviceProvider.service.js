@@ -124,13 +124,27 @@ export class ServiceProviderService {
     return completeProfile;
   }
 
-  static async getAllServiceProviders(page = 1, limit = 10, requesterRole = null) {
+  static async getAllServiceProviders(page = 1, limit = 10, requesterRole = null, filters = {}) {
     await ServiceProviderService.syncLicenseStatuses();
 
     const skip = (page - 1) * limit;
-    const where = requesterRole === "CAREGIVER"
-      ? { verificationStatus: "VERIFIED" }
-      : undefined;
+    const where = {};
+
+    // CAREGIVER can only see verified providers
+    if (requesterRole === "CAREGIVER") {
+      where.verificationStatus = "VERIFIED";
+    }
+
+    // Apply optional filters
+    if (filters.profession) {
+      where.profession = filters.profession;
+    }
+    if (filters.verificationStatus) {
+      where.verificationStatus = filters.verificationStatus;
+    }
+    if (filters.licenseStatus) {
+      where.licenseStatus = filters.licenseStatus;
+    }
 
     const [serviceProviders, total] = await Promise.all([
       prisma.serviceProvider.findMany({
