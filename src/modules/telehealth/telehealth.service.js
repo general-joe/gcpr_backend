@@ -36,7 +36,11 @@ class TelehealthService {
   }
 
   static buildReminders(scheduledStart) {
+    if (!scheduledStart) return [];
+
     const start = new Date(scheduledStart).getTime();
+    if (!Number.isFinite(start)) return [];
+
     return [
       { at: new Date(start - 60 * 60 * 1000).toISOString(), sent: false, type: "1_HOUR" },
       { at: new Date(start - 15 * 60 * 1000).toISOString(), sent: false, type: "15_MIN" }
@@ -46,7 +50,6 @@ class TelehealthService {
   static async createRoom(user, data) {
     const sp = await TelehealthService.requireServiceProvider(user.id, user.userType);
 
-    // Get attendee emails from patient userIds (optional)
     const patientUsers = [];
     if (data.patientIds && data.patientIds.length > 0) {
       const users = await prisma.user.findMany({
@@ -56,7 +59,6 @@ class TelehealthService {
       patientUsers.push(...users);
     }
 
-    // Creator's email
     const creatorUser = await prisma.user.findUnique({
       where: { id: user.id },
       select: { email: true }
@@ -68,29 +70,10 @@ class TelehealthService {
       if (u.email) attendeeEmails.push(u.email);
     }
 
-    // Create Google Meet room
-    let meetData = { externalMeetingId: null, joinUrl: null, providerPayload: {} };
-    try {
-      meetData = await createMeetRoom({
-        title: data.title,
-        description: data.description,
-        scheduledStart: data.scheduledStart,
-        scheduledEnd: data.scheduledEnd,
-        attendeeEmails
-      });
-    } catch (e) {
-      WRITE.error("[Telehealth] Google Meet creation failed", { error: e.message, stack: e.stack });
-      throw new gcprError(
-        HttpStatus.BAD_GATEWAY,
-        `Unable to provision Google Meet: ${e.message}`,
-      );
-    }
-
     const reminders = TelehealthService.buildReminders(data.scheduledStart);
-
     const isServiceProvider = !sp.isAdmin;
     const providerId = isServiceProvider ? sp.id : null;
-    
+
     const room = await prisma.telehealthRoom.create({
       data: {
         organizationId: isServiceProvider ? sp.id : user.id,
@@ -98,18 +81,14 @@ class TelehealthService {
         providedByProviderId: providerId,
         title: data.title,
         description: data.description,
-        scheduledStart: new Date(data.scheduledStart),
-        scheduledEnd: new Date(data.scheduledEnd),
+        scheduledStart: data.scheduledStart ? new Date(data.scheduledStart) : null,
+        scheduledEnd: data.scheduledEnd ? new Date(data.scheduledEnd) : null,
         visibility: data.visibility || "private",
         maxParticipants: data.maxParticipants || 50,
-        externalMeetingId: meetData.externalMeetingId,
-        joinUrl: meetData.joinUrl,
-        providerPayload: meetData.providerPayload,
-        metadata: { reminders }
+        metadata: { reminders, providerError: null }
       }
     });
 
-    // Add creator as provider participant
     await prisma.telehealthParticipant.create({
       data: {
         roomId: room.id,
@@ -119,12 +98,49 @@ class TelehealthService {
       }
     });
 
-    // Invite patients/users
-    if (data.patientIds && data.patientIds.length > 0) {
-      await TelehealthService.inviteUsers(user, room, data.patientIds, meetData.joinUrl);
+    let joinUrl = null;
+    let providerError = null;
+
+    try {
+      const meetData = await createMeetRoom({
+        title: data.title,
+        description: data.description,
+        scheduledStart: data.scheduledStart,
+        scheduledEnd: data.scheduledEnd,
+        attendeeEmails
+      });
+
+      await prisma.telehealthRoom.update({
+        where: { id: room.id },
+        data: {
+          externalMeetingId: meetData.externalMeetingId,
+          joinUrl: meetData.joinUrl,
+          providerPayload: meetData.providerPayload,
+          metadata: { ...room.metadata, reminders, providerError: null }
+        }
+      });
+      joinUrl = meetData.joinUrl;
+    } catch (e) {
+      providerError = e?.message || "Unable to provision Google Meet";
+      WRITE.error("[Telehealth] Google Meet creation failed", { error: providerError, stack: e?.stack });
+      await prisma.telehealthRoom.update({
+        where: { id: room.id },
+        data: {
+          metadata: { ...room.metadata, reminders, providerError }
+        }
+      });
     }
 
-    return room;
+    if (data.patientIds && data.patientIds.length > 0 && joinUrl) {
+      await TelehealthService.inviteUsers(user, room, data.patientIds, joinUrl);
+    }
+
+    return prisma.telehealthRoom.findUnique({
+      where: { id: room.id },
+      include: {
+        participants: { select: { id: true, userId: true, role: true, status: true } }
+      }
+    });
   }
 
   static async inviteUsers(inviterUser, room, userIds, joinUrl) {

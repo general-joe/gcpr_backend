@@ -15,16 +15,8 @@ export default class DirectMessageService {
       io.to(`user-${message.receiverId}`).emit('new-direct-message', message);
     }
 
-    // Notify receiver
-    await NotificationService.createNotification({
-      userId: message.receiverId,
-      type: "IN_APP",
-      category: "DIRECT_MESSAGE",
-      title: "New Direct Message",
-      content: message.content ? (message.content.length > 50 ? message.content.substring(0, 50) + "..." : message.content) : "You have a new message",
-      relatedId: message.id,
-      relatedModel: "DirectMessage"
-    });
+    // Notify receiver via push notification only (like WhatsApp), not in-app
+    await NotificationService.createDirectMessageNotification(message);
 
     return message;
   }
