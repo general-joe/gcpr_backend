@@ -19,6 +19,10 @@ settingsRouter.get("/", limiter, adminAndProviderAuth, SettingsController.getAll
 settingsRouter.get("/appointments", limiter, adminAndProviderAuth, SettingsController.getAppointmentSettings);
 settingsRouter.put("/appointments", limiter, adminAndProviderAuth, SettingsController.updateAppointmentSettings);
 
+// ── Provider Appointment Settings (per-provider, same response body) ────
+settingsRouter.get("/provider-appointments", limiter, adminAndProviderAuth, SettingsController.getProviderAppointmentSettings);
+settingsRouter.put("/provider-appointments", limiter, adminAndProviderAuth, SettingsController.updateProviderAppointmentSettings);
+
 // ── Telehealth Settings ─────────────────────────────────────────────────
 settingsRouter.get("/telehealth", limiter, adminAndProviderAuth, SettingsController.getTelehealthSettings);
 settingsRouter.put("/telehealth", limiter, adminAndProviderAuth, SettingsController.updateTelehealthSettings);
