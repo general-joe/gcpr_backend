@@ -199,6 +199,17 @@ class AuthController {
       ...result,
     });
   });
+
+  // Get current user with fresh roles from the database
+  static getMe = catchAsync(async (req, res) => {
+    const userId = res.locals.user?.id;
+    if (!userId) {
+      return UtilFunctions.outputError(res, "Not authenticated", 401);
+    }
+
+    const user = await AuthService.getMe(userId);
+    return UtilFunctions.outputSuccess(res, { user });
+  });
 }
 
 export default AuthController;
