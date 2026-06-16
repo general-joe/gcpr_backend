@@ -660,14 +660,15 @@ class AuthService {
           select: {
             id: true,
             userId: true,
-            fullName: true,
-            phoneNumber: true,
-            address: true,
-            relationship: true,
+            type: true,
+            occupation: true,
+            isVerified: true,
             user: {
               select: {
                 id: true,
                 fullName: true,
+                phoneNumber: true,
+                address: true,
               },
             },
           },
@@ -676,10 +677,11 @@ class AuthService {
           select: {
             id: true,
             userId: true,
-            organizationName: true,
+            facilityName: true,
+            facilityType: true,
             profession: true,
             licenseNumber: true,
-            verified: true,
+            verificationStatus: true,
             user: {
               select: {
                 id: true,
