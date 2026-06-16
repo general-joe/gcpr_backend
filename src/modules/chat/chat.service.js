@@ -1,16 +1,16 @@
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
 import { CAREGIVER_SYSTEM_PROMPT, buildSessionTitle } from "./chat.prompt.js";
 
-// ─── Lazy OpenAI client ───────────────────────────────────────────────────────
+// ─── Lazy Gemini client ───────────────────────────────────────────────────────
 
-let _openai = null;
+let _gemini = null;
 
-function getOpenAI() {
-  if (_openai) return _openai;
+function getGemini() {
+  if (_gemini) return _gemini;
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new gcprError(
       HttpStatus.SERVICE_UNAVAILABLE,
@@ -18,13 +18,13 @@ function getOpenAI() {
     );
   }
 
-  _openai = new OpenAI({ apiKey, timeout: 60000 });
-  return _openai;
+  _gemini = new GoogleGenerativeAI(apiKey);
+  return _gemini;
 }
 
 // ─── Retry helper ─────────────────────────────────────────────────────────────
 
-async function callOpenAIWithRetry(fn, maxRetries = 3) {
+async function callGeminiWithRetry(fn, maxRetries = 3) {
   let lastError;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -42,7 +42,7 @@ async function callOpenAIWithRetry(fn, maxRetries = 3) {
       }
 
       const backoffMs = Math.min(1000 * 2 ** attempt + Math.random() * 1000, 15000);
-      WRITE.warn("[Chat] OpenAI transient error, retrying", {
+      WRITE.warn("[Chat] Gemini transient error, retrying", {
         attempt: attempt + 1,
         backoffMs: Math.round(backoffMs),
         status: err.status,
@@ -66,7 +66,34 @@ async function loadHistory(sessionId) {
     take: MAX_HISTORY_MESSAGES,
   });
 
-  return messages.map((m) => ({ role: m.role.toLowerCase(), content: m.content }));
+  return messages.map((m) => ({
+    role: m.role === "USER" ? "user" : "model",
+    content: m.content,
+  }));
+}
+
+/**
+ * Convert history messages and system prompt into Gemini contents format.
+ * Gemini expects: contents = [ { role: "user"|"model", parts: [{ text }] } ]
+ * System instruction is passed separately.
+ */
+function buildGeminiContents(history, userMessage) {
+  const contents = [];
+
+  for (const msg of history) {
+    contents.push({
+      role: msg.role, // "user" or "model"
+      parts: [{ text: msg.content }],
+    });
+  }
+
+  // Add the new user message
+  contents.push({
+    role: "user",
+    parts: [{ text: userMessage }],
+  });
+
+  return contents;
 }
 
 // ─── ChatService ──────────────────────────────────────────────────────────────
@@ -186,35 +213,41 @@ class ChatService {
     // Load conversation history
     const history = await loadHistory(sessionId);
 
-    // Build messages array for OpenAI
-    const openaiMessages = [
-      { role: "system", content: CAREGIVER_SYSTEM_PROMPT },
-      ...history,
-      { role: "user", content: trimmedMessage },
-    ];
+    // Build Gemini contents array
+    const contents = buildGeminiContents(history, trimmedMessage);
 
-    // Call OpenAI
-    const openai = getOpenAI();
-    let completion;
+    // Call Gemini
+    const gemini = getGemini();
+
+    const genModel = gemini.getGenerativeModel({
+      model: "gemini-2.0-flash",
+      systemInstruction: CAREGIVER_SYSTEM_PROMPT,
+    });
+
+    let geminiResponse;
 
     try {
-      completion = await callOpenAIWithRetry(() =>
-        openai.chat.completions.create({
-          model: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
-          messages: openaiMessages,
-          max_tokens: 1024,
-          temperature: 0.7,
-        })
-      );
+      const result = await callGeminiWithRetry(async () => {
+        return genModel.generateContent({
+          contents,
+          generationConfig: {
+            maxOutputTokens: 1024,
+            temperature: 0.7,
+          },
+        });
+      });
+
+      // result is GenerateContentResult { response: EnhancedGenerateContentResponse }
+      geminiResponse = result.response;
     } catch (err) {
-      WRITE.error("[Chat] OpenAI API error", {
+      WRITE.error("[Chat] Gemini API error", {
         sessionId,
         userId,
         err: err.message,
         status: err.status,
       });
 
-      if (err.status === 401) {
+      if (err.status === 403 || err.status === 401) {
         throw new gcprError(
           HttpStatus.SERVICE_UNAVAILABLE,
           "AI service configuration error. Please contact support."
@@ -232,12 +265,16 @@ class ChatService {
       );
     }
 
+    // EnhancedGenerateContentResponse has a text() convenience method + candidates/usageMetadata
     const assistantContent =
-      completion.choices[0]?.message?.content?.trim() ??
+      geminiResponse.text?.()?.trim() ??
+      geminiResponse?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ??
       "I'm sorry, I couldn't generate a response. Please try again.";
 
-    const promptTokens = completion.usage?.prompt_tokens ?? null;
-    const completionTokens = completion.usage?.completion_tokens ?? null;
+    const usageMetadata = geminiResponse.usageMetadata || {};
+    const promptTokens = usageMetadata.promptTokenCount ?? null;
+    const completionTokens = usageMetadata.candidatesTokenCount ?? null;
+    const model = "gemini-2.0-flash";
 
     // Persist both messages in a transaction
     const [userMsg, assistantMsg] = await prisma.$transaction([
@@ -277,7 +314,7 @@ class ChatService {
     WRITE.info("[Chat] Message exchange complete", {
       sessionId,
       userId,
-      model: completion.model,
+      model,
       promptTokens,
       completionTokens,
     });
@@ -289,11 +326,11 @@ class ChatService {
         role: "ASSISTANT",
         content: assistantContent,
         createdAt: assistantMsg.createdAt,
-        model: completion.model,
+        model,
         tokensUsed: {
           prompt: promptTokens,
           completion: completionTokens,
-          total: completion.usage?.total_tokens ?? null,
+          total: usageMetadata.totalTokenCount ?? null,
         },
       },
     };

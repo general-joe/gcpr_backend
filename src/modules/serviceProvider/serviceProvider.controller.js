@@ -67,10 +67,17 @@ export default class ServiceProviderController {
     const limit = parseInt(req.query.limit) || 10;
     const requesterRole = res.locals.user?.userType;
 
+    const filters = {
+      profession: req.query.profession,
+      verificationStatus: req.query.verificationStatus,
+      licenseStatus: req.query.licenseStatus,
+    };
+
     const result = await ServiceProviderService.getAllServiceProviders(
       page,
       limit,
       requesterRole,
+      filters,
     );
     UtilFunctions.outputSuccess(
       res,
