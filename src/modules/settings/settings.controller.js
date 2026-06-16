@@ -257,6 +257,52 @@ class SettingsController {
     }
   }
 
+  // ── Provider Appointment Settings (per-provider, same response body) ──
+
+  static async getProviderAppointmentSettings(req, res) {
+    try {
+      let settings = await prisma.appointmentSettings.findFirst();
+      if (!settings) {
+        settings = await prisma.appointmentSettings.create({
+          data: DEFAULT_SETTINGS,
+        });
+      }
+      return res.status(HttpStatus.OK).json({ status: true, data: settings });
+    } catch (error) {
+      console.error("Error fetching provider appointment settings:", error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        status: false,
+        message: "Failed to fetch provider appointment settings",
+      });
+    }
+  }
+
+  static async updateProviderAppointmentSettings(req, res) {
+    try {
+      const { id, providerId, ...settingsData } = req.body;
+      let settings = await prisma.appointmentSettings.findFirst();
+      if (!settings) {
+        settings = await prisma.appointmentSettings.create({ data: settingsData });
+      } else {
+        settings = await prisma.appointmentSettings.update({
+          where: { id: settings.id },
+          data: settingsData,
+        });
+      }
+      return res.status(HttpStatus.OK).json({
+        status: true,
+        message: "Provider appointment settings updated successfully",
+        data: settings,
+      });
+    } catch (error) {
+      console.error("Error updating provider appointment settings:", error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        status: false,
+        message: "Failed to update provider appointment settings",
+      });
+    }
+  }
+
   // ── Telehealth Settings ─────────────────────────────────────────────
 
   static async getTelehealthSettings(req, res) {
