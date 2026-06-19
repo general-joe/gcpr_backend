@@ -29,8 +29,8 @@ class TelehealthController {
   });
 
   static inviteToRoom = catchAsync(async (req, res) => {
-    const { userIds } = req.validatedData ?? req.body;
-    const result = await TelehealthService.inviteToRoom(res.locals.user, req.params.id, userIds);
+    const { attendees } = req.validatedData ?? req.body;
+    const result = await TelehealthService.inviteToRoom(res.locals.user, req.params.id, attendees);
     UtilFunctions.outputSuccess(res, result, "Users invited successfully");
   });
 

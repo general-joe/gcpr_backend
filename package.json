@@ -13,7 +13,8 @@
     "migrate:reset": "prisma migrate reset",
     "generate": "prisma generate",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "generate:google-token": "node src/utils/generate-google-refresh-token.js"
+    "generate:google-token": "node src/utils/generate-google-refresh-token.js",
+    "seed": "node scripts/seed-admin.js"
   },
   "keywords": [],
   "author": "",

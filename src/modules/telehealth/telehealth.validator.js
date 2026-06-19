@@ -7,6 +7,12 @@ export const createRoomSchema = z.object({
   scheduledEnd: z.coerce.date().optional(),
   visibility: z.enum(["private", "organization", "public"]).optional().default("private"),
   maxParticipants: z.number().int().min(2).max(500).optional().default(50),
+  providerId: z.string().uuid().optional(),
+  attendees: z.array(z.object({
+    userId: z.string().uuid().optional(),
+    email: z.string().email().optional().nullable(),
+    phone: z.string().optional().nullable()
+  })).optional().default([]),
   patientIds: z.array(z.string().uuid()).optional().default([])
 }).refine(d => !d.scheduledStart || !d.scheduledEnd || new Date(d.scheduledEnd) > new Date(d.scheduledStart), "scheduledEnd must be after scheduledStart");
 
@@ -18,7 +24,11 @@ export const updateRoomSchema = z.object({
 });
 
 export const inviteUsersSchema = z.object({
-  userIds: z.array(z.string().uuid()).min(1)
+  attendees: z.array(z.object({
+    userId: z.string().uuid().optional(),
+    email: z.string().email().optional().nullable(),
+    phone: z.string().optional().nullable()
+  })).min(1)
 });
 
 export const updateRoomStatusSchema = z.object({

@@ -7,15 +7,26 @@ const { PrismaClient } = pkg;
 
 dotenv.config();
 
-// Create a PostgreSQL pool
+/**
+ * PostgreSQL Pool
+ * AWS RDS PostgreSQL requires SSL.
+ */
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
 
-// Create the Prisma adapter
+/**
+ * Prisma Adapter
+ */
 const adapter = new PrismaPg(pool);
 
-// Shared Prisma client instance (to prevent multiple instances in dev)
+/**
+ * Shared Prisma Client Instance
+ * Prevents multiple Prisma instances during development.
+ */
 const globalForPrisma = globalThis;
 
 const prisma =
@@ -25,20 +36,28 @@ const prisma =
     log: ["warn", "error"],
   });
 
-// Cache Prisma instance in development
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
 
-// Graceful shutdown
-process.on("SIGINT", async () => {
-  await prisma.$disconnect();
-  process.exit(0);
-});
+/**
+ * Graceful Shutdown
+ */
+const shutdown = async (signal) => {
+  console.log(`Received ${signal}. Closing Prisma connection...`);
 
-process.on("SIGTERM", async () => {
-  await prisma.$disconnect();
-  process.exit(0);
-});
+  try {
+    await prisma.$disconnect();
+    await pool.end();
+    console.log("Database connections closed.");
+    process.exit(0);
+  } catch (error) {
+    console.error("Error during shutdown:", error);
+    process.exit(1);
+  }
+};
+
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 export default prisma;
