@@ -328,9 +328,12 @@
 /**
  * @swagger
  * /telehealth/rooms/{id}/status:
- *   patch:
- *     summary: Update room status (SERVICE_PROVIDER only)
- *     description: Transition room between states: scheduled → live → completed / canceled. FCM push and SMS notifications are sent when status goes live. Invalid transitions return 400.
+  *   patch:
+  *     summary: Update room status (SERVICE_PROVIDER only)
+  *     description: |
+  *       Transition room between states: scheduled -> live -> completed / canceled.
+  *       FCM push and SMS notifications are sent when status goes live.
+  *       Invalid transitions return 400.
  *     tags: [Telehealth]
  *     security:
  *       - bearerAuth: []
