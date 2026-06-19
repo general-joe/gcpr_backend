@@ -1,6 +1,9 @@
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
 import NotificationService from "../notification/notification.service.js";
+import { sendPushNotification, sendMulticastPushNotification } from "../../utils/firebaseService.js";
+import { SendSMS } from "../../utils/hubtel-sms.js";
+import WRITE from "../../utils/logger.js";
 import {
   createMeetRoom,
   updateMeetRoom,
@@ -47,32 +50,84 @@ class TelehealthService {
     ];
   }
 
+  static async normalizeAttendees(attendees = []) {
+    const byId = new Map();
+    const byEmail = new Map();
+    const byPhone = new Map();
+
+    if (!Array.isArray(attendees)) return [];
+
+    for (const raw of attendees) {
+      const userId = typeof raw?.userId === 'string' ? raw.userId.trim() : null;
+      const email = typeof raw?.email === 'string' ? raw.email.trim().toLowerCase() : null;
+      const phone = typeof raw?.phone === 'string' ? raw.phone.trim() : null;
+      if (!userId && !email && !phone) continue;
+
+      if (userId) byId.set(userId, { userId, email, phone });
+      else if (email) byEmail.set(email, { userId: null, email, phone });
+      else if (phone) byPhone.set(phone, { userId: null, email: null, phone });
+    }
+
+    const result = [...byId.values(), ...byEmail.values(), ...byPhone.values()];
+    if (result.length === 0) return [];
+
+    const ids = result.filter(r => r.userId).map(r => r.userId);
+    const emails = result.filter(r => r.email).map(r => r.email);
+    const phones = result.filter(r => r.phone).map(r => r.phone);
+    const orConditions = [];
+    if (ids.length) orConditions.push({ id: { in: ids } });
+    if (emails.length) orConditions.push({ email: { in: emails } });
+    if (phones.length) orConditions.push({ phoneNumber: { in: phones } });
+
+    if (!orConditions.length) return [];
+
+    const matchedUsers = await prisma.user.findMany({
+      where: { OR: orConditions },
+      select: { id: true, email: true, phoneNumber: true, fullName: true }
+    });
+
+    const deduped = [];
+    const seen = new Set();
+    for (const u of matchedUsers) {
+      const key = u.id || u.email || u.phoneNumber;
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      deduped.push({
+        userId: u.id,
+        email: u.email,
+        phone: u.phoneNumber,
+        fullName: u.fullName,
+      });
+    }
+
+    for (const r of result) {
+      if (r.userId && !seen.has(r.userId)) {
+        seen.add(r.userId);
+        deduped.push({ userId: r.userId, email: r.email, phone: r.phone });
+      }
+    }
+
+    return deduped;
+  }
+
   static async createRoom(user, data) {
     const sp = await TelehealthService.requireServiceProvider(user.id, user.userType);
 
-    const patientUsers = [];
-    if (data.patientIds && data.patientIds.length > 0) {
-      const users = await prisma.user.findMany({
-        where: { id: { in: data.patientIds } },
-        select: { id: true, email: true, fullName: true }
-      });
-      patientUsers.push(...users);
-    }
+    const resolvedAttendees = await TelehealthService.normalizeAttendees(data.attendees);
 
+    const attendeeEmails = [];
     const creatorUser = await prisma.user.findUnique({
       where: { id: user.id },
       select: { email: true }
     });
-
-    const attendeeEmails = [];
     if (creatorUser?.email) attendeeEmails.push(creatorUser.email);
-    for (const u of patientUsers) {
-      if (u.email) attendeeEmails.push(u.email);
+    for (const a of resolvedAttendees) {
+      if (a.email && !attendeeEmails.includes(a.email)) attendeeEmails.push(a.email);
     }
 
     const reminders = TelehealthService.buildReminders(data.scheduledStart);
     const isServiceProvider = !sp.isAdmin;
-    const providerId = isServiceProvider ? sp.id : null;
+    const providerId = isServiceProvider ? sp.id : (data.providerId || null);
 
     const room = await prisma.telehealthRoom.create({
       data: {
@@ -131,48 +186,127 @@ class TelehealthService {
       });
     }
 
-    if (data.patientIds && data.patientIds.length > 0 && joinUrl) {
-      await TelehealthService.inviteUsers(user, room, data.patientIds, joinUrl);
+    if (resolvedAttendees.length > 0 && joinUrl) {
+      await TelehealthService.inviteUsers(user, room, resolvedAttendees, joinUrl);
     }
 
     return prisma.telehealthRoom.findUnique({
       where: { id: room.id },
       include: {
-        participants: { select: { id: true, userId: true, role: true, status: true } }
+        participants: {
+          include: { user: { select: { id: true, fullName: true, profileImage: true, role: true } } },
+        }
       }
     });
   }
 
-  static async inviteUsers(inviterUser, room, userIds, joinUrl) {
-    const uniqueIds = [...new Set(userIds)].filter(id => id !== inviterUser.id);
+  static async inviteUsers(inviterUser, room, attendees, joinUrl) {
+    const uniqueAttendees = [];
+    const seen = new Set();
+    for (const a of attendees) {
+      const key = a.userId || a.email || a.phone;
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      uniqueAttendees.push(a);
+    }
 
-    for (const userId of uniqueIds) {
-      // Upsert participant record
-      try {
-        await prisma.telehealthParticipant.upsert({
-          where: { roomId_userId: { roomId: room.id, userId } },
-          create: { roomId: room.id, userId, role: "caregiver", status: "invited" },
-          update: { status: "invited" }
+    for (const attendee of uniqueAttendees) {
+      const userId = attendee.userId;
+      const email = attendee.email;
+      const phone = attendee.phone;
+      const fullName = attendee.fullName;
+
+      if (userId && !email && !phone) {
+        const fresh = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, email: true, phoneNumber: true, fullName: true }
         });
-      } catch (e) {
-        WRITE.warn("[Telehealth] Participant upsert failed", { userId, error: e.message });
+        if (fresh) {
+          attendee.email = fresh.email;
+          attendee.phone = fresh.phoneNumber;
+          attendee.fullName = fresh.fullName;
+        }
       }
 
-      // Send notification
+      const userForParticipant = userId ? { id: userId } : null;
+      const resolvedUserId = userId;
+
+      if (resolvedUserId) {
+        try {
+          await prisma.telehealthParticipant.upsert({
+            where: { roomId_userId: { roomId: room.id, userId: resolvedUserId } },
+            create: { roomId: room.id, userId: resolvedUserId, role: "caregiver", status: "invited" },
+            update: { status: "invited" }
+          });
+        } catch (e) {
+          WRITE.warn("[Telehealth] Participant upsert failed", { resolvedUserId, error: e.message });
+        }
+      }
+
       try {
-        await NotificationService.createNotification({
-          userId,
-          type: "IN_APP",
-          category: "APPOINTMENT_REMINDER",
-          title: "Telehealth Room Invitation",
-          content: `You have been invited to a telehealth session: "${room.title || "Consultation"}". Join URL: ${joinUrl || "See app for details"}`,
-          relatedId: room.id,
-          relatedModel: "TelehealthRoom",
-          data: { joinUrl, roomId: room.id, scheduledStart: room.scheduledStart },
-          expiresAt: room.scheduledEnd ? new Date(new Date(room.scheduledEnd).getTime() + 24 * 60 * 60 * 1000) : null
+        await prisma.telehealthInvitation.create({
+          data: {
+            roomId: room.id,
+            inviterUserId: inviterUser.id,
+            inviteeUserId: resolvedUserId,
+            inviteeEmail: email,
+            inviteePhone: phone,
+            status: "sent"
+          }
         });
       } catch (e) {
-        WRITE.warn("[Telehealth] Notification failed", { userId, error: e.message });
+        WRITE.warn("[Telehealth] Invitation record failed", { resolvedUserId, email, error: e.message });
+      }
+
+      const joinUrlForUser = joinUrl || "See app for details";
+      const message = `You have been invited to a telehealth session: "${room.title || 'Consultation'}". Join URL: ${joinUrlForUser}`;
+
+      if (resolvedUserId) {
+        try {
+          await NotificationService.createNotification({
+            userId: resolvedUserId,
+            type: "IN_APP",
+            category: "APPOINTMENT_REMINDER",
+            title: "Telehealth Room Invitation",
+            content: message,
+            relatedId: room.id,
+            relatedModel: "TelehealthRoom",
+            data: { joinUrl: joinUrl, roomId: room.id, scheduledStart: room.scheduledStart },
+            expiresAt: room.scheduledEnd ? new Date(new Date(room.scheduledEnd).getTime() + 24 * 60 * 60 * 1000) : null
+          });
+        } catch (e) {
+          WRITE.warn("[Telehealth] In-app notification failed", { resolvedUserId, error: e.message });
+        }
+
+        try {
+          const tokens = await prisma.pushNotificationToken.findMany({
+            where: { userId: resolvedUserId, isActive: true },
+            select: { token: true }
+          });
+          if (tokens.length > 0) {
+            await sendMulticastPushNotification(
+              tokens.map(t => t.token),
+              {
+                title: "Telehealth Invitation",
+                body: message,
+                data: { roomId: room.id, joinUrl: joinUrl || '', type: 'telehealth_invite' }
+              }
+            );
+          }
+        } catch (e) {
+          WRITE.warn("[Telehealth] Push notification failed", { resolvedUserId, error: e.message });
+        }
+      }
+
+      if (phone && (!resolvedUserId || !email)) {
+        try {
+          await SendSMS(
+            phone,
+            `Telehealth invitation: ${message}`
+          );
+        } catch (e) {
+          WRITE.warn("[Telehealth] SMS invite failed", { phone, error: e.message });
+        }
       }
     }
   }
@@ -298,16 +432,21 @@ class TelehealthService {
     });
   }
 
-  static async inviteToRoom(user, roomId, userIds) {
+  static async inviteToRoom(user, roomId, attendees) {
     const room = await prisma.telehealthRoom.findUnique({ where: { id: roomId } });
     if (!room) throw new gcprError(HttpStatus.NOT_FOUND, "Telehealth room not found");
 
     // Only SP can invite
     if (user.userType !== "SERVICE_PROVIDER") throw new gcprError(HttpStatus.FORBIDDEN, "Only service providers can invite users");
 
-    await TelehealthService.inviteUsers(user, room, userIds, room.joinUrl);
+    const resolved = await TelehealthService.normalizeAttendees(attendees);
+    if (resolved.length === 0) throw new gcprError(HttpStatus.BAD_REQUEST, "No valid attendees provided");
 
-    return { invited: userIds.length, roomId };
+    const joinUrl = room.joinUrl;
+    await TelehealthService.inviteUsers(user, room, resolved, joinUrl);
+
+    const invitedUserIds = resolved.map(a => a.userId).filter(Boolean);
+    return { invited: invitedUserIds.length, roomId };
   }
 
   static async getParticipants(user, roomId) {
