@@ -1,12 +1,13 @@
 import prisma from "../../config/database.js";
 import NotificationService from "../../modules/notification/notification.service.js";
+import { sendMulticastPushNotification } from "../../utils/firebaseService.js";
+import { SendSMS } from "../../utils/hubtel-sms.js";
 import logger from "../../utils/logger.js";
 
 export async function runTelehealthReminderJob() {
   try {
     const now = new Date();
 
-    // Get all scheduled rooms with future start times
     const rooms = await prisma.telehealthRoom.findMany({
       where: {
         status: "scheduled",
@@ -24,16 +25,29 @@ export async function runTelehealthReminderJob() {
       const metadata = room.metadata || {};
       const reminders = Array.isArray(metadata.reminders) ? metadata.reminders : [];
       let updated = false;
+      const start = new Date(room.scheduledStart).getTime();
+      const fifteenMinutesBefore = start - 15 * 60 * 1000;
+      const sentFifteenMinKey = "sent15MinPush";
+      const alreadySent15 = metadata[sentFifteenMinKey] === true;
 
       for (const reminder of reminders) {
         if (reminder.sent) continue;
         if (new Date(reminder.at) <= now) {
-          // Send notification to all participants
           const participantUserIds = room.participants
             .map(p => p.userId)
             .filter(Boolean);
 
-          for (const userId of participantUserIds) {
+          const recipientIds = new Set(participantUserIds);
+          if (room.creatorUserId) recipientIds.add(room.creatorUserId);
+          if (room.providedByProviderId) {
+            const sp = await prisma.serviceProvider.findUnique({
+              where: { id: room.providedByProviderId },
+              select: { userId: true }
+            });
+            if (sp?.userId) recipientIds.add(sp.userId);
+          }
+
+          for (const userId of recipientIds) {
             try {
               await NotificationService.createNotification({
                 userId,
@@ -58,10 +72,59 @@ export async function runTelehealthReminderJob() {
         }
       }
 
+      if (!alreadySent15 && now.getTime() >= fifteenMinutesBefore && now.getTime() <= start) {
+        const participantUserIds = room.participants
+          .map(p => p.userId)
+          .filter(Boolean);
+
+        const recipientIds = new Set(participantUserIds);
+        if (room.creatorUserId) recipientIds.add(room.creatorUserId);
+
+        for (const userId of recipientIds) {
+          try {
+            const user = await prisma.user.findUnique({
+              where: { id: userId },
+              select: { id: true, email: true, phoneNumber: true, fullName: true }
+            });
+            if (!user) continue;
+
+            const title = "Telehealth starting in 15 minutes";
+            const body = `${room.title || "Your telehealth session"} starts soon.`;
+
+            const tokens = await prisma.pushNotificationToken.findMany({
+              where: { userId, isActive: true },
+              select: { token: true }
+            });
+            if (tokens.length > 0) {
+              await sendMulticastPushNotification(
+                tokens.map(t => t.token),
+                {
+                  title,
+                  body,
+                  data: { roomId: room.id, joinUrl: room.joinUrl || '', type: 'telehealth_15min' }
+                }
+              );
+            }
+
+            if (user.phoneNumber) {
+              await SendSMS(
+                user.phoneNumber,
+                `${title} ${body} Join URL: ${room.joinUrl || "See app"}`
+              );
+            }
+          } catch (e) {
+            logger.warn("[TelehealthReminder] 15-min push/SMS failed", { userId, error: e.message });
+          }
+        }
+
+        metadata[sentFifteenMinKey] = true;
+        updated = true;
+      }
+
       if (updated) {
         await prisma.telehealthRoom.update({
           where: { id: room.id },
-          data: { metadata: { ...metadata, reminders } }
+          data: { metadata }
         });
       }
     }
