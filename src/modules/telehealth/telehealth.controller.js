@@ -28,6 +28,11 @@ class TelehealthController {
     UtilFunctions.outputSuccess(res, result, "Telehealth room canceled successfully");
   });
 
+  static deleteRoom = catchAsync(async (req, res) => {
+    const result = await TelehealthService.deleteRoom(res.locals.user, req.params.id);
+    UtilFunctions.outputSuccess(res, result, "Telehealth room deleted successfully");
+  });
+
   static inviteToRoom = catchAsync(async (req, res) => {
     const { attendees } = req.validatedData ?? req.body;
     const result = await TelehealthService.inviteToRoom(res.locals.user, req.params.id, attendees);
