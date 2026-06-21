@@ -1,7 +1,6 @@
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
 import NotificationService from "../notification/notification.service.js";
-import { sendPushNotification, sendMulticastPushNotification } from "../../utils/firebaseService.js";
 import { SendSMS } from "../../utils/hubtel-sms.js";
 import WRITE from "../../utils/logger.js";
 import {
@@ -110,6 +109,55 @@ class TelehealthService {
     return deduped;
   }
 
+  /**
+   * Check if a notification already exists for the same user, category, and relatedId
+   * to prevent duplicate notifications.
+   */
+  static async notificationExists(userId, category, relatedId) {
+    if (!userId || !category || !relatedId) return false;
+    const existing = await prisma.notification.findFirst({
+      where: {
+        userId,
+        category,
+        relatedId,
+        createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) } // within last 5 minutes
+      },
+      select: { id: true }
+    });
+    return !!existing;
+  }
+
+  /**
+   * Check if an invitation already exists for the same room and invitee.
+   */
+  static async invitationExists(roomId, inviteeUserId, inviteeEmail) {
+    const where = { roomId };
+    if (inviteeUserId) {
+      where.inviteeUserId = inviteeUserId;
+    } else if (inviteeEmail) {
+      where.inviteeEmail = inviteeEmail;
+    } else {
+      return false;
+    }
+    const existing = await prisma.telehealthInvitation.findFirst({
+      where,
+      select: { id: true }
+    });
+    return !!existing;
+  }
+
+  /**
+   * Check if a participant already exists for the same room and user.
+   */
+  static async participantExists(roomId, userId) {
+    if (!userId) return false;
+    const existing = await prisma.telehealthParticipant.findUnique({
+      where: { roomId_userId: { roomId, userId } },
+      select: { id: true }
+    });
+    return !!existing;
+  }
+
   static async createRoom(user, data) {
     const sp = await TelehealthService.requireServiceProvider(user.id, user.userType);
 
@@ -129,78 +177,122 @@ class TelehealthService {
     const isServiceProvider = !sp.isAdmin;
     const providerId = isServiceProvider ? sp.id : (data.providerId || null);
 
-    const room = await prisma.telehealthRoom.create({
-      data: {
-        organizationId: isServiceProvider ? sp.id : user.id,
-        creatorUserId: user.id,
-        providedByProviderId: providerId,
-        title: data.title,
-        description: data.description,
-        scheduledStart: data.scheduledStart ? new Date(data.scheduledStart) : null,
-        scheduledEnd: data.scheduledEnd ? new Date(data.scheduledEnd) : null,
-        visibility: data.visibility || "private",
-        maxParticipants: data.maxParticipants || 50,
-        metadata: { reminders, providerError: null }
-      }
-    });
-
-    await prisma.telehealthParticipant.create({
-      data: {
-        roomId: room.id,
+    // Use a Prisma transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      WRITE.info("[Telehealth] Creating room", {
         userId: user.id,
-        role: "provider",
-        status: "accepted"
-      }
-    });
-
-    let joinUrl = null;
-    let providerError = null;
-
-    try {
-      const meetData = await createMeetRoom({
+        providerId,
         title: data.title,
-        description: data.description,
         scheduledStart: data.scheduledStart,
-        scheduledEnd: data.scheduledEnd,
-        attendeeEmails
+        attendeeCount: resolvedAttendees.length
       });
 
-      await prisma.telehealthRoom.update({
-        where: { id: room.id },
+      // 1. Create the room
+      const room = await tx.telehealthRoom.create({
         data: {
-          externalMeetingId: meetData.externalMeetingId,
-          joinUrl: meetData.joinUrl,
-          providerPayload: meetData.providerPayload,
-          metadata: { ...room.metadata, reminders, providerError: null }
+          organizationId: isServiceProvider ? sp.id : user.id,
+          creatorUserId: user.id,
+          providedByProviderId: providerId,
+          title: data.title,
+          description: data.description,
+          scheduledStart: data.scheduledStart ? new Date(data.scheduledStart) : null,
+          scheduledEnd: data.scheduledEnd ? new Date(data.scheduledEnd) : null,
+          visibility: data.visibility || "private",
+          maxParticipants: data.maxParticipants || 50,
+          metadata: { reminders, providerError: null }
         }
       });
-      joinUrl = meetData.joinUrl;
-    } catch (e) {
-      providerError = e?.message || "Unable to provision Google Meet";
-      WRITE.error("[Telehealth] Google Meet creation failed", { error: providerError, stack: e?.stack });
-      await prisma.telehealthRoom.update({
-        where: { id: room.id },
+
+      WRITE.info("[Telehealth] Room created", { roomId: room.id });
+
+      // 2. Create creator participant
+      await tx.telehealthParticipant.create({
         data: {
-          metadata: { ...room.metadata, reminders, providerError }
+          roomId: room.id,
+          userId: user.id,
+          role: "provider",
+          status: "accepted"
         }
       });
-    }
 
-    if (resolvedAttendees.length > 0 && joinUrl) {
-      await TelehealthService.inviteUsers(user, room, resolvedAttendees, joinUrl);
-    }
+      WRITE.info("[Telehealth] Creator participant created", {
+        roomId: room.id,
+        userId: user.id
+      });
 
-    return prisma.telehealthRoom.findUnique({
-      where: { id: room.id },
-      include: {
-        participants: {
-          include: { user: { select: { id: true, fullName: true, profileImage: true, role: true } } },
-        }
+      // 3. Create Google Meet room (non-critical - failure won't rollback room)
+      let joinUrl = null;
+      let providerError = null;
+
+      try {
+        const meetData = await createMeetRoom({
+          title: data.title,
+          description: data.description,
+          scheduledStart: data.scheduledStart,
+          scheduledEnd: data.scheduledEnd,
+          attendeeEmails
+        });
+
+        await tx.telehealthRoom.update({
+          where: { id: room.id },
+          data: {
+            externalMeetingId: meetData.externalMeetingId,
+            joinUrl: meetData.joinUrl,
+            providerPayload: meetData.providerPayload,
+            metadata: { reminders, providerError: null }
+          }
+        });
+        joinUrl = meetData.joinUrl;
+
+        WRITE.info("[Telehealth] Google Meet created", {
+          roomId: room.id,
+          externalMeetingId: meetData.externalMeetingId
+        });
+      } catch (e) {
+        providerError = e?.message || "Unable to provision Google Meet";
+        WRITE.error("[Telehealth] Google Meet creation failed", {
+          roomId: room.id,
+          error: providerError,
+          stack: e?.stack
+        });
+        await tx.telehealthRoom.update({
+          where: { id: room.id },
+          data: {
+            metadata: { reminders, providerError }
+          }
+        });
       }
+
+      // 4. Invite users (non-critical - failure won't rollback room)
+      if (resolvedAttendees.length > 0) {
+        await TelehealthService.inviteUsersInTransaction(tx, user, room, resolvedAttendees, joinUrl);
+      }
+
+      // 5. Return the complete room
+      return tx.telehealthRoom.findUnique({
+        where: { id: room.id },
+        include: {
+          participants: {
+            include: { user: { select: { id: true, fullName: true, profileImage: true } } },
+          }
+        }
+      });
     });
+
+    WRITE.info("[Telehealth] Room creation completed successfully", {
+      roomId: result.id,
+      participantCount: result.participants?.length
+    });
+
+    return result;
   }
 
-  static async inviteUsers(inviterUser, room, attendees, joinUrl) {
+  /**
+   * Invite users within an existing transaction.
+   * This ensures invitations, participants, and notifications are created atomically
+   * and prevents duplicate records.
+   */
+  static async inviteUsersInTransaction(tx, inviterUser, room, attendees, joinUrl) {
     const uniqueAttendees = [];
     const seen = new Set();
     for (const a of attendees) {
@@ -217,7 +309,7 @@ class TelehealthService {
       const fullName = attendee.fullName;
 
       if (userId && !email && !phone) {
-        const fresh = await prisma.user.findUnique({
+        const fresh = await tx.user.findUnique({
           where: { id: userId },
           select: { id: true, email: true, phoneNumber: true, fullName: true }
         });
@@ -228,87 +320,171 @@ class TelehealthService {
         }
       }
 
-      const userForParticipant = userId ? { id: userId } : null;
       const resolvedUserId = userId;
 
+      // Create participant if not exists (idempotent)
       if (resolvedUserId) {
-        try {
-          await prisma.telehealthParticipant.upsert({
-            where: { roomId_userId: { roomId: room.id, userId: resolvedUserId } },
-            create: { roomId: room.id, userId: resolvedUserId, role: "caregiver", status: "invited" },
-            update: { status: "invited" }
-          });
-        } catch (e) {
-          WRITE.warn("[Telehealth] Participant upsert failed", { resolvedUserId, error: e.message });
-        }
-      }
-
-      try {
-        await prisma.telehealthInvitation.create({
-          data: {
-            roomId: room.id,
-            inviterUserId: inviterUser.id,
-            inviteeUserId: resolvedUserId,
-            inviteeEmail: email,
-            inviteePhone: phone,
-            status: "sent"
-          }
-        });
-      } catch (e) {
-        WRITE.warn("[Telehealth] Invitation record failed", { resolvedUserId, email, error: e.message });
-      }
-
-      const joinUrlForUser = joinUrl || "See app for details";
-      const message = `You have been invited to a telehealth session: "${room.title || 'Consultation'}". Join URL: ${joinUrlForUser}`;
-
-      if (resolvedUserId) {
-        try {
-          await NotificationService.createNotification({
-            userId: resolvedUserId,
-            type: "IN_APP",
-            category: "APPOINTMENT_REMINDER",
-            title: "Telehealth Room Invitation",
-            content: message,
-            relatedId: room.id,
-            relatedModel: "TelehealthRoom",
-            data: { joinUrl: joinUrl, roomId: room.id, scheduledStart: room.scheduledStart },
-            expiresAt: room.scheduledEnd ? new Date(new Date(room.scheduledEnd).getTime() + 24 * 60 * 60 * 1000) : null
-          });
-        } catch (e) {
-          WRITE.warn("[Telehealth] In-app notification failed", { resolvedUserId, error: e.message });
-        }
-
-        try {
-          const tokens = await prisma.pushNotificationToken.findMany({
-            where: { userId: resolvedUserId, isActive: true },
-            select: { token: true }
-          });
-          if (tokens.length > 0) {
-            await sendMulticastPushNotification(
-              tokens.map(t => t.token),
-              {
-                title: "Telehealth Invitation",
-                body: message,
-                data: { roomId: room.id, joinUrl: joinUrl || '', type: 'telehealth_invite' }
+        const participantExists = await TelehealthService.participantExists(room.id, resolvedUserId);
+        if (!participantExists) {
+          try {
+            await tx.telehealthParticipant.create({
+              data: {
+                roomId: room.id,
+                userId: resolvedUserId,
+                role: "caregiver",
+                status: "invited"
               }
-            );
+            });
+            WRITE.info("[Telehealth] Participant created", {
+              roomId: room.id,
+              userId: resolvedUserId
+            });
+          } catch (e) {
+            WRITE.error("[Telehealth] Participant creation failed", {
+              roomId: room.id,
+              userId: resolvedUserId,
+              error: e.message,
+              prismaCode: e.code,
+              prismaMeta: e.meta,
+              stack: e.stack
+            });
+            throw e; // Re-throw to trigger transaction rollback
           }
-        } catch (e) {
-          WRITE.warn("[Telehealth] Push notification failed", { resolvedUserId, error: e.message });
+        } else {
+          WRITE.info("[Telehealth] Participant already exists, skipping", {
+            roomId: room.id,
+            userId: resolvedUserId
+          });
         }
       }
 
-      if (phone && (!resolvedUserId || !email)) {
+      // Create invitation if not exists (idempotent)
+      const invExists = await TelehealthService.invitationExists(room.id, resolvedUserId, email);
+      if (!invExists) {
         try {
-          await SendSMS(
-            phone,
-            `Telehealth invitation: ${message}`
-          );
+          await tx.telehealthInvitation.create({
+            data: {
+              roomId: room.id,
+              inviterUserId: inviterUser.id,
+              inviteeUserId: resolvedUserId,
+              inviteeEmail: email,
+              inviteePhone: phone,
+              status: "sent"
+            }
+          });
+          WRITE.info("[Telehealth] Invitation created", {
+            roomId: room.id,
+            userId: resolvedUserId,
+            email
+          });
         } catch (e) {
-          WRITE.warn("[Telehealth] SMS invite failed", { phone, error: e.message });
+          WRITE.error("[Telehealth] Invitation creation failed", {
+            roomId: room.id,
+            userId: resolvedUserId,
+            email,
+            error: e.message,
+            prismaCode: e.code,
+            prismaMeta: e.meta,
+            stack: e.stack
+          });
+          throw e; // Re-throw to trigger transaction rollback
         }
+      } else {
+        WRITE.info("[Telehealth] Invitation already exists, skipping", {
+          roomId: room.id,
+          userId: resolvedUserId,
+          email
+        });
+      }
+
+      // Send notifications (outside transaction - non-critical)
+      if (resolvedUserId) {
+        await TelehealthService.sendInviteNotifications(
+          resolvedUserId,
+          room,
+          joinUrl,
+          email,
+          phone
+        );
       }
     }
+  }
+
+  /**
+   * Send notifications for an invitation.
+   * This is called outside the transaction to prevent notification failures
+   * from rolling back the room creation.
+   * Includes idempotency checks to prevent duplicate notifications.
+   */
+  static async sendInviteNotifications(userId, room, joinUrl, email, phone) {
+    const joinUrlForUser = joinUrl || "See app for details";
+    const message = `You have been invited to a telehealth session: "${room.title || 'Consultation'}". Join URL: ${joinUrlForUser}`;
+
+    // Check if notification already exists (idempotency)
+    const notifExists = await TelehealthService.notificationExists(
+      userId,
+      "APPOINTMENT_REMINDER",
+      room.id
+    );
+
+    if (!notifExists) {
+      try {
+        await NotificationService.createNotification({
+          userId,
+          type: "IN_APP",
+          category: "APPOINTMENT_REMINDER",
+          title: "Telehealth Room Invitation",
+          content: message,
+          relatedId: room.id,
+          relatedModel: "TelehealthRoom",
+          data: { joinUrl: joinUrl, roomId: room.id, scheduledStart: room.scheduledStart },
+          expiresAt: room.scheduledEnd
+            ? new Date(new Date(room.scheduledEnd).getTime() + 24 * 60 * 60 * 1000)
+            : null
+        });
+        WRITE.info("[Telehealth] In-app notification created", { userId, roomId: room.id });
+      } catch (e) {
+        WRITE.error("[Telehealth] In-app notification failed", {
+          userId,
+          roomId: room.id,
+          error: e.message,
+          stack: e.stack
+        });
+      }
+    } else {
+      WRITE.info("[Telehealth] Notification already exists, skipping", { userId, roomId: room.id });
+    }
+
+    // Send push notification (separate from NotificationService.createNotification's push)
+    // We do NOT send push here because NotificationService.createNotification already sends it
+    // via sendPushNotificationToUserNow(). This was the source of duplicate push notifications.
+    // Push is handled entirely by NotificationService.createNotification -> sendPushNotificationToUserNow
+
+    // Send SMS only if phone is available and user has no email (external invitee)
+    if (phone && !email) {
+      try {
+        await SendSMS(
+          phone,
+          `Telehealth invitation: ${message}`
+        );
+        WRITE.info("[Telehealth] SMS invite sent", { phone, roomId: room.id });
+      } catch (e) {
+        WRITE.error("[Telehealth] SMS invite failed", {
+          phone,
+          roomId: room.id,
+          error: e.message,
+          stack: e.stack
+        });
+      }
+    }
+  }
+
+  /**
+   * Legacy inviteUsers method kept for backward compatibility.
+   * New code should use inviteUsersInTransaction.
+   */
+  static async inviteUsers(inviterUser, room, attendees, joinUrl) {
+    return TelehealthService.inviteUsersInTransaction(prisma, inviterUser, room, attendees, joinUrl);
   }
 
   static async listRooms(user, query = {}) {
@@ -319,28 +495,54 @@ class TelehealthService {
 
     let where = {};
 
+    // Exclude soft-deleted rooms
+    where.deletedAt = null;
+
     if (user.userType === "ADMIN") {
-      where = {};
+      // Admins see all non-deleted rooms
     } else if (user.userType === "SERVICE_PROVIDER") {
       where = {
+        ...where,
         OR: [
           { creatorUserId: user.id },
           { participants: { some: { userId: user.id } } }
         ]
       };
     } else {
-      where = { participants: { some: { userId: user.id } } };
+      where = {
+        ...where,
+        participants: { some: { userId: user.id } }
+      };
     }
 
     if (filter === "upcoming") {
       where.scheduledStart = { gte: now };
       where.status = { in: ["scheduled", "live", "rescheduled"] };
     } else if (filter === "past") {
-      where.OR = [
+      // Preserve existing access OR conditions while adding past filter conditions
+      const pastConditions = [
         { scheduledStart: { lt: now } },
         { status: { in: ["completed", "canceled"] } }
       ];
+      if (where.OR) {
+        // Wrap existing OR (user access) with past conditions using AND
+        where.AND = [
+          { OR: where.OR },
+          { OR: pastConditions }
+        ];
+        delete where.OR;
+      } else {
+        where.OR = pastConditions;
+      }
     }
+
+    WRITE.info("[Telehealth] Listing rooms", {
+      userId: user.id,
+      userType: user.userType,
+      filter,
+      page,
+      limit: take
+    });
 
     const [rooms, total] = await Promise.all([
       prisma.telehealthRoom.findMany({
@@ -373,6 +575,11 @@ class TelehealthService {
 
     if (!room) throw new gcprError(HttpStatus.NOT_FOUND, "Telehealth room not found");
 
+    // Check if room is soft-deleted
+    if (room.deletedAt) {
+      throw new gcprError(HttpStatus.NOT_FOUND, "Telehealth room not found");
+    }
+
     // Check access
     const isParticipant = room.participants.some(p => p.userId === user.id);
     const isCreator = room.creatorUserId === user.id;
@@ -390,12 +597,24 @@ class TelehealthService {
     if (!room) throw new gcprError(HttpStatus.NOT_FOUND, "Telehealth room not found");
     if (room.creatorUserId !== user.id) throw new gcprError(HttpStatus.FORBIDDEN, "Only the creator can update this room");
 
+    WRITE.info("[Telehealth] Updating room", {
+      roomId,
+      userId: user.id,
+      updates: Object.keys(data)
+    });
+
     // Update Google Calendar event if external meeting exists
     if (room.externalMeetingId) {
       try {
         await updateMeetRoom(room.externalMeetingId, data);
+        WRITE.info("[Telehealth] Google Calendar updated", { roomId, externalMeetingId: room.externalMeetingId });
       } catch (e) {
-        WRITE.warn("[Telehealth] Google Calendar update failed", { error: e.message });
+        WRITE.error("[Telehealth] Google Calendar update failed", {
+          roomId,
+          externalMeetingId: room.externalMeetingId,
+          error: e.message,
+          stack: e.stack
+        });
       }
     }
 
@@ -410,7 +629,11 @@ class TelehealthService {
     }
     if (data.scheduledEnd) updateData.scheduledEnd = new Date(data.scheduledEnd);
 
-    return prisma.telehealthRoom.update({ where: { id: roomId }, data: updateData });
+    const updated = await prisma.telehealthRoom.update({ where: { id: roomId }, data: updateData });
+
+    WRITE.info("[Telehealth] Room updated", { roomId });
+
+    return updated;
   }
 
   static async cancelRoom(user, roomId) {
@@ -418,18 +641,48 @@ class TelehealthService {
     if (!room) throw new gcprError(HttpStatus.NOT_FOUND, "Telehealth room not found");
     if (room.creatorUserId !== user.id) throw new gcprError(HttpStatus.FORBIDDEN, "Only the creator can cancel this room");
 
+    WRITE.info("[Telehealth] Canceling room", { roomId, userId: user.id });
+
     if (room.externalMeetingId) {
       try {
         await cancelMeetRoom(room.externalMeetingId);
+        WRITE.info("[Telehealth] Google Calendar event deleted", { roomId, externalMeetingId: room.externalMeetingId });
       } catch (e) {
-        WRITE.warn("[Telehealth] Google Calendar delete failed", { error: e.message });
+        WRITE.error("[Telehealth] Google Calendar delete failed", {
+          roomId,
+          externalMeetingId: room.externalMeetingId,
+          error: e.message,
+          stack: e.stack
+        });
       }
     }
 
-    return prisma.telehealthRoom.update({
+    const updated = await prisma.telehealthRoom.update({
       where: { id: roomId },
       data: { status: "canceled", canceledAt: new Date(), canceledBy: user.id }
     });
+
+    WRITE.info("[Telehealth] Room canceled", { roomId });
+
+    return updated;
+  }
+
+  static async deleteRoom(user, roomId) {
+    const room = await prisma.telehealthRoom.findUnique({ where: { id: roomId } });
+    if (!room) throw new gcprError(HttpStatus.NOT_FOUND, "Telehealth room not found");
+    if (room.creatorUserId !== user.id) throw new gcprError(HttpStatus.FORBIDDEN, "Only the creator can delete this room");
+
+    WRITE.info("[Telehealth] Soft-deleting room", { roomId, userId: user.id });
+
+    // Soft delete by setting deletedAt
+    const updated = await prisma.telehealthRoom.update({
+      where: { id: roomId },
+      data: { deletedAt: new Date() }
+    });
+
+    WRITE.info("[Telehealth] Room soft-deleted", { roomId });
+
+    return updated;
   }
 
   static async inviteToRoom(user, roomId, attendees) {
@@ -442,10 +695,22 @@ class TelehealthService {
     const resolved = await TelehealthService.normalizeAttendees(attendees);
     if (resolved.length === 0) throw new gcprError(HttpStatus.BAD_REQUEST, "No valid attendees provided");
 
+    WRITE.info("[Telehealth] Inviting users to room", {
+      roomId,
+      userId: user.id,
+      attendeeCount: resolved.length
+    });
+
     const joinUrl = room.joinUrl;
     await TelehealthService.inviteUsers(user, room, resolved, joinUrl);
 
     const invitedUserIds = resolved.map(a => a.userId).filter(Boolean);
+
+    WRITE.info("[Telehealth] Users invited", {
+      roomId,
+      invitedCount: invitedUserIds.length
+    });
+
     return { invited: invitedUserIds.length, roomId };
   }
 
@@ -456,7 +721,7 @@ class TelehealthService {
     const participants = await prisma.telehealthParticipant.findMany({
       where: { roomId },
       include: {
-        user: { select: { id: true, fullName: true, profileImage: true, role: true } }
+        user: { select: { id: true, fullName: true, profileImage: true } }
       }
     });
 
@@ -467,13 +732,24 @@ class TelehealthService {
     const room = await prisma.telehealthRoom.findUnique({ where: { id: roomId } });
     if (!room) throw new gcprError(HttpStatus.NOT_FOUND, "Telehealth room not found");
     if (room.status === "canceled") throw new gcprError(HttpStatus.BAD_REQUEST, "This room has been canceled");
+    if (room.deletedAt) throw new gcprError(HttpStatus.BAD_REQUEST, "This room has been deleted");
+
+    WRITE.info("[Telehealth] User joining room", { roomId, userId: user.id });
 
     // Upsert participant as joined
     await prisma.telehealthParticipant.upsert({
       where: { roomId_userId: { roomId, userId: user.id } },
-      create: { roomId, userId: user.id, role: user.userType === "SERVICE_PROVIDER" ? "provider" : "caregiver", status: "joined", joinedAt: new Date() },
+      create: {
+        roomId,
+        userId: user.id,
+        role: user.userType === "SERVICE_PROVIDER" ? "provider" : "caregiver",
+        status: "joined",
+        joinedAt: new Date()
+      },
       update: { status: "joined", joinedAt: new Date() }
     });
+
+    WRITE.info("[Telehealth] User joined room", { roomId, userId: user.id });
 
     return { joinUrl: room.joinUrl, room };
   }
@@ -524,7 +800,21 @@ class TelehealthService {
 
     TelehealthService.ensureValidTransition(room.status, status);
 
-    return prisma.telehealthRoom.update({ where: { id: roomId }, data: { status } });
+    WRITE.info("[Telehealth] Updating room status", {
+      roomId,
+      userId: user.id,
+      fromStatus: room.status,
+      toStatus: status
+    });
+
+    const updated = await prisma.telehealthRoom.update({ where: { id: roomId }, data: { status } });
+
+    WRITE.info("[Telehealth] Room status updated", {
+      roomId,
+      newStatus: status
+    });
+
+    return updated;
   }
 }
 
