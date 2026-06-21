@@ -7,7 +7,7 @@ import { CAREGIVER_SYSTEM_PROMPT, buildSessionTitle } from "./chat.prompt.js";
 
 let _gemini = null;
 
-const PRIMARY_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+const PRIMARY_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || "gemini-1.5-flash";
 
 function getGemini() {
