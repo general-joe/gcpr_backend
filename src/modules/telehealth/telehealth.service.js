@@ -644,8 +644,40 @@ class TelehealthService {
         skip,
         take,
         orderBy: { scheduledStart: "asc" },
-        include: {
-          participants: { select: { id: true, userId: true, status: true } }
+        select: {
+          id: true,
+          organizationId: true,
+          creatorUserId: true,
+          title: true,
+          description: true,
+          scheduledStart: true,
+          scheduledEnd: true,
+          status: true,
+          visibility: true,
+          maxParticipants: true,
+          providerPayload: true,
+          isRecordingEnabled: true,
+          metadata: true,
+          providedByProviderId: true,
+          createdAt: true,
+          updatedAt: true,
+          joinUrl: true,
+          participants: {
+            select: {
+              id: true,
+              userId: true,
+              status: true,
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  fullName: true,
+                  profileImage: true,
+                  userType: true
+                }
+              }
+            }
+          }
         }
       }),
       prisma.telehealthRoom.count({ where })
