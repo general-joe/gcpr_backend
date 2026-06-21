@@ -268,7 +268,10 @@ class TelehealthService {
         await TelehealthService.inviteUsersInTransaction(tx, user, room, resolvedAttendees, joinUrl);
       }
 
-      // 5. Return the complete room
+      // 5. Send creator a confirmation notification (always, even with no attendees)
+      await TelehealthService.sendRoomCreatedNotification(user.id, room, joinUrl);
+
+      // 6. Return the complete room
       return tx.telehealthRoom.findUnique({
         where: { id: room.id },
         include: {
@@ -480,6 +483,49 @@ class TelehealthService {
   }
 
   /**
+   * Send a confirmation notification to the room creator.
+   * This ensures the creator always gets notified, even when there are no attendees.
+   */
+  static async sendRoomCreatedNotification(userId, room, joinUrl) {
+    const joinUrlForUser = joinUrl || "See app for details";
+    const message = `Your telehealth room "${room.title || 'Consultation'}" has been created. Join URL: ${joinUrlForUser}`;
+
+    const notifExists = await TelehealthService.notificationExists(
+      userId,
+      "APPOINTMENT_REMINDER",
+      room.id
+    );
+
+    if (!notifExists) {
+      try {
+        await NotificationService.createNotification({
+          userId,
+          type: "IN_APP",
+          category: "APPOINTMENT_REMINDER",
+          title: "Telehealth Room Created",
+          content: message,
+          relatedId: room.id,
+          relatedModel: "TelehealthRoom",
+          data: { joinUrl: joinUrl, roomId: room.id, scheduledStart: room.scheduledStart },
+          expiresAt: room.scheduledEnd
+            ? new Date(new Date(room.scheduledEnd).getTime() + 24 * 60 * 60 * 1000)
+            : null
+        });
+        WRITE.info("[Telehealth] Room created notification sent", { userId, roomId: room.id });
+      } catch (e) {
+        WRITE.error("[Telehealth] Room created notification failed", {
+          userId,
+          roomId: room.id,
+          error: e.message,
+          stack: e.stack
+        });
+      }
+    } else {
+      WRITE.info("[Telehealth] Room created notification already exists, skipping", { userId, roomId: room.id });
+    }
+  }
+
+  /**
    * Legacy inviteUsers method kept for backward compatibility.
    * New code should use inviteUsersInTransaction.
    */
@@ -519,20 +565,22 @@ class TelehealthService {
       where.scheduledStart = { gte: now };
       where.status = { in: ["scheduled", "live", "rescheduled"] };
     } else if (filter === "past") {
-      // Preserve existing access OR conditions while adding past filter conditions
-      const pastConditions = [
+      // Past means: (scheduledStart is in the past) OR (status is completed/canceled)
+      // Must use AND to combine with user access filter correctly
+      const pastOrConditions = [
         { scheduledStart: { lt: now } },
         { status: { in: ["completed", "canceled"] } }
       ];
+      const pastFilter = { OR: pastOrConditions };
       if (where.OR) {
-        // Wrap existing OR (user access) with past conditions using AND
+        // Wrap existing OR (user access) with past filter using AND
         where.AND = [
           { OR: where.OR },
-          { OR: pastConditions }
+          pastFilter
         ];
         delete where.OR;
       } else {
-        where.OR = pastConditions;
+        where = { ...where, ...pastFilter };
       }
     }
 
