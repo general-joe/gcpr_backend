@@ -64,7 +64,7 @@ class TelehealthService {
 
       if (userId) byId.set(userId, { userId, email, phone });
       else if (email) byEmail.set(email, { userId: null, email, phone });
-      else if (phone) byPhone.set(phone, { userId: null, email: null, phone });
+      else if (phone) byPhone.set(phone, { userId: null, email, phone });
     }
 
     const result = [...byId.values(), ...byEmail.values(), ...byPhone.values()];
@@ -80,30 +80,67 @@ class TelehealthService {
 
     if (!orConditions.length) return [];
 
-    const matchedUsers = await prisma.user.findMany({
-      where: { OR: orConditions },
-      select: { id: true, email: true, phoneNumber: true, fullName: true }
-    });
-
-    const deduped = [];
-    const seen = new Set();
-    for (const u of matchedUsers) {
-      const key = u.id || u.email || u.phoneNumber;
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      deduped.push({
-        userId: u.id,
-        email: u.email,
-        phone: u.phoneNumber,
-        fullName: u.fullName,
+    let matchedUsers = [];
+    try {
+      matchedUsers = await prisma.user.findMany({
+        where: { OR: orConditions },
+        select: { id: true, email: true, phoneNumber: true, fullName: true }
       });
+    } catch (e) {
+      WRITE.error("[Telehealth] Failed to look up users for invite", {
+        error: e.message,
+        code: e.code,
+        stack: e.stack
+      });
+      // Return empty array on database error - no valid attendees can be resolved
+      return [];
     }
 
+    // Build lookup maps for matched users - keyed by user ID
+    const userById = new Map();
+    for (const u of matchedUsers) {
+      if (u.id) userById.set(u.id, u);
+    }
+
+    const deduped = [];
+    const seenUserIds = new Set();
+
+    // Process each original entry - ONLY include users that exist in the system
     for (const r of result) {
-      if (r.userId && !seen.has(r.userId)) {
-        seen.add(r.userId);
-        deduped.push({ userId: r.userId, email: r.email, phone: r.phone });
+      const entryKey = r.userId || r.email || r.phone;
+      if (!entryKey) continue;
+
+      // Try to find matching user by any identifier
+      let matchedUser = null;
+      if (r.userId && userById.has(r.userId)) {
+        matchedUser = userById.get(r.userId);
+      } else {
+        // Search through all matched users to find one matching email or phone
+        for (const u of matchedUsers) {
+          if (r.email && u.email && u.email.toLowerCase() === r.email) {
+            matchedUser = u;
+            break;
+          }
+          if (r.phone && u.phoneNumber && u.phoneNumber === r.phone) {
+            matchedUser = u;
+            break;
+          }
+        }
       }
+
+      if (matchedUser) {
+        // This is a registered user - deduplicate by userId
+        if (!seenUserIds.has(matchedUser.id)) {
+          seenUserIds.add(matchedUser.id);
+          deduped.push({
+            userId: matchedUser.id,
+            email: matchedUser.email,
+            phone: matchedUser.phoneNumber,
+            fullName: matchedUser.fullName,
+          });
+        }
+      }
+      // If no matching user found, skip entirely - no external invitees
     }
 
     return deduped;
@@ -311,6 +348,15 @@ class TelehealthService {
       const phone = attendee.phone;
       const fullName = attendee.fullName;
 
+      // Skip the room creator / inviter — they're already a participant
+      if (userId && userId === inviterUser.id) {
+        WRITE.info("[Telehealth] Skipping inviter from being invited", {
+          roomId: room.id,
+          userId
+        });
+        continue;
+      }
+
       if (userId && !email && !phone) {
         const fresh = await tx.user.findUnique({
           where: { id: userId },
@@ -401,6 +447,8 @@ class TelehealthService {
       }
 
       // Send notifications (outside transaction - non-critical)
+      // Only send SMS to registered users (resolvedUserId exists).
+      // External invitees (no user account) do not receive SMS.
       if (resolvedUserId) {
         await TelehealthService.sendInviteNotifications(
           resolvedUserId,
@@ -458,23 +506,21 @@ class TelehealthService {
       WRITE.info("[Telehealth] Notification already exists, skipping", { userId, roomId: room.id });
     }
 
-    // Send push notification (separate from NotificationService.createNotification's push)
-    // We do NOT send push here because NotificationService.createNotification already sends it
-    // via sendPushNotificationToUserNow(). This was the source of duplicate push notifications.
-    // Push is handled entirely by NotificationService.createNotification -> sendPushNotificationToUserNow
-
-    // Send SMS only if phone is available and user has no email (external invitee)
-    if (phone && !email) {
+    // Send SMS only if a phone number was explicitly provided in the invite request.
+    // We use the phone from the invite request, NOT from the user profile, to avoid
+    // sending to the wrong number when the user has an outdated phone in their profile.
+    if (phone) {
       try {
         await SendSMS(
           phone,
           `Telehealth invitation: ${message}`
         );
-        WRITE.info("[Telehealth] SMS invite sent", { phone, roomId: room.id });
+        WRITE.info("[Telehealth] SMS invite sent", { phone, roomId: room.id, userId });
       } catch (e) {
         WRITE.error("[Telehealth] SMS invite failed", {
           phone,
           roomId: room.id,
+          userId,
           error: e.message,
           stack: e.stack
         });
@@ -599,7 +645,7 @@ class TelehealthService {
         take,
         orderBy: { scheduledStart: "asc" },
         include: {
-          participants: { select: { id: true, userId: true, role: true, status: true } }
+          participants: { select: { id: true, userId: true, status: true } }
         }
       }),
       prisma.telehealthRoom.count({ where })
@@ -752,14 +798,14 @@ class TelehealthService {
     const joinUrl = room.joinUrl;
     await TelehealthService.inviteUsers(user, room, resolved, joinUrl);
 
-    const invitedUserIds = resolved.map(a => a.userId).filter(Boolean);
+    const totalInvited = resolved.length;
 
     WRITE.info("[Telehealth] Users invited", {
       roomId,
-      invitedCount: invitedUserIds.length
+      invitedCount: totalInvited
     });
 
-    return { invited: invitedUserIds.length, roomId };
+    return { invited: totalInvited, roomId };
   }
 
   static async getParticipants(user, roomId) {

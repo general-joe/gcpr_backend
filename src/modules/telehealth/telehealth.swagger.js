@@ -152,9 +152,6 @@
  *                             type: string
  *                           userId:
  *                             type: string
- *                           role:
- *                             type: string
- *                             enum: [provider, caregiver, patient, observer, interpreter, system]
  *                           status:
  *                             type: string
  *                             enum: [invited, accepted, joined, left, declined, kicked, failed]
@@ -501,8 +498,6 @@
  *                       id:
  *                         type: string
  *                       userId:
- *                         type: string
- *                       role:
  *                         type: string
  *                       status:
  *                         type: string
