@@ -646,6 +646,7 @@ model TelehealthRoom {
   providedByProviderId  String?
   createdAt             DateTime                @default(now())
   updatedAt             DateTime                @default(now())
+  deletedAt             DateTime?
   canceledAt            DateTime?
   canceledBy            String?
   accessTokens          TelehealthAccessToken[]

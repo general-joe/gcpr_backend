@@ -186,14 +186,72 @@ app.use((err, req, res, next) => {
 
   // Prisma errors
   if (err?.name?.includes('Prisma')) {
-    WRITE.error(`Database Error: ${err.message}`, {
+    const prismaErrorContext = {
       ...errorContext,
       prismaCode: err.code,
+      prismaMeta: err.meta,
+      prismaClientVersion: err.clientVersion,
       statusCode: 500,
-    });
-    return res.status(500).json({
-      status: 500,
-      message: 'Database operation failed',
+    };
+
+    // Map Prisma error codes to user-friendly messages
+    let userMessage = 'Database operation failed';
+    let httpStatus = 500;
+
+    switch (err.code) {
+      case 'P2000':
+        userMessage = 'Value too long for database column';
+        break;
+      case 'P2001':
+        userMessage = 'Record does not exist';
+        httpStatus = 404;
+        break;
+      case 'P2002':
+        userMessage = 'A record with this value already exists';
+        httpStatus = 409;
+        break;
+      case 'P2003':
+        userMessage = 'Referenced record not found';
+        httpStatus = 400;
+        break;
+      case 'P2004':
+        userMessage = 'Database constraint violation';
+        break;
+      case 'P2005':
+        userMessage = 'Invalid database value';
+        break;
+      case 'P2011':
+        userMessage = 'Required field is missing';
+        httpStatus = 400;
+        break;
+      case 'P2014':
+        userMessage = 'Required relation violation';
+        httpStatus = 400;
+        break;
+      case 'P2021':
+        userMessage = 'Database table does not exist';
+        break;
+      case 'P2022':
+        userMessage = 'Database column does not exist';
+        break;
+      case 'P2023':
+        userMessage = 'Inconsistent database data';
+        break;
+      case 'P2025':
+        userMessage = 'Record not found for update';
+        httpStatus = 404;
+        break;
+      default:
+        userMessage = 'Database operation failed';
+    }
+
+    WRITE.error(`Database Error [${err.code}]: ${err.message}`, prismaErrorContext);
+
+    return res.status(httpStatus).json({
+      status: httpStatus,
+      code: err.code,
+      message: userMessage,
+      meta: process.env.NODE_ENV !== 'production' ? err.meta : undefined,
       errorId,
     });
   }
@@ -204,7 +262,6 @@ app.use((err, req, res, next) => {
     statusCode: 500,
   });
 
-  // Fallback (unknown errors)
   return res.status(500).json({
     status: 500,
     message: 'Internal server error',
