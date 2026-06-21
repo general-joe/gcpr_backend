@@ -48,13 +48,6 @@ telehealthRouter.delete(
   "/rooms/:id",
   limiter,
   authorize(["ADMIN", "SERVICE_PROVIDER"]),
-  TelehealthController.cancelRoom
-);
-
-telehealthRouter.delete(
-  "/rooms/:id/force",
-  limiter,
-  authorize(["ADMIN", "SERVICE_PROVIDER"]),
   TelehealthController.deleteRoom
 );
 
