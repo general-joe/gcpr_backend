@@ -598,7 +598,7 @@ model TelehealthIntegration {
   enabled                Boolean                  @default(true)
   ownerProviderId        String?
   createdAt              DateTime                 @default(now())
-  updatedAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
   ownerProvider          ServiceProvider?         @relation("IntegrationOwner", fields: [ownerProviderId], references: [id])
   oauthTokens            TelehealthOAuthToken[]
   telehealthRooms        TelehealthRoom[]         @relation("ProviderIntegrationRooms")
@@ -606,6 +606,7 @@ model TelehealthIntegration {
 
   @@unique([organizationId, providerName])
   @@index([organizationId, providerName])
+  @@map("TelehealthIntegration")
 }
 
 model TelehealthOAuthToken {
@@ -617,10 +618,11 @@ model TelehealthOAuthToken {
   scope                 String?
   refreshTokenEncrypted Bytes?
   createdAt             DateTime              @default(now())
-  updatedAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
   integration           TelehealthIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
 
   @@index([integrationId])
+  @@map("TelehealthOAuthToken")
 }
 
 model TelehealthRoom {
@@ -660,6 +662,7 @@ model TelehealthRoom {
   @@index([organizationId, status, scheduledStart])
   @@index([externalMeetingId])
   @@index([creatorUserId])
+  @@map("TelehealthRoom")
 }
 
 model TelehealthParticipant {
@@ -684,6 +687,7 @@ model TelehealthParticipant {
   @@unique([roomId, userId])
   @@index([roomId])
   @@index([userId])
+  @@map("TelehealthParticipant")
 }
 
 model TelehealthAccessToken {
@@ -703,6 +707,7 @@ model TelehealthAccessToken {
 
   @@index([roomId])
   @@index([tokenHash])
+  @@map("TelehealthAccessToken")
 }
 
 model TelehealthInvitation {
@@ -725,6 +730,7 @@ model TelehealthInvitation {
 
   @@index([roomId])
   @@index([inviteeEmail])
+  @@map("TelehealthInvitation")
 }
 
 model TelehealthMessage {
@@ -746,6 +752,7 @@ model TelehealthMessage {
 
   @@index([roomId, createdAt])
   @@index([sequence])
+  @@map("TelehealthMessage")
 }
 
 model TelehealthRecording {
@@ -770,6 +777,7 @@ model TelehealthRecording {
 
   @@index([roomId])
   @@index([providerRecordingId])
+  @@map("TelehealthRecording")
 }
 
 model TelehealthTranscript {
@@ -786,6 +794,7 @@ model TelehealthTranscript {
   room                 TelehealthRoom?      @relation(fields: [roomId], references: [id])
 
   @@index([roomId])
+  @@map("TelehealthTranscript")
 }
 
 model TelehealthWebhookEvent {
@@ -801,6 +810,7 @@ model TelehealthWebhookEvent {
   integration     TelehealthIntegration?  @relation(fields: [integrationId], references: [id])
 
   @@unique([integrationId, providerEventId])
+  @@map("TelehealthWebhookEvent")
 }
 
 model TelehealthAuditLog {
@@ -820,6 +830,7 @@ model TelehealthAuditLog {
   @@index([roomId])
   @@index([userId])
   @@index([createdAt])
+  @@map("TelehealthAuditLog")
 }
 
 model TelehealthIdempotencyKey {
@@ -827,10 +838,11 @@ model TelehealthIdempotencyKey {
   key       String
   scope     String
   response  Json?
-  createdAt DateTime  @default(now())
+  createdAt DateTime @default(now())
   expiresAt DateTime?
 
   @@unique([key, scope])
+  @@map("TelehealthIdempotencyKey")
 }
 
 model TelehealthRoleTemplate {
@@ -842,6 +854,7 @@ model TelehealthRoleTemplate {
   createdAt          DateTime                  @default(now())
 
   @@index([organizationId])
+  @@map("TelehealthRoleTemplate")
 }
 
 model Permission {
