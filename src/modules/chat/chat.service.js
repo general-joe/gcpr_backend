@@ -1,6 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
+import gcprError from "../../utils/http-error.js";
+import WRITE from "../../utils/logger.js";
 import { CAREGIVER_SYSTEM_PROMPT, buildSessionTitle } from "./chat.prompt.js";
 
 // ─── Lazy Gemini client ───────────────────────────────────────────────────────
@@ -9,11 +11,16 @@ let _gemini = null;
 
 const PRIMARY_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || "gemini-1.5-flash";
-
 function getGemini() {
   if (_gemini) return _gemini;
 
   const apiKey = process.env.GEMINI_API_KEY;
+
+  WRITE.info("[Chat] Initializing Gemini", {
+    hasKey: !!apiKey,
+    model: PRIMARY_MODEL,
+  });
+
   if (!apiKey) {
     throw new gcprError(
       HttpStatus.SERVICE_UNAVAILABLE,
@@ -22,6 +29,7 @@ function getGemini() {
   }
 
   _gemini = new GoogleGenerativeAI(apiKey);
+
   return _gemini;
 }
 
@@ -285,6 +293,12 @@ class ChatService {
 
       await _acquireSlot();
       try {
+        WRITE.info("[Chat] Sending Gemini request", {
+          userId,
+          sessionId,
+          model: modelName,
+          hasKey: !!process.env.GEMINI_API_KEY,
+        });
         const result = await callGeminiWithRetry(geminiCall);
         geminiResponse = result.response;
         lastError = null;
@@ -292,15 +306,21 @@ class ChatService {
       } catch (err) {
         lastError = err;
 
-        WRITE.error("[Chat] Gemini API error after retries", {
-          sessionId,
-          userId,
-          model: modelName,
-          status: err.status,
-          statusText: err.statusText,
-          err: err.message,
-          errorDetails: err.errorDetails || null,
-        });
+        console.error("========== GEMINI ERROR ==========");
+        console.error(err);
+        console.error(JSON.stringify(err, null, 2));
+        console.error("==================================");
+
+          WRITE.error("[Chat] Gemini API error after retries", {
+            sessionId,
+            userId,
+            model: modelName,
+            status: err?.status,
+            statusText: err?.statusText,
+            err: err?.message,
+            stack: err?.stack,
+            errorDetails: err?.errorDetails || null,
+          });
 
         // If 429 on primary model, try fallback
         if (err.status === 429 && modelName === PRIMARY_MODEL && modelName !== FALLBACK_MODEL) {
@@ -334,7 +354,7 @@ class ChatService {
       }
       throw new gcprError(
         HttpStatus.INTERNAL_SERVER_ERROR,
-        "An error occurred with the AI service. Please try again."
+        lastError?.message || "AI service failed"
       );
     }
 
@@ -350,25 +370,36 @@ class ChatService {
     const model = activeModel;
 
     // Persist both messages in a transaction
-    const [userMsg, assistantMsg] = await prisma.$transaction([
-      prisma.chatMessage.create({
-        data: {
-          sessionId,
-          role: "USER",
-          content: trimmedMessage,
-          tokens: promptTokens,
-        },
-      }),
-      prisma.chatMessage.create({
-        data: {
-          sessionId,
-          role: "ASSISTANT",
-          content: assistantContent,
-          tokens: completionTokens,
-        },
-      }),
-    ]);
+        let userMsg;
+    let assistantMsg;
 
+    try {
+      [userMsg, assistantMsg] = await prisma.$transaction([
+        prisma.chatMessage.create({
+          data: {
+            sessionId,
+            role: "USER",
+            content: trimmedMessage,
+            tokens: promptTokens,
+          },
+        }),
+        prisma.chatMessage.create({
+          data: {
+            sessionId,
+            role: "ASSISTANT",
+            content: assistantContent,
+            tokens: completionTokens,
+          },
+        }),
+      ]);
+    } catch (err) {
+      console.error("===== CHAT MESSAGE SAVE ERROR =====");
+      console.error(err);
+      console.error(JSON.stringify(err, null, 2));
+      console.error("===================================");
+
+      throw err;
+    }
     // Auto-set session title from first user message
     if (!session.title) {
       const title = buildSessionTitle(trimmedMessage);
