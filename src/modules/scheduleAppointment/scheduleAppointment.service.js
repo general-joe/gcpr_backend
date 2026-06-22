@@ -405,17 +405,30 @@ class ScheduleAppointmentService {
         });
 
         try {
-          // Notify patient
-          await NotificationService.createNotification({
-            userId: appointment.patientId,
-            type: "IN_APP",
-            category: "APPOINTMENT_REMINDER",
-            title: "Appointment Scheduled",
-            content: `Your appointment is scheduled for ${appointment.appointmentDate}.`,
-            relatedId: appointment.id,
-            relatedModel: "Appointment"
+          // Notify patient's caregiver (the user who can view notifications)
+          const patientCaregiver = await tx.cpPatient.findUnique({
+            where: { id: appointment.patientId },
+            include: {
+              caregiver: {
+                select: {
+                  userId: true,
+                },
+              },
+            },
           });
-          WRITE.debug("Patient notification sent", { operationId, appointmentId: appointment.id });
+          
+          if (patientCaregiver?.caregiver?.userId) {
+            await NotificationService.createNotification({
+              userId: patientCaregiver.caregiver.userId,
+              type: "IN_APP",
+              category: "APPOINTMENT_REMINDER",
+              title: "Appointment Scheduled",
+              content: `Your appointment is scheduled for ${appointment.appointmentDate}.`,
+              relatedId: appointment.id,
+              relatedModel: "Appointment"
+            });
+            WRITE.debug("Patient notification sent", { operationId, appointmentId: appointment.id });
+          }
 
           // Notify provider
           await NotificationService.createNotification({
@@ -516,6 +529,17 @@ class ScheduleAppointmentService {
 
     const appointment = await prisma.appointment.findUnique({
       where: { id: appointmentId },
+      include: {
+        patient: {
+          include: {
+            caregiver: {
+              select: {
+                userId: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!appointment || appointment.providerId !== provider.id) {
@@ -528,16 +552,19 @@ class ScheduleAppointmentService {
         status: "APPROVED",
       },
     });
-    // Notify patient
-    await NotificationService.createNotification({
-      userId: updated.patientId,
-      type: "IN_APP",
-      category: "APPOINTMENT_REMINDER",
-      title: "Appointment Approved",
-      content: "Your appointment has been approved.",
-      relatedId: updated.id,
-      relatedModel: "Appointment"
-    });
+    // Notify patient's caregiver (the user who can view notifications)
+    const caregiverUserId = appointment.patient.caregiver.userId;
+    if (caregiverUserId) {
+      await NotificationService.createNotification({
+        userId: caregiverUserId,
+        type: "IN_APP",
+        category: "APPOINTMENT_REMINDER",
+        title: "Appointment Approved",
+        content: "Your appointment has been approved.",
+        relatedId: updated.id,
+        relatedModel: "Appointment"
+      });
+    }
     return updated;
   }
   static async rescheduleAppointment(userId, payload) {
@@ -552,6 +579,17 @@ class ScheduleAppointmentService {
 
     const appointment = await prisma.appointment.findUnique({
       where: { id: payload.appointmentId },
+      include: {
+        patient: {
+          include: {
+            caregiver: {
+              select: {
+                userId: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!appointment || appointment.providerId !== provider.id) {
@@ -589,16 +627,19 @@ class ScheduleAppointmentService {
         status: "RESCHEDULED",
       },
     });
-    // Notify patient
-    await NotificationService.createNotification({
-      userId: updated.patientId,
-      type: "IN_APP",
-      category: "APPOINTMENT_REMINDER",
-      title: "Appointment Rescheduled",
-      content: `Your appointment has been rescheduled to ${updated.appointmentDate}.`,
-      relatedId: updated.id,
-      relatedModel: "Appointment"
-    });
+    // Notify patient's caregiver (the user who can view notifications)
+    const caregiverUserId = appointment.patient.caregiver.userId;
+    if (caregiverUserId) {
+      await NotificationService.createNotification({
+        userId: caregiverUserId,
+        type: "IN_APP",
+        category: "APPOINTMENT_REMINDER",
+        title: "Appointment Rescheduled",
+        content: `Your appointment has been rescheduled to ${updated.appointmentDate}.`,
+        relatedId: updated.id,
+        relatedModel: "Appointment"
+      });
+    }
     return updated;
   }
   static async providerAppointments(userId, query) {
