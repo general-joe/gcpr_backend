@@ -1,6 +1,8 @@
 import NotificationService from "../notification/notification.service.js";
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
+import gcprError from "../../utils/http-error.js";
+import WRITE from "../../utils/logger.js";
 
 class ScheduleAppointmentService {
   static async requireCaregiver(userId) {
@@ -207,9 +209,7 @@ class ScheduleAppointmentService {
       WRITE.debug("Provider verified", { operationId, providerId: provider.id, providerName: provider.user.fullName });
 
       // ── Check provider's appointment settings ──────────────────────
-      const providerSettings = await prisma.providerAppointmentSettings.findUnique({
-        where: { providerId: provider.id },
-      });
+      const providerSettings = await prisma.appointmentSettings.findFirst();
 
       if (providerSettings) {
         // Check if patient booking is allowed

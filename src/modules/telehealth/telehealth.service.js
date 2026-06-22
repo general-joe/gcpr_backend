@@ -60,6 +60,8 @@ class TelehealthService {
       const userId = typeof raw?.userId === 'string' ? raw.userId.trim() : null;
       const email = typeof raw?.email === 'string' ? raw.email.trim().toLowerCase() : null;
       const phone = typeof raw?.phone === 'string' ? raw.phone.trim() : null;
+      
+      // Only include if user has at least one contact method
       if (!userId && !email && !phone) continue;
 
       if (userId) byId.set(userId, { userId, email, phone });
@@ -92,55 +94,41 @@ class TelehealthService {
         code: e.code,
         stack: e.stack
       });
-      // Return empty array on database error - no valid attendees can be resolved
       return [];
     }
 
-    // Build lookup maps for matched users - keyed by user ID
+    // Build lookup maps for matched users
     const userById = new Map();
+    const userByEmail = new Map();
+    const userByPhone = new Map();
     for (const u of matchedUsers) {
       if (u.id) userById.set(u.id, u);
+      if (u.email) userByEmail.set(u.email.toLowerCase(), u);
+      if (u.phoneNumber) userByPhone.set(u.phoneNumber, u);
     }
 
     const deduped = [];
-    const seenUserIds = new Set();
 
-    // Process each original entry - ONLY include users that exist in the system
+    // Process each original entry - only include users found in the system
     for (const r of result) {
-      const entryKey = r.userId || r.email || r.phone;
-      if (!entryKey) continue;
-
-      // Try to find matching user by any identifier
       let matchedUser = null;
       if (r.userId && userById.has(r.userId)) {
         matchedUser = userById.get(r.userId);
-      } else {
-        // Search through all matched users to find one matching email or phone
-        for (const u of matchedUsers) {
-          if (r.email && u.email && u.email.toLowerCase() === r.email) {
-            matchedUser = u;
-            break;
-          }
-          if (r.phone && u.phoneNumber && u.phoneNumber === r.phone) {
-            matchedUser = u;
-            break;
-          }
-        }
+      } else if (r.email && userByEmail.has(r.email)) {
+        matchedUser = userByEmail.get(r.email);
+      } else if (r.phone && userByPhone.has(r.phone)) {
+        matchedUser = userByPhone.get(r.phone);
       }
 
-      if (matchedUser) {
-        // This is a registered user - deduplicate by userId
-        if (!seenUserIds.has(matchedUser.id)) {
-          seenUserIds.add(matchedUser.id);
-          deduped.push({
-            userId: matchedUser.id,
-            email: matchedUser.email,
-            phone: matchedUser.phoneNumber,
-            fullName: matchedUser.fullName,
-          });
-        }
+      // Only include if user exists in system
+      if (matchedUser && !deduped.some(d => d.userId === matchedUser.id)) {
+        deduped.push({
+          userId: matchedUser.id,
+          email: matchedUser.email,
+          phone: matchedUser.phoneNumber,
+          fullName: matchedUser.fullName,
+        });
       }
-      // If no matching user found, skip entirely - no external invitees
     }
 
     return deduped;
@@ -214,7 +202,7 @@ class TelehealthService {
     const isServiceProvider = !sp.isAdmin;
     const providerId = isServiceProvider ? sp.id : (data.providerId || null);
 
-    // Use a Prisma transaction to ensure atomicity
+    // Create the room and participants in a transaction (fast operations only)
     const result = await prisma.$transaction(async (tx) => {
       WRITE.info("[Telehealth] Creating room", {
         userId: user.id,
@@ -257,67 +245,85 @@ class TelehealthService {
         userId: user.id
       });
 
-      // 3. Create Google Meet room (non-critical - failure won't rollback room)
-      let joinUrl = null;
-      let providerError = null;
+      // 3. Return the room (Google Meet creation happens AFTER transaction)
+      return room;
+    });
 
-      try {
-        const meetData = await createMeetRoom({
-          title: data.title,
-          description: data.description,
-          scheduledStart: data.scheduledStart,
-          scheduledEnd: data.scheduledEnd,
-          attendeeEmails
-        });
+    // 4. Create Google Meet room OUTSIDE the transaction (non-critical, can be slow)
+    let joinUrl = null;
+    let providerError = null;
 
-        await tx.telehealthRoom.update({
-          where: { id: room.id },
-          data: {
-            externalMeetingId: meetData.externalMeetingId,
-            joinUrl: meetData.joinUrl,
-            providerPayload: meetData.providerPayload,
-            metadata: { reminders, providerError: null }
-          }
-        });
-        joinUrl = meetData.joinUrl;
+    try {
+      const meetData = await createMeetRoom({
+        title: data.title,
+        description: data.description,
+        scheduledStart: data.scheduledStart,
+        scheduledEnd: data.scheduledEnd,
+        attendeeEmails
+      });
 
-        WRITE.info("[Telehealth] Google Meet created", {
-          roomId: room.id,
-          externalMeetingId: meetData.externalMeetingId
-        });
-      } catch (e) {
-        providerError = e?.message || "Unable to provision Google Meet";
-        WRITE.error("[Telehealth] Google Meet creation failed", {
-          roomId: room.id,
-          error: providerError,
-          stack: e?.stack
-        });
-        await tx.telehealthRoom.update({
-          where: { id: room.id },
-          data: {
-            metadata: { reminders, providerError }
-          }
-        });
-      }
-
-      // 4. Invite users (non-critical - failure won't rollback room)
-      if (resolvedAttendees.length > 0) {
-        await TelehealthService.inviteUsersInTransaction(tx, user, room, resolvedAttendees, joinUrl);
-      }
-
-      // 5. Send creator a confirmation notification (always, even with no attendees)
-      await TelehealthService.sendRoomCreatedNotification(user.id, room, joinUrl);
-
-      // 6. Return the complete room
-      return tx.telehealthRoom.findUnique({
-        where: { id: room.id },
+      // Update room with Google Meet details
+      const updatedRoom = await prisma.telehealthRoom.update({
+        where: { id: result.id },
+        data: {
+          externalMeetingId: meetData.externalMeetingId,
+          joinUrl: meetData.joinUrl,
+          providerPayload: meetData.providerPayload,
+          metadata: { reminders, providerError: null }
+        },
         include: {
           participants: {
             include: { user: { select: { id: true, fullName: true, profileImage: true } } },
           }
         }
       });
-    });
+
+      joinUrl = meetData.joinUrl;
+
+      WRITE.info("[Telehealth] Google Meet created", {
+        roomId: result.id,
+        externalMeetingId: meetData.externalMeetingId
+      });
+
+      // 5. Invite users (non-critical)
+      if (resolvedAttendees.length > 0) {
+        await TelehealthService.inviteUsersInTransaction(prisma, user, updatedRoom, resolvedAttendees, joinUrl);
+      }
+
+      // 6. Send creator a confirmation notification
+      await TelehealthService.sendRoomCreatedNotification(user.id, updatedRoom, joinUrl);
+
+      return updatedRoom;
+    } catch (e) {
+      providerError = e?.message || "Unable to provision Google Meet";
+      WRITE.error("[Telehealth] Google Meet creation failed", {
+        roomId: result.id,
+        error: providerError,
+        stack: e?.stack
+      });
+
+      // Update room with error metadata
+      const roomWithError = await prisma.telehealthRoom.update({
+        where: { id: result.id },
+        data: {
+          metadata: { reminders, providerError }
+        },
+        include: {
+          participants: {
+            include: { user: { select: { id: true, fullName: true, profileImage: true } } },
+          }
+        }
+      });
+
+      // Still try to invite users and send notification even if Google Meet failed
+      if (resolvedAttendees.length > 0) {
+        await TelehealthService.inviteUsersInTransaction(prisma, user, roomWithError, resolvedAttendees, null);
+      }
+
+      await TelehealthService.sendRoomCreatedNotification(user.id, roomWithError, null);
+
+      return roomWithError;
+    }
 
     WRITE.info("[Telehealth] Room creation completed successfully", {
       roomId: result.id,

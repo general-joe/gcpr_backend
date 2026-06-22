@@ -140,6 +140,27 @@ const sendMulticastPushNotification = async (tokens, notification) => {
         failureCount: responses.reduce((sum, r) => sum + r.failureCount, 0),
       };
     }
+    
+    // Check if sendMulticast is available (firebase-admin v9+)
+    const messaging = admin.messaging();
+    if (typeof messaging.sendMulticast !== 'function') {
+      // Fallback: send individual notifications
+      WRITE.warn('sendMulticast not available, falling back to individual sends');
+      let successCount = 0;
+      let failureCount = 0;
+      
+      for (const token of tokens) {
+        try {
+          await sendPushNotification(token, notification);
+          successCount++;
+        } catch (e) {
+          failureCount++;
+        }
+      }
+      
+      return { successCount, failureCount };
+    }
+    
     const message = {
       notification: {
         title: notification.title,
@@ -175,7 +196,7 @@ const sendMulticastPushNotification = async (tokens, notification) => {
         },
       },
     };
-    const response = await admin.messaging().sendMulticast({
+    const response = await messaging.sendMulticast({
       ...message,
       tokens,
     });
