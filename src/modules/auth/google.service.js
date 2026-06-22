@@ -8,17 +8,31 @@ import UtilFunctions from "../../utils/UtilFunctions.js";
 import constants from "../../utils/constants.js";
 import WRITE from "../../utils/logger.js";
 
-const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI,
-);
-
 class GoogleService {
+  /**
+   * Create a new OAuth2 client instance (avoid shared state between requests)
+   */
+  static createOAuth2Client() {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+
+    if (!clientId || !clientSecret || !redirectUri) {
+      throw new Error("Google OAuth credentials not configured");
+    }
+
+    return new google.auth.OAuth2(
+      clientId,
+      clientSecret,
+      redirectUri,
+    );
+  }
+
   /**
    * Generate Google OAuth authorization URL
    */
   static generateAuthUrl() {
+    const oauth2Client = this.createOAuth2Client();
     const scopes = [
       "https://www.googleapis.com/auth/userinfo.profile",
       "https://www.googleapis.com/auth/userinfo.email",
@@ -38,14 +52,36 @@ class GoogleService {
    */
   static async exchangeCodeForTokens(code) {
     try {
+      const oauth2Client = this.createOAuth2Client();
       const { tokens } = await oauth2Client.getToken(code);
-      oauth2Client.setCredentials(tokens);
+      
+      // Validate that we got the expected scopes (profile/email, not calendar)
+      const expectedScopes = [
+        "https://www.googleapis.com/auth/userinfo.profile",
+        "https://www.googleapis.com/auth/userinfo.email",
+      ];
+      
+      const grantedScopes = tokens.scope?.split(' ') || [];
+      const hasExpectedScopes = expectedScopes.every(scope => grantedScopes.includes(scope));
+      
+      if (!hasExpectedScopes) {
+        WRITE.warn("Google OAuth returned unexpected scopes", {
+          grantedScopes,
+          expectedScopes,
+        });
+        throw new gcprError(
+          HttpStatus.UNAUTHORIZED,
+          "Invalid OAuth scopes. Please use the Google login button to authenticate.",
+        );
+      }
+      
       return tokens;
     } catch (error) {
       WRITE.error("Error exchanging code for tokens", {
         error: error.message,
         code,
       });
+      if (error instanceof gcprError) throw error;
       throw new gcprError(
         HttpStatus.UNAUTHORIZED,
         "Failed to authenticate with Google",
@@ -58,6 +94,7 @@ class GoogleService {
    */
   static async getUserInfo(tokens) {
     try {
+      const oauth2Client = this.createOAuth2Client();
       oauth2Client.setCredentials(tokens);
       const service = google.people({
         version: "v1",
@@ -81,6 +118,8 @@ class GoogleService {
     } catch (error) {
       WRITE.error("Error fetching user info from Google", {
         error: error.message,
+        errorCode: error.code,
+        errorResponse: error.response?.data,
       });
       throw new gcprError(
         HttpStatus.UNAUTHORIZED,
@@ -194,6 +233,7 @@ class GoogleService {
    */
   static async refreshGoogleToken(refreshToken) {
     try {
+      const oauth2Client = this.createOAuth2Client();
       oauth2Client.setCredentials({
         refresh_token: refreshToken,
       });
