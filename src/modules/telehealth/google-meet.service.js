@@ -25,19 +25,36 @@ function getOAuth2Client() {
   return oauth2Client;
 }
 
-export async function createMeetRoom({ title, description, scheduledStart, scheduledEnd, attendeeEmails = [] }) {
+export async function createMeetRoom({ title, description, scheduledStart, scheduledEnd, attendeeEmails = [], refreshToken = null, organizerName = null }) {
   let auth;
   try {
-    auth = getOAuth2Client();
+    if (refreshToken) {
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+      const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+      if (!clientId || !clientSecret || !redirectUri) {
+        throw new Error("Google OAuth credentials not configured");
+      }
+      auth = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+      auth.setCredentials({ refresh_token: refreshToken });
+    } else {
+      auth = getOAuth2Client();
+    }
   } catch (e) {
     throw new Error(`Google Meet authentication failed: ${e.message}. Please regenerate the Google refresh token using: npm run generate:google-token`);
   }
   
   const calendar = google.calendar({ version: "v3", auth });
 
+  // Build description with organizer info if provided
+  let eventDescription = description || "";
+  if (organizerName) {
+    eventDescription = `Hosted by: ${organizerName}\n\n${eventDescription}`.trim();
+  }
+
   const event = {
     summary: title || "Telehealth Consultation",
-    description: description || "",
+    description: eventDescription,
     start: { dateTime: new Date(scheduledStart).toISOString(), timeZone: "UTC" },
     end: { dateTime: new Date(scheduledEnd).toISOString(), timeZone: "UTC" },
     conferenceData: {

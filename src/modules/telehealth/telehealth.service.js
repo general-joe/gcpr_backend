@@ -254,12 +254,32 @@ class TelehealthService {
     let providerError = null;
 
     try {
+      // Fetch the creator's Google refresh token and service provider name
+      const creatorWithGoogle = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { googleRefreshToken: true, fullName: true }
+      });
+
+      // Determine organizer name: service provider name if available, otherwise creator's name
+      let organizerName = creatorWithGoogle?.fullName || null;
+      if (sp && !sp.isAdmin && sp.id) {
+        const providerWithUser = await prisma.serviceProvider.findUnique({
+          where: { id: sp.id },
+          include: { user: { select: { fullName: true } } }
+        });
+        if (providerWithUser?.user?.fullName) {
+          organizerName = providerWithUser.user.fullName;
+        }
+      }
+
       const meetData = await createMeetRoom({
         title: data.title,
         description: data.description,
         scheduledStart: data.scheduledStart,
         scheduledEnd: data.scheduledEnd,
-        attendeeEmails
+        attendeeEmails,
+        refreshToken: creatorWithGoogle?.googleRefreshToken || null,
+        organizerName
       });
 
       // Update room with Google Meet details
