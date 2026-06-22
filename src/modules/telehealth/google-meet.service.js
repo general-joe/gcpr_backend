@@ -26,7 +26,13 @@ function getOAuth2Client() {
 }
 
 export async function createMeetRoom({ title, description, scheduledStart, scheduledEnd, attendeeEmails = [] }) {
-  const auth = getOAuth2Client();
+  let auth;
+  try {
+    auth = getOAuth2Client();
+  } catch (e) {
+    throw new Error(`Google Meet authentication failed: ${e.message}. Please regenerate the Google refresh token using: npm run generate:google-token`);
+  }
+  
   const calendar = google.calendar({ version: "v3", auth });
 
   const event = {
@@ -47,24 +53,31 @@ export async function createMeetRoom({ title, description, scheduledStart, sched
     event.attendees = attendeeEmails.map(email => ({ email }));
   }
 
-  const response = await calendar.events.insert({
-    calendarId: "primary",
-    conferenceDataVersion: 1,
-    resource: event
-  });
+  try {
+    const response = await calendar.events.insert({
+      calendarId: "primary",
+      conferenceDataVersion: 1,
+      resource: event
+    });
 
-  const eventData = response.data;
-  const conferenceData = eventData.conferenceData;
-  const joinUrl = conferenceData?.entryPoints?.find(e => e.entryPointType === "video")?.uri
-    || conferenceData?.entryPoints?.[0]?.uri
-    || eventData.hangoutLink
-    || null;
+    const eventData = response.data;
+    const conferenceData = eventData.conferenceData;
+    const joinUrl = conferenceData?.entryPoints?.find(e => e.entryPointType === "video")?.uri
+      || conferenceData?.entryPoints?.[0]?.uri
+      || eventData.hangoutLink
+      || null;
 
-  return {
-    externalMeetingId: eventData.id,
-    joinUrl,
-    providerPayload: eventData
-  };
+    return {
+      externalMeetingId: eventData.id,
+      joinUrl,
+      providerPayload: eventData
+    };
+  } catch (e) {
+    if (e.message?.includes('invalid_grant') || e.code === 401) {
+      throw new Error(`Google Meet authorization failed: The refresh token has expired or been revoked. Please regenerate it using: npm run generate:google-token`);
+    }
+    throw e;
+  }
 }
 
 export async function updateMeetRoom(externalMeetingId, updates) {
