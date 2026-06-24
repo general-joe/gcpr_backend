@@ -4,7 +4,9 @@ import WRITE from "./utils/logger.js";
 let ioInstance = null;
 
 const getSocketToken = (socket) => {
-  const authToken = socket.handshake.auth?.token;
+  const authToken = socket.handshake.auth?.token
+    || socket.handshake.auth?.accessToken
+    || socket.handshake.auth?.authorization;
   const headerToken = socket.handshake.headers?.authorization;
   const queryToken = socket.handshake.query?.token;
   const rawToken = authToken || headerToken || queryToken;
@@ -13,9 +15,7 @@ const getSocketToken = (socket) => {
     return null;
   }
 
-  return rawToken.startsWith("Bearer ")
-    ? rawToken.slice(7).trim()
-    : rawToken.trim();
+  return rawToken.replace(/^Bearer\s+/i, "").trim();
 };
 
 const configureSocketAuthentication = (io) => {

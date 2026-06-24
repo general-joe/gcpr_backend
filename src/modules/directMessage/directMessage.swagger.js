@@ -296,16 +296,13 @@
  *       Connect to the Socket.IO server at the same endpoint as your HTTP API.
  *       
  *       Events:
- *       - `join-user-room`: Join a user-specific room to receive direct messages
- *         Payload: { userId: string }
- *         
  *       - `typing-start`: Notify others that you started typing
  *         Payload: { roomId: string, userId: string, isTyping: boolean }
  *         
  *       - `typing-stop`: Notify others that you stopped typing
  *         Payload: { roomId: string, userId: string, isTyping: boolean }
  *         
- *       - `new-direct-message`: Sent when a new direct message is received
+ *       - `new-direct-message`: Emitted by the server when a new message is received
  *         Payload: DirectMessage object
  *       
  *       Rooms:
@@ -313,10 +310,16 @@
  *       
  *       Example usage:
  *       ```javascript
- *       const socket = io('http://localhost:3000');
- *       
- *       // Join your user room
- *       socket.emit('join-user-room', 'user-id-here');
+ *       const socket = io('http://localhost:3001', {
+ *         auth: { token: accessToken },
+ *         transports: ['websocket'],
+ *       });
+ *
+ *       socket.on('connect_error', (error) => {
+ *         console.error('Socket connection failed:', error.message);
+ *       });
+ *
+ *       // The authenticated socket automatically joins user-{tokenUserId}.
  *       
  *       // Listen for typing events from others
  *       socket.on('typing-start', (data) => {
@@ -331,7 +334,6 @@
  *       // Notify when you start typing
  *       socket.emit('typing-start', {
  *         roomId: 'user-recipient-id',
- *         userId: 'your-user-id',
  *         isTyping: true
  *       });
  *       ```

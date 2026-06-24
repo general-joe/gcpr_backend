@@ -964,16 +964,27 @@ MotorFunctionOutcome
 
 ## 12. Real-time Events (Socket.IO)
 
-The server initialises Socket.IO on the same HTTP server. Clients join a room `user-{userId}` after authentication.
+The server initialises Socket.IO on the same HTTP server. After authentication,
+the server automatically joins the socket to `user-{tokenUserId}`. Clients must
+not choose or trust their own user ID for room membership.
 
 ### Connection
 
 ```js
 const socket = io("https://api.yourdomain.com", {
-  auth: { token: "Bearer eyJ..." }
+  auth: { token: accessToken },
+  transports: ["websocket"]
 });
-socket.emit("join-room", { userId: "uuid" });
+
+socket.on("connect_error", (error) => {
+  console.error("Socket connection failed:", error.message);
+});
 ```
+
+The handshake accepts a raw JWT or a `Bearer` value in `auth.token`. For
+compatibility it also accepts `auth.accessToken`, `auth.authorization`, the
+`Authorization` header, or the `token` query parameter. `auth.token` is the
+preferred client contract.
 
 ### Events emitted by the server
 

@@ -357,13 +357,6 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Handle new direct message
-  socket.on('new-direct-message', (messageData) => {
-    // Send to both sender and receiver rooms
-    io.to(`user-${messageData.senderId}`).emit('new-direct-message', messageData);
-    io.to(`user-${messageData.receiverId}`).emit('new-direct-message', messageData);
-  });
-
   // Handle new community message
   socket.on('new-community-message', (messageData) => {
     const { communityId, groupId } = messageData;
