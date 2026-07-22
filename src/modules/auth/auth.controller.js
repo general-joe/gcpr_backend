@@ -87,7 +87,7 @@ class AuthController {
       timestamp: new Date().toISOString(),
     });
 
-    await AuthService.forgotPassword(identifier);
+    const result = await AuthService.forgotPassword(identifier);
 
     WRITE.info("POST /forgot-password completed successfully", {
       requestId,
@@ -95,7 +95,7 @@ class AuthController {
       timestamp: new Date().toISOString(),
     });
 
-    return UtilFunctions.outputSuccess(res, "OTP sent");
+    return UtilFunctions.outputSuccess(res, result, result.message);
   });
 
   static resetPassword = catchAsync(async (req, res) => {
