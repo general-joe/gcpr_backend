@@ -58,15 +58,25 @@
  *               toolVersion:
  *                 type: string
  *                 example: "1.0.0"
+ *               appointmentId:
+ *                 type: string
+ *                 format: uuid
+ *                 description: Optional appointment that produced this assessment. Must belong to the same patient and provider.
  *               status:
  *                 type: string
- *                 enum: [DRAFT, COMPLETED]
+ *                 enum: [DRAFT, PENDING_REVIEW, COMPLETED, REVIEWED, REVIEWED_NEEDS_REVISION, APPROVED]
+ *               isRegularPerformance:
+ *                 type: boolean
+ *                 description: Whether the result reflects the child's regular performance.
+ *               clinicalNotesComment:
+ *                 type: string
  *               responses:
  *                 type: object
  *                 additionalProperties: true
  *           example:
  *             patientId: "8f2c1c0b-4f9d-4a3c-9e7a-3d8b2f1c9eaa"
  *             toolCode: "GMFM_88"
+ *             appointmentId: "f40dd79e-d5d1-450f-a286-165157337489"
  *             status: "COMPLETED"
  *             responses:
  *               A1: 3
@@ -81,7 +91,7 @@
  *       403:
  *         description: Forbidden (profession or access restriction)
  *       422:
- *         description: Validation or business-rule error
+ *         description: Validation or business-rule error, including appointment/patient/provider mismatch
  */
 
 /**

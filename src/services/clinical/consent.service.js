@@ -2,21 +2,22 @@ import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
 import NotificationService from "../../modules/notification/notification.service.js";
 import WRITE from "../../utils/logger.js";
+import { getPatientWithCaregiverUser, userCanAccessPatient } from "./clinicalAccess.service.js";
 
 class ConsentService {
   static async createConsent(user, payload) {
     const { patientId, consentType, scope, documentId, method } = payload;
 
-    const patient = await prisma.cpPatient.findUnique({
-      where: { id: patientId },
-    });
-
-    if (!patient) {
-      throw new Error("Patient not found");
-    }
+    const patient = await getPatientWithCaregiverUser(patientId);
 
     if (!user?.id) {
       throw new Error("Unauthorized");
+    }
+
+    const isCaregiverOwner = patient.caregiver?.userId === user.id;
+    const isAdmin = await hasRbacRole(user, ["ADMIN"]);
+    if (!isCaregiverOwner && !isAdmin) {
+      throw new Error("Only the patient's caregiver or admin can grant consent");
     }
 
     const record = await prisma.consentRecord.create({
@@ -40,15 +41,17 @@ class ConsentService {
       },
     });
 
-    await NotificationService.createNotification({
-      userId: patient.caregiverId,
-      type: "IN_APP",
-      category: "SYSTEM",
-      title: "Consent recorded",
-      content: `Consent for ${consentType} has been recorded for ${patient.fullName}`,
-      relatedId: record.id,
-      relatedModel: "ConsentRecord",
-    });
+    if (patient.caregiver?.userId) {
+      await NotificationService.createNotification({
+        userId: patient.caregiver.userId,
+        type: "IN_APP",
+        category: "SYSTEM",
+        title: "Consent recorded",
+        content: `Consent for ${consentType} has been recorded for ${patient.fullName}`,
+        relatedId: record.id,
+        relatedModel: "ConsentRecord",
+      });
+    }
 
     return record;
   }
@@ -77,6 +80,10 @@ class ConsentService {
   }
 
   static async listConsents(user, patientId) {
+    if (!(await userCanAccessPatient(user, patientId))) {
+      throw new Error("Access to patient consent denied");
+    }
+
     return prisma.consentRecord.findMany({
       where: {
         patientId,

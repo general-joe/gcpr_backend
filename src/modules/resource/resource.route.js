@@ -5,6 +5,12 @@ import prisma from "../../config/database.js";
 import upload from "../../middlewares/upload.js";
 import UploadService from "../../utils/uploadService.js";
 import path from "path";
+import NotificationService from "../notification/notification.service.js";
+import {
+  getPatientCaregiverUserId,
+  getServiceProviderForUser,
+  userCanAccessPatient,
+} from "../../services/clinical/clinicalAccess.service.js";
 
 const resourceRouter = express.Router();
 
@@ -180,6 +186,83 @@ resourceRouter.get(
       "Resources retrieved successfully"
     );
   }
+);
+
+resourceRouter.post(
+  "/:id/prescribe",
+  authorize(["SERVICE_PROVIDER", "ADMIN"]),
+  async (req, res) => {
+    const { id } = req.params;
+    const { patientId, note } = req.body || {};
+
+    if (!patientId) {
+      return UtilFunctions.outputError(res, "patientId is required", {}, "BAD_REQUEST", 400);
+    }
+
+    const resource = await prisma.resource.findUnique({ where: { id } });
+    if (!resource) {
+      return UtilFunctions.outputError(res, "Resource not found", {}, "NOT_FOUND", 404);
+    }
+
+    if (!(await userCanAccessPatient(res.locals.user, patientId))) {
+      return UtilFunctions.outputError(res, "Access to patient denied", {}, "FORBIDDEN", 403);
+    }
+
+    const provider = await getServiceProviderForUser(res.locals.user.id);
+    const prescription = await prisma.resourcePrescription.create({
+      data: {
+        resourceId: id,
+        patientId,
+        providerId: provider?.id ?? null,
+        prescribedById: res.locals.user.id,
+        note: note ?? null,
+      },
+      include: {
+        resource: true,
+        patient: { select: { id: true, fullName: true } },
+        provider: { include: { user: { select: { fullName: true } } } },
+      },
+    });
+
+    const caregiverUserId = await getPatientCaregiverUserId(patientId);
+    if (caregiverUserId) {
+      await NotificationService.createNotification({
+        userId: caregiverUserId,
+        type: "IN_APP",
+        category: "SYSTEM",
+        title: "New Resource Prescribed",
+        content: `${resource.title} has been recommended for your child's care plan.`,
+        relatedId: prescription.id,
+        relatedModel: "ResourcePrescription",
+        data: { resourceId: id, patientId },
+      });
+    }
+
+    return UtilFunctions.outputSuccess(res, prescription, "Resource prescribed successfully", 201);
+  },
+);
+
+resourceRouter.get(
+  "/prescriptions/patient/:patientId",
+  authorize(["SERVICE_PROVIDER", "CAREGIVER", "ADMIN"]),
+  async (req, res) => {
+    const { patientId } = req.params;
+
+    if (!(await userCanAccessPatient(res.locals.user, patientId))) {
+      return UtilFunctions.outputError(res, "Access to patient denied", {}, "FORBIDDEN", 403);
+    }
+
+    const prescriptions = await prisma.resourcePrescription.findMany({
+      where: { patientId },
+      include: {
+        resource: true,
+        provider: { include: { user: { select: { fullName: true, profileImage: true } } } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return UtilFunctions.outputSuccess(res, prescriptions, "Resource prescriptions retrieved successfully");
+  },
 );
 
 // Get specific resource by ID

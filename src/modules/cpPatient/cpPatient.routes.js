@@ -31,6 +31,13 @@ cpPatientRouter.get(
 );
 
 cpPatientRouter.get(
+  "/:patientId/timeline",
+  authorize(["CAREGIVER", "SERVICE_PROVIDER", "ADMIN"]),
+  authRateLimiter,
+  CpPatientController.getPatientTimeline,
+);
+
+cpPatientRouter.get(
   "/:patientId/assigned-tasks",
   authorize(["CAREGIVER"]),
   authRateLimiter,
