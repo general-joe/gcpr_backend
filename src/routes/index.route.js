@@ -31,6 +31,7 @@ import analyticsRouter from "../modules/analytics/analytics.route.js";
 import signatureRouter from "../modules/signature/signature.route.js";
 import carePlanRouter from "../modules/carePlan/carePlan.route.js";
 import consentRouter from "../modules/consent/consent.route.js";
+import dashboardRouter from "../modules/dashboard/dashboard.route.js";
 
 router.use("/auth", authRouter);
 router.use("/service-provider", serviceProviderRouter);
@@ -68,5 +69,6 @@ router.use("/analytics", analyticsRouter);
 router.use("/signature", signatureRouter);
 router.use("/care-plan", carePlanRouter);
 router.use("/consent", consentRouter);
+router.use("/dashboard", dashboardRouter);
 
 export default router;

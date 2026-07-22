@@ -12,7 +12,9 @@
     "migrate:dev": "prisma migrate dev --name init",
     "migrate:reset": "prisma migrate reset",
     "generate": "prisma generate",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test tests/*.test.js",
+    "test:integration": "node scripts/test-integration.js",
+    "load:test": "node scripts/load-test.js",
     "generate:google-token": "node src/utils/generate-google-refresh-token.js",
     "seed": "node scripts/seed-admin.js"
   },

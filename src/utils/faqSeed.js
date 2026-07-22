@@ -166,8 +166,17 @@ const FAQ_SEED_DATA = [
 
 export async function seedFaqs() {
   try {
-    const count = await prisma.faq.count();
-    if (count > 0) {
+    if (process.env.FAQ_AUTO_SEED === "false") {
+      WRITE.info("[FAQ Seed] Skipped because FAQ_AUTO_SEED=false");
+      return;
+    }
+
+    const existingFaq = await prisma.faq.findFirst({
+      select: { id: true },
+      orderBy: { id: "asc" },
+    });
+
+    if (existingFaq) {
       return; // Already seeded
     }
 

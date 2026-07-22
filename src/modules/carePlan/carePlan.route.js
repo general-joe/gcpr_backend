@@ -6,39 +6,37 @@ import {
   updateCarePlanStatus,
   updateCarePlanContent,
 } from "./carePlan.controller.js";
-import { authorize, requireRbacRole } from "../../middlewares/auth.js";
+import { authorize } from "../../middlewares/auth.js";
 
 const router = Router();
 
-router.use(authorize(["SERVICE_PROVIDER", "ADMIN"]));
+router.use(authorize(["SERVICE_PROVIDER", "ADMIN", "CAREGIVER"]));
 
 router.post(
   "/generate/:assessmentId",
-  requireRbacRole(["ADMIN", "CLINICAL_REVIEWER", "PROVIDER"]),
+  authorize(["SERVICE_PROVIDER", "ADMIN"]),
   generateCarePlan,
 );
 
 router.get(
   "/",
-  requireRbacRole(["ADMIN", "CLINICAL_REVIEWER", "PROVIDER"]),
   getCarePlan,
 );
 
 router.get(
   "/list",
-  requireRbacRole(["ADMIN", "CLINICAL_REVIEWER", "PROVIDER"]),
   listCarePlans,
 );
 
 router.patch(
   "/:carePlanId/status",
-  requireRbacRole(["ADMIN", "CLINICAL_REVIEWER", "PROVIDER"]),
+  authorize(["SERVICE_PROVIDER", "ADMIN"]),
   updateCarePlanStatus,
 );
 
 router.patch(
   "/:carePlanId/content",
-  requireRbacRole(["ADMIN", "CLINICAL_REVIEWER", "PROVIDER"]),
+  authorize(["SERVICE_PROVIDER", "ADMIN"]),
   updateCarePlanContent,
 );
 

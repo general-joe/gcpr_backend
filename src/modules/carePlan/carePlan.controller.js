@@ -5,7 +5,7 @@ import catchAsync from "../../middlewares/catchAsync.js";
 
 const getCarePlan = catchAsync(async (req, res) => {
   const patientId = req.query.patientId;
-  const carePlan = await CarePlanService.getCarePlan(req.user, patientId);
+  const carePlan = await CarePlanService.getCarePlan(res.locals.user, patientId);
 
   if (!carePlan) {
     return res.status(HttpStatus.NOT_FOUND).json({ message: "Care plan not found" });
@@ -16,7 +16,7 @@ const getCarePlan = catchAsync(async (req, res) => {
 
 const listCarePlans = catchAsync(async (req, res) => {
   const patientId = req.query.patientId;
-  const carePlans = await CarePlanService.listCarePlans(req.user, patientId);
+  const carePlans = await CarePlanService.listCarePlans(res.locals.user, patientId);
 
   return res.status(HttpStatus.OK).json({ status: HttpStatus.OK, data: carePlans });
 });
@@ -24,7 +24,7 @@ const listCarePlans = catchAsync(async (req, res) => {
 const generateCarePlan = catchAsync(async (req, res) => {
   const { assessmentId } = req.params;
 
-  const carePlan = await CarePlanService.generateFromAssessment(req.user, assessmentId);
+  const carePlan = await CarePlanService.generateFromAssessment(res.locals.user, assessmentId);
 
   return res.status(HttpStatus.CREATED).json({ status: HttpStatus.CREATED, data: carePlan });
 });
@@ -33,7 +33,7 @@ const updateCarePlanStatus = catchAsync(async (req, res) => {
   const { carePlanId } = req.params;
   const { status } = req.body;
 
-  const carePlan = await CarePlanService.updateCarePlanStatus(req.user, carePlanId, status);
+  const carePlan = await CarePlanService.updateCarePlanStatus(res.locals.user, carePlanId, status);
 
   return res.status(HttpStatus.OK).json({ status: HttpStatus.OK, data: carePlan });
 });
@@ -42,7 +42,7 @@ const updateCarePlanContent = catchAsync(async (req, res) => {
   const { carePlanId } = req.params;
   const payload = req.body;
 
-  const carePlan = await CarePlanService.updateCarePlanContent(req.user, carePlanId, payload);
+  const carePlan = await CarePlanService.updateCarePlanContent(res.locals.user, carePlanId, payload);
 
   return res.status(HttpStatus.OK).json({ status: HttpStatus.OK, data: carePlan });
 });

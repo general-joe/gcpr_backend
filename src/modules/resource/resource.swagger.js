@@ -90,6 +90,29 @@
  *           type: string
  *           description: External URL (optional, for LINK)
  *
+ *     ResourcePrescription:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *         resourceId:
+ *           type: string
+ *         patientId:
+ *           type: string
+ *         providerId:
+ *           type: string
+ *           nullable: true
+ *         prescribedById:
+ *           type: string
+ *         note:
+ *           type: string
+ *           nullable: true
+ *         resource:
+ *           $ref: '#/components/schemas/Resource'
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *
  * /resource:
  *   post:
  *     summary: Upload a new resource (Document, Video, or Link)
@@ -153,6 +176,78 @@
  *         description: Unauthorized
  *       403:
  *         description: Forbidden - Insufficient permissions
+ *
+ * /resource/{id}/prescribe:
+ *   post:
+ *     summary: Prescribe a resource to a patient
+ *     tags: [Resources]
+ *     security:
+ *       - bearerAuth: []
+ *     description: |
+ *       Allows a service provider or admin to attach a resource to a specific patient's care journey.
+ *       The provider must have patient access through appointment, assessment, referral, task, admin
+ *       role, or active caregiver consent. The caregiver receives a notification.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Resource id
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [patientId]
+ *             properties:
+ *               patientId:
+ *                 type: string
+ *                 format: uuid
+ *               note:
+ *                 type: string
+ *                 nullable: true
+ *           example:
+ *             patientId: 8f2c1c0b-4f9d-4a3c-9e7a-3d8b2f1c9eaa
+ *             note: Watch this before practicing standing balance exercises.
+ *     responses:
+ *       201:
+ *         description: Resource prescribed successfully
+ *       403:
+ *         description: Patient access denied
+ *       404:
+ *         description: Resource not found
+ *
+ * /resource/prescriptions/patient/{patientId}:
+ *   get:
+ *     summary: Get prescribed resources for a patient
+ *     tags: [Resources]
+ *     security:
+ *       - bearerAuth: []
+ *     description: Returns resources prescribed to a patient. Caregiver owner, authorized provider, or admin can access.
+ *     parameters:
+ *       - in: path
+ *         name: patientId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Resource prescriptions retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/ResourcePrescription'
+ *       403:
+ *         description: Patient access denied
  *
  * /resource/{id}:
  *   get:

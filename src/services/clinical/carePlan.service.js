@@ -2,6 +2,11 @@ import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
 import WRITE from "../../utils/logger.js";
 import NotificationService from "../../modules/notification/notification.service.js";
+import auditService from "../audit/audit.service.js";
+import {
+  assertPatientAccess,
+  getPatientCaregiverUserId,
+} from "./clinicalAccess.service.js";
 
 class CarePlanService {
   static async generateFromAssessment(user, assessmentId) {
@@ -11,6 +16,7 @@ class CarePlanService {
         patient: true,
         provider: true,
         referral: true,
+        reports: { orderBy: { createdAt: "desc" }, take: 1 },
       },
     });
 
@@ -35,14 +41,17 @@ class CarePlanService {
 
     const primaryProviderId = assessment.providerId;
 
+    const latestReport = assessment.reports[0] ?? null;
     const carePlan = await prisma.carePlan.create({
       data: {
         patientId: assessment.patientId,
         assessmentId: assessment.id,
         primaryProviderId,
         status: "ACTIVE",
-        goals: [],
-        interventions: [],
+        goals: latestReport?.recommendations ?? [],
+        interventions: latestReport?.recommendations ?? [],
+        reviewDate: new Date(Date.now() + 12 * 7 * 24 * 60 * 60 * 1000),
+        createdBy: user?.id ?? null,
       },
       include: {
         patient: true,
@@ -51,9 +60,10 @@ class CarePlanService {
       },
     });
 
-    if (user?.id) {
+    const caregiverUserId = await getPatientCaregiverUserId(assessment.patientId);
+    if (caregiverUserId) {
       await NotificationService.createNotification({
-        userId: user.id,
+        userId: caregiverUserId,
         type: "IN_APP",
         category: "SYSTEM",
         title: "Care plan generated",
@@ -67,6 +77,8 @@ class CarePlanService {
   }
 
   static async getCarePlan(user, patientId) {
+    await assertPatientAccess(user, patientId);
+
     const carePlan = await prisma.carePlan.findFirst({
       where: {
         patientId,
@@ -91,10 +103,31 @@ class CarePlanService {
       },
     });
 
+    if (carePlan) {
+      await auditService.write({
+        timestamp: new Date().toISOString(),
+        requestId: `CLINICAL-${Date.now()}`,
+        userId: user.id,
+        userRole: user.userType,
+        method: "READ",
+        path: `/care-plan?patientId=${patientId}`,
+        statusCode: 200,
+        durationMs: 0,
+        ipAddress: null,
+        userAgent: null,
+        eventType: "CLINICAL_RECORD_ACCESS",
+        params: { patientId, carePlanId: carePlan.id },
+      });
+    }
+
     return carePlan;
   }
 
   static async listCarePlans(user, patientId) {
+    if (patientId) {
+      await assertPatientAccess(user, patientId);
+    }
+
     const where = patientId ? { patientId } : {};
 
     return prisma.carePlan.findMany({

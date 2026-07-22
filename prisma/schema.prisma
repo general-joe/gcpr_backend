@@ -60,6 +60,7 @@ model User {
   documentSignatures           DocumentSignature[]
   grantedConsents              ConsentRecord[]
   carePlanSignatures           CarePlanSignature[]
+  resourcePrescriptions        ResourcePrescription[]
   tokenVersion                 Int                        @default(0)
 
   @@index([id])
@@ -139,6 +140,7 @@ model ServiceProvider {
   resources                 Resource[]
   user                      User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
   carePlans                 CarePlan[]
+  resourcePrescriptions     ResourcePrescription[]
 
   @@index([verificationStatus])
   @@map("serviceProvider")
@@ -209,6 +211,7 @@ model CpPatient {
   caregiver                 CareGiver                  @relation(fields: [caregiverId], references: [id], onDelete: Cascade)
   carePlans                 CarePlan[]                 @relation("CarePlans")
   consents                  ConsentRecord[]
+  resourcePrescriptions     ResourcePrescription[]
 
   @@index([caregiverId])
   @@map("cpPatient")
@@ -242,16 +245,19 @@ model ClinicalAssessment {
   assessedAt  DateTime?
   responses   Json
   referralId  String?                    @unique
+  appointmentId String?
   createdAt   DateTime                   @default(now())
   updatedAt   DateTime                   @updatedAt
   patient     CpPatient                  @relation(fields: [patientId], references: [id], onDelete: Cascade)
   provider    ServiceProvider            @relation("ProviderAssessments", fields: [providerId], references: [id], onDelete: Cascade)
   referral    ClinicalReferral?          @relation("ReferralAssessment", fields: [referralId], references: [id])
+  appointment Appointment?                @relation(fields: [appointmentId], references: [id])
   reports     ClinicalAssessmentReport[]
   carePlans   CarePlan[]
 
   @@index([patientId])
   @@index([providerId])
+  @@index([appointmentId])
 }
 
 model ClinicalAssessmentReport {
@@ -333,6 +339,7 @@ model Appointment {
   reasonText      String?
   patient         CpPatient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
   provider        ServiceProvider   @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  assessments     ClinicalAssessment[]
 
   @@index([patientId])
   @@index([providerId])
@@ -521,9 +528,31 @@ model Resource {
   userId            String?
   serviceProvider   ServiceProvider? @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
   user              User?            @relation(fields: [userId], references: [id])
+  prescriptions     ResourcePrescription[]
 
   @@index([serviceProviderId])
   @@map("resource")
+}
+
+model ResourcePrescription {
+  id             String   @id @default(uuid())
+  resourceId     String
+  patientId      String
+  providerId     String?
+  prescribedById String
+  note           String?
+  createdAt      DateTime @default(now())
+
+  resource     Resource         @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  patient      CpPatient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  provider     ServiceProvider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  prescribedBy User            @relation(fields: [prescribedById], references: [id], onDelete: Cascade)
+
+  @@index([resourceId])
+  @@index([patientId])
+  @@index([providerId])
+  @@index([prescribedById])
+  @@map("resourcePrescription")
 }
 
 model Notification {
