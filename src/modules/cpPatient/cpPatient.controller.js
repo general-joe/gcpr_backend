@@ -31,6 +31,14 @@ class CpPatientController {
     );
   });
 
+  static getPatientTimeline = catchAsync(async (req, res) => {
+    const user = res.locals.user;
+    const { patientId } = req.params;
+    const timeline = await CpPatientService.getPatientTimeline(user, patientId);
+
+    UtilFunctions.outputSuccess(res, timeline, "Patient timeline retrieved successfully");
+  });
+
   static markTaskDayDone = catchAsync(async (req, res) => {
     const userId = res.locals.user?.id;
     const { patientId, taskId } = req.params;

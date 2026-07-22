@@ -2,6 +2,7 @@ import HTTPStatus from "./http-status.js";
 import ResponseCodes from "./responseCodes.js";
 import jwt from "jsonwebtoken";
 import randToken from "rand-token";
+import _ from "lodash";
 
 class UtilFunctions {
   static outputError(

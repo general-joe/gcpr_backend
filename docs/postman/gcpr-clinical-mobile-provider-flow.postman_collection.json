@@ -1,0 +1,356 @@
+{
+  "info": {
+    "name": "GCPR Clinical Mobile + Provider Flow",
+    "description": "Focused production workflow for the new clinical-access improvements: caregiver/provider dashboards, caregiver consent, patient timeline, appointment-linked assessment submission, care plans, and personalized resource prescriptions. Requires valid caregiverToken, providerAToken, patientId, and optionally appointmentId/assessmentId/resourceId in the environment.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Dashboard - Caregiver Mobile Home",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{caregiverToken}}" }
+        ],
+        "url": "{{baseUrl}}/dashboard/caregiver",
+        "description": "Returns patients, today's tasks, upcoming appointments, unread notifications, and prescribed resources for the caregiver mobile home screen."
+      }
+    },
+    {
+      "name": "2. Dashboard - Provider Home",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{providerAToken}}" }
+        ],
+        "url": "{{baseUrl}}/dashboard/provider",
+        "description": "Returns today's appointments, pending referrals, active tasks, and unread notification count for the logged-in provider."
+      }
+    },
+    {
+      "name": "3. Consent - Caregiver Grants Data Sharing",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{caregiverToken}}" }
+        ],
+        "url": "{{baseUrl}}/consent",
+        "description": "Caregiver grants consent for providers to access the patient's clinical data. Scope can be ALL_PROVIDERS or a specific provider id.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"patientId\": \"{{patientId}}\",\n  \"consentType\": \"DATA_SHARING\",\n  \"scope\": \"ALL_PROVIDERS\",\n  \"method\": \"DIGITAL_SIGNATURE\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "if (res?.data?.id) pm.environment.set('consentId', res.data.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Consent - List Patient Consents",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{caregiverToken}}" }
+        ],
+        "url": "{{baseUrl}}/consent?patientId={{patientId}}",
+        "description": "Lists active consent records for a patient. Can be used by caregiver or authorized provider."
+      }
+    },
+    {
+      "name": "5. Patient - Full Timeline",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{caregiverToken}}" }
+        ],
+        "url": "{{baseUrl}}/cp-patient/{{patientId}}/timeline",
+        "description": "Returns the patient's care journey: profile, assessments, reports, referrals, tasks, appointments, classifications, care plans, and prescribed resources."
+      }
+    },
+    {
+      "name": "6. Assessment - Submit With Optional Appointment Link",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{providerAToken}}" }
+        ],
+        "url": "{{baseUrl}}/assessment/submit",
+        "description": "Submits a provider assessment and optionally links it to an appointment. appointmentId must match the same patient and provider.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"patientId\": \"{{patientId}}\",\n  \"appointmentId\": \"{{appointmentId}}\",\n  \"toolCode\": \"SLT_CP_BASELINE\",\n  \"status\": \"COMPLETED\",\n  \"responses\": {\n    \"communicationMode\": \"Speech and gestures\",\n    \"clinicalNotes\": \"Postman appointment-linked assessment test\"\n  }\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "if (res?.data?.assessment?.id) pm.environment.set('assessmentId', res.data.assessment.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Care Plan - Generate From Approved Assessment",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{providerAToken}}" }
+        ],
+        "url": "{{baseUrl}}/care-plan/generate/{{assessmentId}}",
+        "description": "Generates an active care plan from an APPROVED assessment. If the assessment is still COMPLETED, first approve it through the clinical review/admin flow."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "if (res?.data?.id) pm.environment.set('carePlanId', res.data.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Care Plan - Get Active Patient Care Plan",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{caregiverToken}}" }
+        ],
+        "url": "{{baseUrl}}/care-plan?patientId={{patientId}}",
+        "description": "Caregiver/provider/admin reads active patient care plan. The read is audit logged as clinical record access."
+      }
+    },
+    {
+      "name": "9. Resource - Create Link Resource",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{providerAToken}}" }
+        ],
+        "url": "{{baseUrl}}/resource",
+        "description": "Creates an educational link resource that can later be prescribed to a patient.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Home Stretching Guide\",\n  \"description\": \"Caregiver-friendly guide for safe stretching routines.\",\n  \"type\": \"LINK\",\n  \"resourceUrl\": \"https://example.com/cp-home-stretching\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "if (res?.data?.id) pm.environment.set('resourceId', res.data.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Resource - Prescribe To Patient",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{providerAToken}}" }
+        ],
+        "url": "{{baseUrl}}/resource/{{resourceId}}/prescribe",
+        "description": "Prescribes a resource to a patient and notifies the caregiver.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"patientId\": \"{{patientId}}\",\n  \"note\": \"Please review this before practicing today's home programme.\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "if (res?.data?.id) pm.environment.set('resourcePrescriptionId', res.data.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Resource - Patient Prescriptions",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{caregiverToken}}" }
+        ],
+        "url": "{{baseUrl}}/resource/prescriptions/patient/{{patientId}}",
+        "description": "Lists resources prescribed to the patient for caregiver mobile display."
+      }
+    },
+    {
+      "name": "12. Game - Selectable Catalog Includes Built-ins",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{providerAToken}}" }
+        ],
+        "url": "{{baseUrl}}/game/selectable",
+        "description": "Lists selectable games for provider/mobile pickers. Built-ins include builtin-cboard-aac and Cerebral Palsy Center games like builtin-cpc-touch-anywhere."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.environment.set('gameId', 'builtin-cboard-aac');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13. Game - Assign Cboard To Patient",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{providerAToken}}" }
+        ],
+        "url": "{{baseUrl}}/game/{{gameId}}/assign",
+        "description": "Provider assigns the selected Cboard AAC activity to the patient with clinical communication goals.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"patientId\": \"{{patientId}}\",\n  \"goals\": [\"Request preferred item using symbols\", \"Reduce prompted selections\"],\n  \"frequency\": \"10 minutes daily\",\n  \"note\": \"Use Cboard during snack and play routines.\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "if (res?.data?.id) pm.environment.set('gameAssignmentId', res.data.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14. Game - Caregiver Logs Cboard Session",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{caregiverToken}}" }
+        ],
+        "url": "{{baseUrl}}/game/{{gameId}}/participation",
+        "description": "Caregiver logs AAC practice metrics. Repeating this request over time allows backend improvement summaries.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"patientId\": \"{{patientId}}\",\n  \"durationMinutes\": 10,\n  \"outcome\": \"COMPLETED\",\n  \"metrics\": {\n    \"communicationAttempts\": 12,\n    \"successfulSelections\": 8,\n    \"promptedSelections\": 4,\n    \"symbolsUsed\": 6,\n    \"frustrationEvents\": 1\n  },\n  \"note\": \"Child used symbols for snack choices.\"\n}"
+        }
+      }
+    },
+    {
+      "name": "15. Game - Patient Assignments",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{caregiverToken}}" }
+        ],
+        "url": "{{baseUrl}}/game/patients/{{patientId}}/assignments",
+        "description": "Lists assigned games/AAC activities for the caregiver mobile activity screen."
+      }
+    },
+    {
+      "name": "16. Game - Improvement Summary",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{providerAToken}}" }
+        ],
+        "url": "{{baseUrl}}/game/patients/{{patientId}}/improvement?gameId={{gameId}}",
+        "description": "Summarizes Cboard/game sessions and compares first vs latest numeric metrics."
+      }
+    },
+    {
+      "name": "17. Game - Assign CPC Touch Anywhere",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{providerAToken}}" }
+        ],
+        "url": "{{baseUrl}}/game/{{cpcGameId}}/assign",
+        "description": "Provider assigns a Cerebral Palsy Center accessible game. Touch Anywhere supports early cause-and-effect and first switch use.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"patientId\": \"{{patientId}}\",\n  \"goals\": [\"Build intentional activation\", \"Practice single-switch cause and effect\"],\n  \"frequency\": \"5 minutes daily\",\n  \"note\": \"Use large target settings and stop before fatigue.\"\n}"
+        }
+      }
+    },
+    {
+      "name": "18. Game - Caregiver Logs CPC Session",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{caregiverToken}}" }
+        ],
+        "url": "{{baseUrl}}/game/{{cpcGameId}}/participation",
+        "description": "Caregiver logs accessible-game metrics for backend improvement tracking.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"patientId\": \"{{patientId}}\",\n  \"durationMinutes\": 5,\n  \"outcome\": \"COMPLETED\",\n  \"metrics\": {\n    \"attempts\": 10,\n    \"successfulRounds\": 8,\n    \"independentActivations\": 6,\n    \"promptsNeeded\": 4,\n    \"engagementRating\": 4,\n    \"frustrationEvents\": 0\n  },\n  \"note\": \"Child activated the switch independently several times.\"\n}"
+        }
+      }
+    },
+    {
+      "name": "19. Consent - Revoke",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{caregiverToken}}" }
+        ],
+        "url": "{{baseUrl}}/consent/{{consentId}}/revoke",
+        "description": "Revokes a previously granted consent record. Run at the end of a manual test if needed."
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "caregiverToken", "value": "" },
+    { "key": "providerAToken", "value": "" },
+    { "key": "patientId", "value": "" },
+    { "key": "appointmentId", "value": "" },
+    { "key": "assessmentId", "value": "" },
+    { "key": "carePlanId", "value": "" },
+    { "key": "consentId", "value": "" },
+    { "key": "resourceId", "value": "" },
+    { "key": "resourcePrescriptionId", "value": "" },
+    { "key": "gameId", "value": "builtin-cboard-aac" },
+    { "key": "cpcGameId", "value": "builtin-cpc-touch-anywhere" },
+    { "key": "gameAssignmentId", "value": "" }
+  ]
+}

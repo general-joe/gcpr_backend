@@ -28,6 +28,9 @@ import '../modules/assessment/adherence.swagger.js';
 import '../modules/admin/admin.swagger.js';
 import '../modules/admin/rbac.swagger.js';
 import '../modules/analytics/analytics.swagger.js';
+import '../modules/dashboard/dashboard.swagger.js';
+import '../modules/consent/consent.swagger.js';
+import '../modules/carePlan/carePlan.swagger.js';
 
 const getServerUrls = () => {
 	return [
@@ -50,6 +53,144 @@ const swaggerOptions = {
       version: "1.0.0",
       description: "GMNC - API documentation",
     },
+    tags: [
+      {
+        name: "Auth",
+        description: "1. Registration, OTP verification, login, token refresh, and current user profile.",
+      },
+      {
+        name: "Caregiver",
+        description: "2. Caregiver profile onboarding and caregiver account management.",
+      },
+      {
+        name: "Service Providers",
+        description: "3. Service provider onboarding, verification status, discovery, search, and availability setup.",
+      },
+      {
+        name: "CP Patient",
+        description: "4. CP patient registration, patient listing, assigned tasks, and full patient timeline.",
+      },
+      {
+        name: "Enrollment",
+        description: "5. CP programme enrollment tracking for patients.",
+      },
+      {
+        name: "Notification",
+        description: "6. In-app notifications, unread counts, and mobile push-token registration.",
+      },
+      {
+        name: "Dashboard",
+        description: "7. Mobile-optimized caregiver and service-provider home dashboards.",
+      },
+      {
+        name: "Consent",
+        description: "8. Caregiver consent records and access-control support for clinical data sharing.",
+      },
+      {
+        name: "Schedule Appointment",
+        description: "9. Provider discovery by availability, appointment booking, approval, rescheduling, and appointment lists.",
+      },
+      {
+        name: "Assessment",
+        description: "10. Clinical assessment tools, forms, submissions, reports, referrals, and rehab task assignment.",
+      },
+      {
+        name: "Functional Classification",
+        description: "11. Functional classification records and patient progression summaries.",
+      },
+      {
+        name: "Outcomes",
+        description: "12. Motor/function outcome tracking and patient outcome history.",
+      },
+      {
+        name: "Care Plan",
+        description: "13. Care plans generated from approved assessments, caregiver reads, and provider updates.",
+      },
+      {
+        name: "Adherence",
+        description: "14. Rehab task adherence logs, completion marking, calendars, and summaries.",
+      },
+      {
+        name: "Resources",
+        description: "15. Educational resources and personalized resource prescriptions for patients.",
+      },
+      {
+        name: "Telehealth",
+        description: "16. Virtual consultation rooms, invitations, participants, joins, and status updates.",
+      },
+      {
+        name: "Chat",
+        description: "17. AI-supported caregiver/provider chat sessions and message history.",
+      },
+      {
+        name: "Community",
+        description: "18. Community creation, discovery, membership, invite codes, and moderation.",
+      },
+      {
+        name: "Community Groups",
+        description: "19. Community group creation, membership, and group messages.",
+      },
+      {
+        name: "Community Announcements",
+        description: "20. Community announcements for caregivers and providers.",
+      },
+      {
+        name: "Direct Messages",
+        description: "21. User-to-user messaging and conversation support.",
+      },
+      {
+        name: "Metrics",
+        description: "22. Patient, provider, and system KPI snapshots.",
+      },
+      {
+        name: "Analytics",
+        description: "23. Admin analytics and operational dashboards.",
+      },
+      {
+        name: "Report",
+        description: "24. User-submitted operational reports, complaints, and system issue reports.",
+      },
+      {
+        name: "Support",
+        description: "25. Support tickets and user support conversations.",
+      },
+      {
+        name: "FAQ",
+        description: "26. Public and role-targeted frequently asked questions.",
+      },
+      {
+        name: "Files",
+        description: "27. Protected file retrieval and uploads.",
+      },
+      {
+        name: "User",
+        description: "28. User profile, account, and utility endpoints.",
+      },
+      {
+        name: "Videos",
+        description: "29. Video-related user/resource endpoints.",
+      },
+      {
+        name: "Games",
+        description: "30. Game resource endpoints.",
+      },
+      {
+        name: "RBAC Check",
+        description: "31. Runtime RBAC permission checks.",
+      },
+      {
+        name: "RBAC",
+        description: "32. Admin role and permission management.",
+      },
+      {
+        name: "Admin",
+        description: "33. Admin platform operations and oversight.",
+      },
+      {
+        name: "Admin Reports",
+        description: "34. Admin review and resolution of submitted reports.",
+      },
+    ],
     servers: getServerUrls(),
 
     components: {

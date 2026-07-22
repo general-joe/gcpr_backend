@@ -1,27 +1,15 @@
 import { Router } from "express";
 import { createConsent, revokeConsent, listConsents } from "./consent.controller.js";
-import { authorize, requireRbacRole } from "../../middlewares/auth.js";
+import { authorize } from "../../middlewares/auth.js";
 
 const router = Router();
 
 router.use(authorize(["SERVICE_PROVIDER", "ADMIN", "CAREGIVER"]));
 
-router.post(
-  "/consent",
-  requireRbacRole(["ADMIN", "PROVIDER", "CAREGIVER"]),
-  createConsent,
-);
+router.post("/", createConsent);
 
-router.patch(
-  "/consent/:consentId/revoke",
-  requireRbacRole(["ADMIN", "PROVIDER", "CAREGIVER"]),
-  revokeConsent,
-);
+router.patch("/:consentId/revoke", revokeConsent);
 
-router.get(
-  "/consent",
-  requireRbacRole(["ADMIN", "PROVIDER", "CAREGIVER"]),
-  listConsents,
-);
+router.get("/", listConsents);
 
 export default router;

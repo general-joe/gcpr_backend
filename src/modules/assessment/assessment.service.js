@@ -16,6 +16,30 @@ import {
 import { generateReferralRecommendations } from "../../services/assessment/referral.engine.js";
 import HttpStatus from "../../utils/http-status.js";
 import { hasRbacRole } from "../../middlewares/auth.js";
+import auditService from "../../services/audit/audit.service.js";
+import {
+  getPatientCaregiverUserId,
+  userCanAccessPatient,
+} from "../../services/clinical/clinicalAccess.service.js";
+
+const buildSeverityAlert = (toolCode, report) => {
+  const scores = report?.scores;
+  if (!scores) return null;
+
+  if (toolCode === "GMFM_88" && Number(scores.totalScore) < 30) {
+    return `Severe GMFM-88 limitation detected: total score ${scores.totalScore}%. Urgent multidisciplinary review is recommended.`;
+  }
+
+  if (scores.modifiedAshworthScore >= 3) {
+    return "High spasticity detected on OT assessment. Rehabilitation physician review should be considered.";
+  }
+
+  if (scores.adlAverageScore >= 2.5) {
+    return "Severe ADL dependence detected. Caregiver training and intensive occupational therapy are recommended.";
+  }
+
+  return null;
+};
 
 const TOOL_ALIASES = {
   GMFM88: "GMFM_88",
@@ -384,6 +408,7 @@ class AssessmentService {
   static async canAccessPatientReports(user, serviceProvider, patientId) {
     if (await isAdminLikeUser(user)) return true;
     if (serviceProvider.profession === "PHYSIOTHERAPIST") return true;
+    if (await userCanAccessPatient(user, patientId)) return true;
     return AssessmentService.canProviderAccessPatient(serviceProvider.id, patientId);
   }
 
@@ -570,6 +595,24 @@ class AssessmentService {
       providerId = adminProvider.id;
     }
 
+    if (data.appointmentId) {
+      const appointment = await prisma.appointment.findUnique({
+        where: { id: data.appointmentId },
+        select: { id: true, patientId: true, providerId: true },
+      });
+
+      if (!appointment) {
+        throw new gcprError(HttpStatus.NOT_FOUND, "Appointment not found");
+      }
+
+      if (appointment.patientId !== data.patientId || appointment.providerId !== providerId) {
+        throw new gcprError(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          "Appointment does not match the selected patient and provider",
+        );
+      }
+    }
+
     const scoring = processAssessment({
       toolCode: normalizedToolCode,
       responses,
@@ -596,6 +639,7 @@ class AssessmentService {
             isRegularPerformance: data.isRegularPerformance,
             clinicalNotesComment: data.clinicalNotesComment,
           },
+          appointmentId: data.appointmentId ?? null,
           status: data.status ?? "COMPLETED",
           assessedAt: new Date(),
         },
@@ -619,13 +663,10 @@ class AssessmentService {
 
     // Notify patient/caregiver on assessment submission
     try {
-      const patient = await prisma.cpPatient.findUnique({
-        where: { id: data.patientId },
-        select: { userId: true },
-      });
-      if (patient && patient.userId) {
+      const caregiverUserId = await getPatientCaregiverUserId(data.patientId);
+      if (caregiverUserId) {
         await NotificationService.createNotification({
-          userId: patient.userId,
+          userId: caregiverUserId,
           type: "IN_APP",
           category: "SYSTEM",
           title: "Assessment Submitted",
@@ -641,6 +682,19 @@ class AssessmentService {
         "[Notification] Assessment submission notification failed:",
         e.message,
       );
+    }
+
+    const severityAlert = buildSeverityAlert(normalizedToolCode, structuredReport);
+    if (severityAlert) {
+      await NotificationService.createNotification({
+        userId: user.id,
+        type: "IN_APP",
+        category: "SYSTEM",
+        title: "Clinical Severity Alert",
+        content: severityAlert,
+        relatedId: result.assessment.id,
+        relatedModel: "ClinicalAssessment",
+      });
     }
 
     return result;
@@ -826,6 +880,21 @@ class AssessmentService {
       );
     }
 
+    await auditService.write({
+      timestamp: new Date().toISOString(),
+      requestId: `CLINICAL-${Date.now()}`,
+      userId: user.id,
+      userRole: user.userType,
+      method: "READ",
+      path: `/assessment/${assessmentId}/report`,
+      statusCode: 200,
+      durationMs: 0,
+      ipAddress: null,
+      userAgent: null,
+      eventType: "CLINICAL_RECORD_ACCESS",
+      params: { assessmentId, patientId: assessment.patientId },
+    });
+
     return {
       assessment,
       report: assessment.reports[0],
@@ -860,6 +929,21 @@ class AssessmentService {
         },
       },
       orderBy: { assessedAt: "desc" },
+    });
+
+    await auditService.write({
+      timestamp: new Date().toISOString(),
+      requestId: `CLINICAL-${Date.now()}`,
+      userId: user.id,
+      userRole: user.userType,
+      method: "READ",
+      path: `/assessment/patient/${patientId}/reports`,
+      statusCode: 200,
+      durationMs: 0,
+      ipAddress: null,
+      userAgent: null,
+      eventType: "CLINICAL_RECORD_ACCESS",
+      params: { patientId, totalAssessments: assessments.length },
     });
 
     return {
@@ -1129,13 +1213,10 @@ class AssessmentService {
 
     // Notify patient/caregiver on rehab task assignment
     try {
-      const patient = await prisma.cpPatient.findUnique({
-        where: { id: referral.patientId },
-        select: { userId: true },
-      });
-      if (patient && patient.userId) {
+      const caregiverUserId = await getPatientCaregiverUserId(referral.patientId);
+      if (caregiverUserId) {
         await NotificationService.createNotification({
-          userId: patient.userId,
+          userId: caregiverUserId,
           type: "IN_APP",
           category: "TASK_REMINDER",
           title: "New Rehab Task Assigned",

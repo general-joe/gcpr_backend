@@ -2,6 +2,67 @@ import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
 import NotificationService from "../notification/notification.service.js";
 import { hasRbacRole } from "../../middlewares/auth.js";
+import auditService from "../../services/audit/audit.service.js";
+import { assertPatientAccess } from "../../services/clinical/clinicalAccess.service.js";
+
+const latestByPatientId = (records) => {
+  const byPatientId = new Map();
+
+  for (const record of records) {
+    if (!byPatientId.has(record.patientId)) {
+      byPatientId.set(record.patientId, record);
+    }
+  }
+
+  return byPatientId;
+};
+
+async function enrichPatients(patients) {
+  if (patients.length === 0) {
+    return [];
+  }
+
+  const patientIds = patients.map((patient) => patient.id);
+  const now = new Date();
+
+  const [assessments, appointments, referrals, taskCounts] = await Promise.all([
+    prisma.clinicalAssessment.findMany({
+      where: { patientId: { in: patientIds } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, patientId: true, status: true },
+    }),
+    prisma.appointment.findMany({
+      where: { patientId: { in: patientIds }, appointmentDate: { gte: now } },
+      orderBy: { appointmentDate: "asc" },
+      select: { id: true, patientId: true, appointmentDate: true },
+    }),
+    prisma.clinicalReferral.findMany({
+      where: { patientId: { in: patientIds } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, patientId: true, status: true },
+    }),
+    prisma.rehabTask.groupBy({
+      by: ["patientId"],
+      where: { patientId: { in: patientIds }, NOT: { status: "COMPLETED" } },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const latestAssessmentByPatient = latestByPatientId(assessments);
+  const nextAppointmentByPatient = latestByPatientId(appointments);
+  const latestReferralByPatient = latestByPatientId(referrals);
+  const openTaskCountByPatient = new Map(
+    taskCounts.map((taskCount) => [taskCount.patientId, taskCount._count._all]),
+  );
+
+  return patients.map((patient) => ({
+    ...patient,
+    latestAssessmentStatus: latestAssessmentByPatient.get(patient.id)?.status || null,
+    nextAppointmentDate: nextAppointmentByPatient.get(patient.id)?.appointmentDate || null,
+    latestReferralStatus: latestReferralByPatient.get(patient.id)?.status || null,
+    openTasksCount: openTaskCountByPatient.get(patient.id) || 0,
+  }));
+}
 
 class CpPatientService {
   static async requireCaregiver(userId) {
@@ -162,39 +223,7 @@ class CpPatientService {
         }),
       ]);
 
-      // Enrich patients with additional data (assessments, appointments, referrals, tasks)
-      const enrichedPatients = await Promise.all(
-        patients.map(async (p) => {
-          const [latestAssessment, nextAppointment, latestReferral, openTasks] = await Promise.all([
-                  prisma.clinicalAssessment.findFirst({
-              where: { patientId: p.id },
-              orderBy: { createdAt: "desc" },
-              select: { id: true, status: true },
-            }),
-               prisma.appointment.findFirst({
-                 where: { patientId: p.id, appointmentDate: { gte: new Date() } },
-                 orderBy: { appointmentDate: "asc" },
-                 select: { id: true, appointmentDate: true },
-               }),
-            prisma.clinicalReferral.findFirst({
-              where: { patientId: p.id },
-              orderBy: { createdAt: "desc" },
-              select: { id: true, status: true },
-            }),
-               prisma.rehabTask.count({
-                 where: { patientId: p.id, NOT: { status: "COMPLETED" } },
-               }),
-          ]);
-
-          return {
-            ...p,
-            latestAssessmentStatus: latestAssessment?.status || null,
-            nextAppointmentDate: nextAppointment?.appointmentDate || null,
-            latestReferralStatus: latestReferral?.status || null,
-            openTasksCount: openTasks,
-          };
-        })
-      );
+      const enrichedPatients = await enrichPatients(patients);
 
       return {
         data: enrichedPatients,
@@ -237,39 +266,7 @@ class CpPatientService {
           prisma.cpPatient.count(),
         ]);
 
-        // Enrich patients with additional data
-        const enrichedPatients = await Promise.all(
-          patients.map(async (p) => {
-            const [latestAssessment, nextAppointment, latestReferral, openTasks] = await Promise.all([
-                prisma.clinicalAssessment.findFirst({
-                where: { patientId: p.id },
-                orderBy: { createdAt: "desc" },
-                select: { id: true, status: true },
-              }),
-                prisma.appointment.findFirst({
-                  where: { patientId: p.id, appointmentDate: { gte: new Date() } },
-                  orderBy: { appointmentDate: "asc" },
-                  select: { id: true, appointmentDate: true },
-                }),
-              prisma.clinicalReferral.findFirst({
-                where: { patientId: p.id },
-                orderBy: { createdAt: "desc" },
-                select: { id: true, status: true },
-              }),
-                prisma.rehabTask.count({
-                  where: { patientId: p.id, NOT: { status: "COMPLETED" } },
-                }),
-            ]);
-
-            return {
-              ...p,
-              latestAssessmentStatus: latestAssessment?.status || null,
-                nextAppointmentDate: nextAppointment?.appointmentDate || null,
-              latestReferralStatus: latestReferral?.status || null,
-              openTasksCount: openTasks,
-            };
-          })
-        );
+        const enrichedPatients = await enrichPatients(patients);
 
         return {
           data: enrichedPatients,
@@ -323,47 +320,15 @@ class CpPatientService {
             },
           });
 
-      // Enrich patients with additional data
-      const enrichedPatients = await Promise.all(
-        patientList.map(async (p) => {
-          const [latestAssessment, nextAppointment, latestReferral, openTasks] = await Promise.all([
-            prisma.clinicalAssessment.findFirst({
-              where: { patientId: p.id },
-              orderBy: { createdAt: "desc" },
-              select: { id: true, status: true },
-            }),
-            prisma.appointment.findFirst({
-              where: { patientId: p.id, appointmentDate: { gte: new Date() } },
-              orderBy: { appointmentDate: "asc" },
-              select: { id: true, appointmentDate: true },
-            }),
-            prisma.clinicalReferral.findFirst({
-              where: { patientId: p.id },
-              orderBy: { createdAt: "desc" },
-              select: { id: true, status: true },
-            }),
-            prisma.rehabTask.count({
-              where: { patientId: p.id, NOT: { status: "COMPLETED" } },
-            }),
-          ]);
-
-          return {
-            ...p,
-            latestAssessmentStatus: latestAssessment?.status || null,
-            nextAppointmentDate: nextAppointment?.appointmentDate || null,
-            latestReferralStatus: latestReferral?.status || null,
-            openTasksCount: openTasks,
-          };
-        })
-      );
+      const enrichedPatients = await enrichPatients(patientList);
 
       return {
         data: enrichedPatients,
         pagination: {
           page,
           limit,
-          total: enrichedPatients.length,
-          totalPages: Math.ceil(enrichedPatients.length / limit),
+          total: accessiblePatientIds.size,
+          totalPages: Math.ceil(accessiblePatientIds.size / limit),
         },
       };
     }
@@ -372,6 +337,95 @@ class CpPatientService {
       HttpStatus.NOT_FOUND,
       "You do not have a caregiver or service provider profile",
     );
+  }
+
+  static async getPatientTimeline(user, patientId) {
+    await assertPatientAccess(user, patientId);
+
+    const [
+      patient,
+      assessments,
+      referrals,
+      tasks,
+      appointments,
+      classifications,
+      carePlans,
+      resourcePrescriptions,
+    ] = await Promise.all([
+      prisma.cpPatient.findUnique({
+        where: { id: patientId },
+        include: { caregiver: { include: { user: { select: { id: true, fullName: true, phoneNumber: true, email: true } } } } },
+      }),
+      prisma.clinicalAssessment.findMany({
+        where: { patientId },
+        include: { reports: { orderBy: { createdAt: "desc" }, take: 1 }, provider: { include: { user: { select: { id: true, fullName: true } } } } },
+        orderBy: { assessedAt: "desc" },
+        take: 20,
+      }),
+      prisma.clinicalReferral.findMany({
+        where: { patientId },
+        include: { fromProvider: { include: { user: { select: { fullName: true } } } }, toProvider: { include: { user: { select: { fullName: true } } } } },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      prisma.rehabTask.findMany({
+        where: { patientId },
+        include: { provider: { include: { user: { select: { fullName: true } } } } },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+      }),
+      prisma.appointment.findMany({
+        where: { patientId },
+        include: { provider: { include: { user: { select: { fullName: true } } } } },
+        orderBy: { appointmentDate: "desc" },
+        take: 20,
+      }),
+      prisma.functionalClassification.findMany({
+        where: { patientId },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      prisma.carePlan.findMany({
+        where: { patientId },
+        include: { primaryProvider: { include: { user: { select: { fullName: true } } } } },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+      prisma.resourcePrescription.findMany({
+        where: { patientId },
+        include: { resource: true, provider: { include: { user: { select: { fullName: true } } } } },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+    ]);
+
+    await auditService.write({
+      timestamp: new Date().toISOString(),
+      requestId: `CLINICAL-${Date.now()}`,
+      userId: user.id,
+      userRole: user.userType,
+      method: "READ",
+      path: `/cp-patient/${patientId}/timeline`,
+      statusCode: 200,
+      durationMs: 0,
+      ipAddress: null,
+      userAgent: null,
+      eventType: "CLINICAL_RECORD_ACCESS",
+      params: { patientId },
+    });
+
+    return {
+      patient,
+      timeline: {
+        assessments,
+        referrals,
+        tasks,
+        appointments,
+        classifications,
+        carePlans,
+        resourcePrescriptions,
+      },
+    };
   }
 
   static async getAssignedTasks(userId, patientId) {

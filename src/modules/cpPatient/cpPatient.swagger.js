@@ -64,6 +64,71 @@
  *       404:
  *         description: Caregiver profile not found
  *
+ * /cp-patient/{patientId}/timeline:
+ *   get:
+ *     summary: Get full patient timeline
+ *     tags: [CP Patient]
+ *     security:
+ *       - bearerAuth: []
+ *     description: |
+ *       Returns a care journey timeline for a CP patient. The response includes patient profile,
+ *       assessments and latest reports, referrals, rehab tasks, appointments, functional
+ *       classifications, care plans, and provider-prescribed resources. Access is allowed for
+ *       the caregiver owner, admins, or providers with a care relationship or active consent.
+ *       Reads are audit logged as clinical record access.
+ *     parameters:
+ *       - in: path
+ *         name: patientId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Patient timeline retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     patient:
+ *                       type: object
+ *                     timeline:
+ *                       type: object
+ *                       properties:
+ *                         assessments:
+ *                           type: array
+ *                           items: { type: object }
+ *                         referrals:
+ *                           type: array
+ *                           items: { type: object }
+ *                         tasks:
+ *                           type: array
+ *                           items: { type: object }
+ *                         appointments:
+ *                           type: array
+ *                           items: { type: object }
+ *                         classifications:
+ *                           type: array
+ *                           items: { type: object }
+ *                         carePlans:
+ *                           type: array
+ *                           items: { type: object }
+ *                         resourcePrescriptions:
+ *                           type: array
+ *                           items: { type: object }
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Patient access denied
+ *       404:
+ *         description: Patient not found
+ *
  * /cp-patient/{patientId}/assigned-tasks:
  *   get:
  *     summary: Get assigned rehabilitation tasks for a CP patient
