@@ -48,6 +48,6 @@ jobs:
 
             pnpm run migrate:deploy
 
-            pm2 restart gcpr_backend --update-env
+            pm2 restart backend --update-env
 
             echo "Deployment completed successfully!"
