@@ -68,6 +68,7 @@ export const updateReferralStatusSchema = z
 export const createRehabTaskSchema = z
   .object({
     title: z.string().min(3).max(150),
+    carePlanId: z.string().uuid().optional(),
     instructions: z.string().min(5).max(3000),
     instructionSteps: z.array(z.string().min(1)).optional(),
     frequencyPerDay: z.number().int().min(1).max(10).optional(),

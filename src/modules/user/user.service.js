@@ -117,10 +117,20 @@ class UserService {
    * @returns {Promise<Object>} User profile with caregiver and serviceProvider data
    */
   static async getProfile(userId) {
-    return prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: userId },
       include: { caregiver: true, serviceProvider: true },
     });
+
+    if (!user) return null;
+
+    const profileImage = user.profileImage || null;
+    return {
+      ...user,
+      profileImage,
+      profilePicture: profileImage,
+      avatarUrl: profileImage,
+    };
   }
 
   /**

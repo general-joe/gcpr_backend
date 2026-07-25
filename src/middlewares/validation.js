@@ -1,5 +1,21 @@
 import { ZodError } from 'zod';
 
+const formatPath = (path) => path.length ? path.join('.') : 'body';
+
+const formatZodIssue = (err) => ({
+  field: formatPath(err.path),
+  message: err.message,
+  code: err.code,
+  received: err.received,
+  expected: err.expected,
+});
+
+const summarizeValidation = (errors) => {
+  if (!errors.length) return 'Validation failed';
+  if (errors.length === 1) return `${errors[0].field}: ${errors[0].message}`;
+  return `Validation failed for ${errors.length} fields`;
+};
+
 /**
  * Validation middleware factory
  * @param {import('zod').ZodSchema} schema - The Zod schema to validate against
@@ -27,23 +43,26 @@ export const validate = (schema, source = 'body') => {
       return next();
     } catch (error) {
       if (error instanceof ZodError) {
-        const formattedErrors = error.issues.map((err) => ({
-          field: err.path.join('.'),
-          message: err.message,
-          code: err.code,
-        }));
+        const formattedErrors = error.issues.map(formatZodIssue);
 
         return res.status(400).json({
+          status: 'FAILED',
           success: false,
           message: 'Validation failed',
+          errorCode: 'VALIDATION_ERROR',
+          summary: summarizeValidation(formattedErrors),
           errors: formattedErrors,
+          fieldErrors: formattedErrors,
+          hint: 'Check the highlighted fields and submit the request again.',
         });
       }
 
       // Unexpected error
       return res.status(500).json({
+        status: 'FAILED',
         success: false,
         message: 'Validation error',
+        errorCode: 'VALIDATION_HANDLER_ERROR',
         error: error.message,
       });
     }
@@ -61,10 +80,7 @@ export const validateData = async (schema, data) => {
     return await schema.parseAsync(data);
   } catch (error) {
     if (error instanceof ZodError) {
-      const formattedErrors = error.issues.map((err) => ({
-        field: err.path.join('.'),
-        message: err.message,
-      }));
+      const formattedErrors = error.issues.map(formatZodIssue);
 
       throw new Error(JSON.stringify(formattedErrors));
     }
@@ -89,10 +105,7 @@ export const safeValidate = async (schema, data) => {
     if (error instanceof ZodError) {
       return {
         success: false,
-        errors: error.issues.map((err) => ({
-          field: err.path.join('.'),
-          message: err.message,
-        })),
+        errors: error.issues.map(formatZodIssue),
       };
     }
 

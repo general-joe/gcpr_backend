@@ -314,6 +314,7 @@ model RehabTask {
   status                RehabTaskStatus            @default(PENDING)
   completedAt           DateTime?
   referralId            String?
+  carePlanId            String?
   createdAt             DateTime                   @default(now())
   updatedAt             DateTime                   @updatedAt
   progress              Int                        @default(0)
@@ -324,11 +325,13 @@ model RehabTask {
   patient               CpPatient                  @relation(fields: [patientId], references: [id], onDelete: Cascade)
   provider              ServiceProvider            @relation(fields: [providerId], references: [id], onDelete: Cascade)
   referral              ClinicalReferral?          @relation(fields: [referralId], references: [id])
+  carePlan              CarePlan?                  @relation(fields: [carePlanId], references: [id])
   adherenceLogs         TaskAdherenceLog[]
 
   @@index([patientId])
   @@index([providerId])
   @@index([referralId])
+  @@index([carePlanId])
 }
 
 model Appointment {
@@ -1439,6 +1442,7 @@ model CarePlan {
   assessment      ClinicalAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   primaryProvider ServiceProvider    @relation(fields: [primaryProviderId], references: [id], onDelete: Cascade)
   signatures      CarePlanSignature[]
+  rehabTasks      RehabTask[]
 
   @@index([patientId])
   @@index([assessmentId])

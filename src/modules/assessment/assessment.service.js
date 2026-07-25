@@ -1149,6 +1149,9 @@ class AssessmentService {
         fromProvider: {
           select: { id: true, user: { select: { fullName: true } } },
         },
+        relatedAssessment: {
+          select: { id: true },
+        },
       },
     });
 
@@ -1176,6 +1179,63 @@ class AssessmentService {
         "Referral must be ACCEPTED before assigning rehab tasks",
       );
     }
+
+    let carePlan;
+    if (data.carePlanId) {
+      carePlan = await prisma.carePlan.findUnique({
+        where: { id: data.carePlanId },
+        select: {
+          id: true,
+          patientId: true,
+          assessmentId: true,
+          status: true,
+          primaryProviderId: true,
+        },
+      });
+    } else {
+      carePlan = await prisma.carePlan.findFirst({
+        where: {
+          patientId: referral.patientId,
+          status: "ACTIVE",
+          ...(referral.relatedAssessment?.id && {
+            assessmentId: referral.relatedAssessment.id,
+          }),
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          patientId: true,
+          assessmentId: true,
+          status: true,
+          primaryProviderId: true,
+        },
+      });
+    }
+
+    if (!carePlan) {
+      throw new gcprError(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        "An active care plan is required before assigning rehab tasks",
+      );
+    }
+
+    if (carePlan.patientId !== referral.patientId) {
+      throw new gcprError(
+        HttpStatus.BAD_REQUEST,
+        "Care plan does not belong to the referred patient",
+      );
+    }
+
+    if (
+      referral.relatedAssessment?.id &&
+      carePlan.assessmentId !== referral.relatedAssessment.id
+    ) {
+      throw new gcprError(
+        HttpStatus.BAD_REQUEST,
+        "Care plan must be generated from the referral assessment before creating tasks",
+      );
+    }
+
     const videoUrl =
       data.videoUrl ?? data.video?.videoUrl ?? data.video?.url ?? null;
     const task = await prisma.rehabTask.create({
@@ -1183,6 +1243,7 @@ class AssessmentService {
         patientId: referral.patientId,
         providerId: serviceProvider.id,
         referralId: referral.id,
+        carePlanId: carePlan.id,
         title: data.title,
         instructions: data.instructions,
         instructionSteps: data.instructionSteps ?? null,
@@ -1198,6 +1259,9 @@ class AssessmentService {
       include: {
         patient: {
           select: { id: true, fullName: true },
+        },
+        carePlan: {
+          select: { id: true, assessmentId: true, status: true },
         },
       },
     });
@@ -1289,6 +1353,9 @@ class AssessmentService {
         },
         referral: {
           select: { id: true, status: true, fromProviderId: true },
+        },
+        carePlan: {
+          select: { id: true, assessmentId: true, status: true },
         },
       },
       orderBy: { createdAt: "desc" },

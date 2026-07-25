@@ -306,7 +306,8 @@
  * @swagger
  * /assessment/referrals/{referralId}/tasks:
  *   post:
- *     summary: Assign rehab task to referred patient (target provider, accepted referral)
+ *     summary: Assign rehab task to referred patient under an active care plan
+ *     description: A rehab task must belong to an existing active care plan. If carePlanId is omitted, the backend uses the latest active care plan for the referral patient and referral assessment. If no matching care plan exists, task creation fails.
  *     tags: [Assessment]
  *     security:
  *       - bearerAuth: []
@@ -325,6 +326,10 @@
  *             type: object
  *             required: [title, instructions, durationDays]
  *             properties:
+ *               carePlanId:
+ *                 type: string
+ *                 format: uuid
+ *                 description: Optional explicit care plan. Must belong to the referred patient and assessment.
  *               title:
  *                 type: string
  *               instructions:
@@ -352,6 +357,7 @@
  *                 type: object
  *                 additionalProperties: true
  *           example:
+ *             carePlanId: "8f2c1c0b-4f9d-4a3c-9e7a-3d8b2f1c9eaa"
  *             title: "Daily trunk balance training"
  *             instructions: "Perform seated trunk reaches with caregiver support"
  *             instructionSteps:
@@ -365,7 +371,7 @@
  *       200:
  *         description: Rehab task assigned successfully
  *       422:
- *         description: Referral not accepted or invalid payload
+ *         description: Referral not accepted, no active care plan exists, or invalid payload
  */
 
 /**

@@ -14,11 +14,16 @@ class UtilFunctions {
   ) {
     res.status(statusCode).json({
       status: responseCode,
+      success: false,
+      statusCode,
+      errorCode: typeof responseCode === "string" ? responseCode : ResponseCodes.FAILED,
       data: UtilFunctions._clearNulls({
         ...data,
         ...(res.locals.user && { user: res.locals.user.id }),
       }),
       message,
+      details: data?.details,
+      hint: data?.hint,
     });
   }
 
@@ -30,11 +35,16 @@ class UtilFunctions {
   ) {
     res.status(error.statusCode || statusCode).json({
       status: error.responseCode || responseCode,
+      success: false,
+      statusCode: error.statusCode || statusCode,
+      errorCode: error.errorCode || error.responseCode || responseCode,
       data: {
         ...error.data,
         ...(res.locals.user && { user: res.locals.user.id }),
       },
       message: error.constraint ? error.detail : error.message,
+      details: error.details,
+      hint: error.hint,
     });
   }
 
