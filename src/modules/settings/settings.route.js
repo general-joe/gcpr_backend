@@ -43,6 +43,10 @@ settingsRouter.put("/security", limiter, adminAndProviderAuth, SettingsControlle
 settingsRouter.get("/referrals", limiter, adminAndProviderAuth, SettingsController.getReferralSettings);
 settingsRouter.put("/referrals", limiter, adminAndProviderAuth, SettingsController.updateReferralSettings);
 
+// ── Assessment Settings ─────────────────────────────────────────────────
+settingsRouter.get("/assessment", limiter, adminAndProviderAuth, SettingsController.getAssessmentSettings);
+settingsRouter.put("/assessment", limiter, adminAndProviderAuth, SettingsController.updateAssessmentSettings);
+
 // ── Clinical Notes Settings ─────────────────────────────────────────────
 settingsRouter.get("/clinical-notes", limiter, adminAndProviderAuth, SettingsController.getClinicalNotesSettings);
 settingsRouter.put("/clinical-notes", limiter, adminAndProviderAuth, SettingsController.updateClinicalNotesSettings);
@@ -70,6 +74,10 @@ settingsRouter.put("/games", limiter, adminAndProviderAuth, SettingsController.u
 // ── FAQ Settings ────────────────────────────────────────────────────────
 settingsRouter.get("/faqs", limiter, adminAndProviderAuth, SettingsController.getFaqSettings);
 settingsRouter.put("/faqs", limiter, adminAndProviderAuth, SettingsController.updateFaqSettings);
+
+// ── Notification Preference Settings ────────────────────────────────────
+settingsRouter.get("/notifications", limiter, adminAndProviderAuth, SettingsController.getNotificationSettings);
+settingsRouter.put("/notifications", limiter, adminAndProviderAuth, SettingsController.updateNotificationSettings);
 
 // ── User Appearance Settings ────────────────────────────────────────────
 settingsRouter.get("/appearance/:userId", limiter, adminAndProviderAuth, SettingsController.getUserAppearance);

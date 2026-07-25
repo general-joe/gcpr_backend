@@ -89,6 +89,27 @@ const PLATFORM_SETTING_DEFAULTS = {
       "PHARMACIST",
     ],
   },
+  "platform:assessment": {
+    enableAssessmentModule: true,
+    requireCompletedReferralForAssessment: false,
+    allowDraftAssessments: true,
+    allowAssessmentResubmission: true,
+    requireClinicalNotesOnSubmit: true,
+    requireRegularPerformanceConfirmation: true,
+    autoGenerateReportOnSubmit: true,
+    defaultToolVersion: "1.0",
+    activeAssessmentToolCodes: [
+      "PAEDIATRIC_PHYSIOTHERAPY_ASSESSMENT",
+      "OT_CP_CLINICAL_ASSESSMENT",
+    ],
+    providerProfessionsAllowedToAssess: [
+      "PHYSIOTHERAPIST",
+      "OCCUPATIONAL_THERAPIST",
+      "SPEECH_THERAPIST",
+      "CLINICAL_PSYCHOLOGIST",
+    ],
+    mobileAssessmentInstructions: "Complete assessments using clinically observed or caregiver-confirmed performance data.",
+  },
   "platform:clinical-notes": {
     requireAssessmentNotes: true,
     requireSessionDocumentation: true,
@@ -176,6 +197,22 @@ const PLATFORM_SETTING_DEFAULTS = {
     faqsPerPage: 10,
     enableFeedbackOnFaqs: true,
     requireApprovalForPublicFaq: true,
+  },
+  "platform:notifications": {
+    enableInAppNotifications: true,
+    enableEmailNotifications: true,
+    enableSmsNotifications: false,
+    notifyOnReferrals: true,
+    notifyOnAssessments: true,
+    notifyOnAppointments: true,
+    notifyOnSupportTickets: true,
+    notifyOnProviderApprovals: true,
+    notifyOnEscalations: true,
+    quietHoursEnabled: false,
+    quietHoursStart: "20:00",
+    quietHoursEnd: "07:00",
+    digestFrequency: "daily",
+    retentionDays: 90,
   },
 };
 
@@ -475,6 +512,37 @@ class SettingsController {
     }
   }
 
+  static async getAssessmentSettings(req, res) {
+    try {
+      const data = await getSettingWithDefaults("platform:assessment");
+      return res.status(HttpStatus.OK).json({ status: true, data });
+    } catch (error) {
+      console.error("Error fetching assessment settings:", error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        status: false,
+        message: "Failed to fetch assessment settings",
+      });
+    }
+  }
+
+  static async updateAssessmentSettings(req, res) {
+    try {
+      const { id, createdAt, updatedAt, ...settingsData } = req.body;
+      const saved = await upsertSetting("platform:assessment", settingsData, "assessment");
+      return res.status(HttpStatus.OK).json({
+        status: true,
+        message: "Assessment settings updated successfully",
+        data: { id: saved.id, key: saved.key, ...settingsData },
+      });
+    } catch (error) {
+      console.error("Error updating assessment settings:", error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        status: false,
+        message: "Failed to update assessment settings",
+      });
+    }
+  }
+
   static async getClinicalNotesSettings(req, res) {
     try {
       const data = await getSettingWithDefaults("platform:clinical-notes");
@@ -688,6 +756,37 @@ class SettingsController {
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         status: false,
         message: "Failed to update FAQ settings",
+      });
+    }
+  }
+
+  static async getNotificationSettings(req, res) {
+    try {
+      const data = await getSettingWithDefaults("platform:notifications");
+      return res.status(HttpStatus.OK).json({ status: true, data });
+    } catch (error) {
+      console.error("Error fetching notification settings:", error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        status: false,
+        message: "Failed to fetch notification settings",
+      });
+    }
+  }
+
+  static async updateNotificationSettings(req, res) {
+    try {
+      const { id, createdAt, updatedAt, ...settingsData } = req.body;
+      const saved = await upsertSetting("platform:notifications", settingsData, "notifications");
+      return res.status(HttpStatus.OK).json({
+        status: true,
+        message: "Notification settings updated successfully",
+        data: { id: saved.id, key: saved.key, ...settingsData },
+      });
+    } catch (error) {
+      console.error("Error updating notification settings:", error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        status: false,
+        message: "Failed to update notification settings",
       });
     }
   }

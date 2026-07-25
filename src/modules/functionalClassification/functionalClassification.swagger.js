@@ -99,7 +99,7 @@
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden — SERVICE_PROVIDER only
+ *         description: Forbidden — patient access denied
  *
  * /functional-classification/patient/{patientId}/summary:
  *   get:
@@ -130,7 +130,7 @@
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden — SERVICE_PROVIDER only
+ *         description: Forbidden — patient access denied
  *       404:
  *         description: Patient not found
  *

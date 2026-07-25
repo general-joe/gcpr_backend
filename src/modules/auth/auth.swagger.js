@@ -43,6 +43,8 @@
  *         - gender
  *         - userType
  *         - otpChannel
+ *         - acceptedTerms
+ *         - acceptedPrivacyPolicy
  *       properties:
  *         fullName:
  *           type: string
@@ -75,6 +77,20 @@
  *         otpChannel:
  *           type: string
  *           enum: [sms, email]
+ *         acceptedTerms:
+ *           type: boolean
+ *           enum: [true]
+ *           description: Must be true before registration can complete
+ *         acceptedPrivacyPolicy:
+ *           type: boolean
+ *           enum: [true]
+ *           description: Must be true before registration can complete
+ *         termsVersion:
+ *           type: string
+ *           example: "1.0"
+ *         privacyPolicyVersion:
+ *           type: string
+ *           example: "1.0"
  *
  *     OTPVerification:
  *       type: object
