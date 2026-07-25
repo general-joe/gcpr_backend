@@ -18,6 +18,11 @@ export default class SupportController {
     UtilFunctions.outputSuccess(res, result, "Ticket retrieved successfully");
   });
 
+  static getTicketMessages = catchAsync(async (req, res) => {
+    const result = await SupportService.getTicketMessages(res.locals.user.id, req.params.ticketId);
+    UtilFunctions.outputSuccess(res, result, "Ticket messages retrieved successfully");
+  });
+
   static addMessage = catchAsync(async (req, res) => {
     const { content } = req.validatedData ?? req.body;
     const result = await SupportService.addMessage(res.locals.user.id, req.params.ticketId, content);

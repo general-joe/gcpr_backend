@@ -62,6 +62,10 @@ model User {
   carePlanSignatures           CarePlanSignature[]
   resourcePrescriptions        ResourcePrescription[]
   tokenVersion                 Int                        @default(0)
+  termsAcceptedAt              DateTime?
+  privacyPolicyAcceptedAt      DateTime?
+  termsVersion                 String?
+  privacyPolicyVersion         String?
 
   @@index([id])
   @@map("user")

@@ -15,6 +15,14 @@ export const signUpSchema = z.object({
   role: z.enum(["SERVICE_PROVIDER", "CAREGIVER", "ADMIN"]),
   profileImage: z.string().optional(),
   otpChannel: z.enum(["sms", "email"]),
+  acceptedTerms: z.literal(true, {
+    errorMap: () => ({ message: "You must accept the Terms and Conditions" }),
+  }),
+  acceptedPrivacyPolicy: z.literal(true, {
+    errorMap: () => ({ message: "You must accept the Privacy Policy" }),
+  }),
+  termsVersion: z.string().trim().min(1).optional(),
+  privacyPolicyVersion: z.string().trim().min(1).optional(),
   verified: z.boolean().optional().default(false),
   profileCompleted: z.boolean().optional().default(false),
 });

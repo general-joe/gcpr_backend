@@ -1,6 +1,9 @@
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
 import NotificationService from "../notification/notification.service.js";
+import gcprError from "../../utils/http-error.js";
+import WRITE from "../../utils/logger.js";
+import { assertPatientAccess } from "../../services/clinical/clinicalAccess.service.js";
 
 class FunctionalClassificationService {
   // ─── Guards ────────────────────────────────────────────────────────────────
@@ -159,8 +162,8 @@ class FunctionalClassificationService {
   // ─── Read (list by patient) ────────────────────────────────────────────────
 
   static async getByPatient(user, patientId, query = {}) {
-    await FunctionalClassificationService.requireServiceProvider(user.id);
     await FunctionalClassificationService.ensurePatientExists(patientId);
+    await assertPatientAccess(user, patientId);
 
     const page = Math.max(1, parseInt(query.page ?? 1, 10));
     const limit = Math.min(100, Math.max(1, parseInt(query.limit ?? 20, 10)));
@@ -203,8 +206,6 @@ class FunctionalClassificationService {
   // ─── Read (single) ─────────────────────────────────────────────────────────
 
   static async getOne(user, id) {
-    await FunctionalClassificationService.requireServiceProvider(user.id);
-
     const fc = await prisma.functionalClassification.findUnique({
       where: { id },
       include: {
@@ -225,6 +226,8 @@ class FunctionalClassificationService {
         "Functional classification record not found"
       );
     }
+
+    await assertPatientAccess(user, fc.patientId);
 
     return fc;
   }
@@ -309,9 +312,9 @@ class FunctionalClassificationService {
   // ─── Progress summary per patient ─────────────────────────────────────────
 
   static async getProgressSummary(user, patientId) {
-    await FunctionalClassificationService.requireServiceProvider(user.id);
     const patient =
       await FunctionalClassificationService.ensurePatientExists(patientId);
+    await assertPatientAccess(user, patientId);
 
     const records = await prisma.functionalClassification.findMany({
       where: { patientId },

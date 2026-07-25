@@ -25,7 +25,7 @@ fcRouter.post(
 fcRouter.get(
   "/patient/:patientId",
   limiter,
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
   FunctionalClassificationController.getByPatient
 );
 
@@ -33,7 +33,7 @@ fcRouter.get(
 fcRouter.get(
   "/patient/:patientId/summary",
   limiter,
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
   FunctionalClassificationController.getProgressSummary
 );
 
@@ -41,7 +41,7 @@ fcRouter.get(
 fcRouter.get(
   "/:id",
   limiter,
-  authorize(["SERVICE_PROVIDER"]),
+  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
   FunctionalClassificationController.getOne
 );
 

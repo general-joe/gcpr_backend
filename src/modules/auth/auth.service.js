@@ -73,6 +73,9 @@ const buildPasswordResetLink = ({ identifier, otp }) => {
 
 const shouldReturnPasswordResetLink = () => process.env.RETURN_PASSWORD_RESET_LINK === "true";
 
+const currentTermsVersion = () => process.env.TERMS_VERSION || "1.0";
+const currentPrivacyPolicyVersion = () => process.env.PRIVACY_POLICY_VERSION || "1.0";
+
 class AuthService {
   static async registerUser(rq, userData) {
     WRITE.info("User registration started", {
@@ -83,6 +86,21 @@ class AuthService {
     });
     userData.userType =userData.role;
     delete userData.role;
+    const acceptedTerms = userData.acceptedTerms === true;
+    const acceptedPrivacyPolicy = userData.acceptedPrivacyPolicy === true;
+    if (!acceptedTerms || !acceptedPrivacyPolicy) {
+      throw new gcprError(
+        HttpStatus.BAD_REQUEST,
+        "You must accept the Terms and Conditions and Privacy Policy to register",
+      );
+    }
+
+    const termsVersion = userData.termsVersion || currentTermsVersion();
+    const privacyPolicyVersion = userData.privacyPolicyVersion || currentPrivacyPolicyVersion();
+    delete userData.acceptedTerms;
+    delete userData.acceptedPrivacyPolicy;
+    delete userData.termsVersion;
+    delete userData.privacyPolicyVersion;
     if (rq.files?.profileImage) {
       const fileName = `${userData.id}.jpg`;
       userData.profileImage = await UploadService.saveFile(
@@ -141,6 +159,10 @@ class AuthService {
       data: {
         ...userData,
         password: hashedPassword,
+        termsAcceptedAt: new Date(),
+        privacyPolicyAcceptedAt: new Date(),
+        termsVersion,
+        privacyPolicyVersion,
         dateOfBirth: userData.dateOfBirth
           ? new Date(userData.dateOfBirth)
           : new Date(),

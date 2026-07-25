@@ -1,5 +1,6 @@
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
+import gcprError from "../../utils/http-error.js";
 import NotificationService from "../notification/notification.service.js";
 import WRITE from "../../utils/logger.js";
 import { sendEmail } from "../../utils/emailSmtp.js";
@@ -115,6 +116,25 @@ export default class SupportService {
       throw new gcprError(HttpStatus.FORBIDDEN, "You do not have access to this ticket");
     }
     return ticket;
+  }
+
+  static async getTicketMessages(userId, ticketId) {
+    const ticket = await prisma.supportTicket.findUnique({
+      where: { id: ticketId },
+      select: { id: true, userId: true }
+    });
+    if (!ticket) throw new gcprError(HttpStatus.NOT_FOUND, "Support ticket not found");
+    if (ticket.userId !== userId) {
+      throw new gcprError(HttpStatus.FORBIDDEN, "You do not have access to this ticket");
+    }
+
+    return prisma.ticketMessage.findMany({
+      where: { ticketId },
+      orderBy: { createdAt: "asc" },
+      include: {
+        sender: { select: { id: true, fullName: true, userType: true, profileImage: true } }
+      }
+    });
   }
 
   static async addMessage(userId, ticketId, content) {
