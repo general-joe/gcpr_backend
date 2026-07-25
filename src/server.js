@@ -22,6 +22,28 @@ import filesRouter from './modules/files/files.route.js'
 import prisma from './config/database.js'
 import { auditRequest } from './middlewares/audit.js'
 
+const errorCodeFromMessage = (message = 'ERROR') =>
+  message
+    .toString()
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toUpperCase()
+    .slice(0, 80) || 'ERROR';
+
+const prismaHint = (code) => {
+  switch (code) {
+    case 'P2002':
+      return 'This value is already used. Use a different value and try again.';
+    case 'P2003':
+      return 'One of the referenced records does not exist or is no longer available.';
+    case 'P2025':
+      return 'The record you are trying to update or delete could not be found.';
+    default:
+      return 'Please check the request data and try again. If the issue continues, contact support.';
+  }
+};
+
 // ROUTING
 
 dotenv.config()
@@ -173,13 +195,21 @@ app.use((err, req, res, next) => {
 
   // Known HTTP errors (your custom errors)
   if (err instanceof gcprError) {
+    const statusCode = err.status || 400;
+    const errorCode = err.errorCode || errorCodeFromMessage(err.message);
     WRITE.warn(`Handled Error: ${err.message}`, {
       ...errorContext,
-      statusCode: err.status || 400,
+      statusCode,
+      errorCode,
     });
-    return res.status(err.status || 400).json({
-      status: err.status || 400,
+
+    return res.status(statusCode).json({
+      status: 'FAILED',
+      statusCode,
+      errorCode,
       message: err.message,
+      details: err.details,
+      hint: err.hint,
       errorId,
     });
   }
@@ -248,10 +278,15 @@ app.use((err, req, res, next) => {
     WRITE.error(`Database Error [${err.code}]: ${err.message}`, prismaErrorContext);
 
     return res.status(httpStatus).json({
-      status: httpStatus,
-      code: err.code,
+      status: 'FAILED',
+      statusCode: httpStatus,
+      errorCode: err.code || 'DATABASE_ERROR',
       message: userMessage,
+      details: err.code === 'P2002' && err.meta?.target
+        ? { fields: err.meta.target }
+        : undefined,
       meta: process.env.NODE_ENV !== 'production' ? err.meta : undefined,
+      hint: prismaHint(err.code),
       errorId,
     });
   }
@@ -263,8 +298,11 @@ app.use((err, req, res, next) => {
   });
 
   return res.status(500).json({
-    status: 500,
+    status: 'FAILED',
+    statusCode: 500,
+    errorCode: 'INTERNAL_SERVER_ERROR',
     message: 'Internal server error',
+    hint: 'Please try again later. If the issue continues, contact support with the errorId.',
     errorId,
   });
 });

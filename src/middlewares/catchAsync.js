@@ -1,3 +1,5 @@
+import WRITE from "../utils/logger.js";
+
 // catchAsync.js
 // Utility to wrap async route handlers and forward errors to Express error middleware
 
