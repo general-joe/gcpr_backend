@@ -331,62 +331,36 @@ class GameService {
 
   static async listGames(user, query = {}) {
     const { source, tag, page = 1, limit = 20 } = query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const take = parseInt(limit);
+    const currentPage = Math.max(1, parseInt(page, 10));
+    const take = Math.max(1, parseInt(limit, 10));
+    const skip = (currentPage - 1) * take;
+    const normalizedSource = source?.toUpperCase();
 
-    const where = { removedAt: null };
-
-    if (user.userType === "CAREGIVER") {
-      where.isPublished = true;
-    }
-
-    if (source) where.source = source.toUpperCase();
-    if (tag) where.tags = { has: tag };
-
-    const [games, total] = await Promise.all([
-      prisma.gameResource.findMany({
-        where,
-        skip,
-        take,
-        orderBy: { createdAt: "desc" }
-      }),
-      prisma.gameResource.count({ where })
-    ]);
-
-    return {
-      data: games.map(enrichGame),
-      pagination: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) }
-    };
-  }
-
-  static async listSelectableGames(user, query = {}) {
-    const result = await GameService.listGames(user, query);
-    const source = query.source?.toUpperCase();
-    const tag = query.tag;
-    const builtIns = BUILT_IN_GAMES.filter((game) => {
-      if (source && game.source !== source) return false;
+    const games = BUILT_IN_GAMES.filter((game) => {
+      if (normalizedSource && game.source !== normalizedSource) return false;
       if (tag && !game.tags.includes(tag)) return false;
       return true;
     }).map(enrichGame);
 
+    const paginatedGames = games.slice(skip, skip + take);
+
     return {
-      data: [...builtIns, ...result.data],
+      data: paginatedGames,
       pagination: {
-        ...result.pagination,
-        total: result.pagination.total + builtIns.length,
-        totalPages: Math.ceil((result.pagination.total + builtIns.length) / result.pagination.limit),
-      },
+        total: games.length,
+        page: currentPage,
+        limit: take,
+        totalPages: Math.ceil(games.length / take),
+      }
     };
   }
 
+  static async listSelectableGames(user, query = {}) {
+    return GameService.listGames(user, query);
+  }
+
   static async getGameById(user, gameId) {
-    const builtInGame = getBuiltInGame(gameId);
-    if (builtInGame) return enrichGame(builtInGame);
-
-    const where = { id: gameId, removedAt: null };
-    if (user.userType === "CAREGIVER") where.isPublished = true;
-
-    const game = await prisma.gameResource.findFirst({ where });
+    const game = getBuiltInGame(gameId);
     if (!game) throw new gcprError(HttpStatus.NOT_FOUND, "Game resource not found");
 
     return enrichGame(game);

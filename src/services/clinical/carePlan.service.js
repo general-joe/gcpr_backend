@@ -97,6 +97,9 @@ class CarePlanService {
             signer: true,
           },
         },
+        rehabTasks: {
+          orderBy: { createdAt: "desc" },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -139,6 +142,9 @@ class CarePlanService {
             user: true,
           },
         },
+        rehabTasks: {
+          orderBy: { createdAt: "desc" },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -168,6 +174,9 @@ class CarePlanService {
             user: true,
           },
         },
+        rehabTasks: {
+          orderBy: { createdAt: "desc" },
+        },
       },
     });
   }
@@ -194,6 +203,9 @@ class CarePlanService {
           include: {
             user: true,
           },
+        },
+        rehabTasks: {
+          orderBy: { createdAt: "desc" },
         },
       },
     });

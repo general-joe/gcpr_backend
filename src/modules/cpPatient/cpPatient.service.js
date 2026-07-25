@@ -370,7 +370,10 @@ class CpPatientService {
       }),
       prisma.rehabTask.findMany({
         where: { patientId },
-        include: { provider: { include: { user: { select: { fullName: true } } } } },
+        include: {
+          provider: { include: { user: { select: { fullName: true } } } },
+          carePlan: { select: { id: true, assessmentId: true, status: true } },
+        },
         orderBy: { createdAt: "desc" },
         take: 30,
       }),
@@ -454,6 +457,9 @@ class CpPatientService {
         },
         referral: {
           select: { id: true, status: true },
+        },
+        carePlan: {
+          select: { id: true, assessmentId: true, status: true },
         },
       },
       orderBy: { createdAt: "desc" },
