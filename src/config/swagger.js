@@ -15,21 +15,17 @@ import '../modules/user/user.swagger.js';
 import '../modules/serviceProvider/serviceProvider.swagger.js';
 import '../modules/notification/notification.swagger.js';
 import '../modules/chat/chat.swagger.js';
-import '../modules/functionalClassification/functionalClassification.swagger.js';
 import '../modules/metrics/metrics.swagger.js';
 import '../modules/telehealth/telehealth.swagger.js';
 import '../modules/game/game.swagger.js';
 import '../modules/report/report.swagger.js';
 import '../modules/support/support.swagger.js';
 import '../modules/support/faq.swagger.js';
-import '../modules/cpPatient/enrollment.swagger.js';
 import '../modules/assessment/outcomes.swagger.js';
-import '../modules/assessment/adherence.swagger.js';
 import '../modules/admin/admin.swagger.js';
 import '../modules/admin/rbac.swagger.js';
 import '../modules/analytics/analytics.swagger.js';
 import '../modules/dashboard/dashboard.swagger.js';
-import '../modules/consent/consent.swagger.js';
 import '../modules/carePlan/carePlan.swagger.js';
 
 const getServerUrls = () => {
@@ -71,52 +67,40 @@ const swaggerOptions = {
         description: "4. CP patient registration, patient listing, assigned tasks, and full patient timeline.",
       },
       {
-        name: "Enrollment",
-        description: "5. CP programme enrollment tracking for patients.",
-      },
-      {
         name: "Notification",
-        description: "6. In-app notifications, unread counts, and mobile push-token registration.",
+        description: "5. In-app notifications, unread counts, and mobile push-token registration.",
       },
       {
         name: "Dashboard",
-        description: "7. Mobile-optimized caregiver and service-provider home dashboards.",
-      },
-      {
-        name: "Consent",
-        description: "8. Caregiver consent records and access-control support for clinical data sharing.",
+        description: "6. Mobile-optimized caregiver and service-provider home dashboards.",
       },
       {
         name: "Schedule Appointment",
-        description: "9. Provider discovery by availability, appointment booking, approval, rescheduling, and appointment lists.",
+        description: "7. Provider discovery by availability, appointment booking, approval, rescheduling, and appointment lists.",
       },
       {
         name: "Assessment",
-        description: "10. Clinical assessment tools, forms, submissions, reports, referrals, and rehab task assignment.",
-      },
-      {
-        name: "Functional Classification",
-        description: "11. Functional classification records and patient progression summaries.",
+        description: "8. Clinical assessment tools, forms, submissions, reports, referrals, and rehab task assignment.",
       },
       {
         name: "Outcomes",
-        description: "12. Motor/function outcome tracking and patient outcome history.",
+        description: "9. Motor/function outcome tracking and patient outcome history.",
       },
       {
         name: "Care Plan",
-        description: "13. Care plans generated from approved assessments, caregiver reads, and provider updates.",
+        description: "10. Care plans generated from approved assessments, caregiver reads, and provider updates.",
       },
       {
         name: "Adherence",
-        description: "14. Rehab task adherence logs, completion marking, calendars, and summaries.",
+        description: "11. Rehab task adherence logs, completion marking, calendars, and summaries.",
       },
       {
         name: "Resources",
-        description: "15. Educational resources and personalized resource prescriptions for patients.",
+        description: "12. Educational resources and personalized resource prescriptions for patients.",
       },
       {
         name: "Telehealth",
-        description: "16. Virtual consultation rooms, invitations, participants, joins, and status updates.",
+        description: "13. Virtual consultation rooms, invitations, participants, joins, and status updates.",
       },
       {
         name: "Chat",

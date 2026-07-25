@@ -2,40 +2,14 @@
  * @swagger
  * tags:
  *   name: Game
- *   description: Wellbeing game/resource management
+ *   description: Built-in Cboard/CPC activity assignment and progress tracking
  */
 
 /**
  * @swagger
  * /game:
- *   post:
- *     summary: Create a game resource (SP only)
- *     tags: [Game]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               title:
- *                 type: string
- *               description:
- *                 type: string
- *               source:
- *                 type: string
- *                 enum: [UPLOADED, YOUTUBE, EXTERNAL]
- *               externalUrl:
- *                 type: string
- *               file:
- *                 type: string
- *                 format: binary
- *     responses:
- *       200:
- *         description: Game created
  *   get:
- *     summary: List game resources
+ *     summary: List built-in game/AAC activities
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
@@ -44,6 +18,7 @@
  *         name: source
  *         schema:
  *           type: string
+ *           enum: [EXTERNAL]
  *       - in: query
  *         name: tag
  *         schema:
@@ -58,104 +33,52 @@
  *           type: integer
  *     responses:
  *       200:
- *         description: List of games
- */
-
-/**
- * @swagger
- * /game/{id}:
- *   get:
- *     summary: Get game resource by ID
- *     tags: [Game]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Game retrieved
- *   patch:
- *     summary: Update game resource (owner SP only)
- *     tags: [Game]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               title:
- *                 type: string
- *               description:
- *                 type: string
- *               tags:
- *                 type: array
- *                 items:
- *                   type: string
- *               thumbnail:
- *                 type: string
- *               allowedRoleSlugs:
- *                 type: array
- *                 items:
- *                   type: string
- *     responses:
- *       200:
- *         description: Game updated
- *   delete:
- *     summary: Delete game resource (owner SP only)
- *     tags: [Game]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Game deleted
+ *         description: Built-in games retrieved
  */
 
 /**
  * @swagger
  * /game/selectable:
  *   get:
- *     summary: List selectable games, including built-in Cboard AAC and CPC accessible games
+ *     summary: List selectable built-in Cboard and CPC activities
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - in: query
- *         name: source
- *         schema:
- *           type: string
- *           enum: [UPLOADED, YOUTUBE, EXTERNAL]
  *       - in: query
  *         name: tag
  *         schema:
  *           type: string
  *     responses:
  *       200:
- *         description: Selectable games retrieved. Built-in examples include builtin-cboard-aac, builtin-cpc-accessible-games, and builtin-cpc-touch-anywhere.
+ *         description: Selectable built-in games retrieved
+ */
+
+/**
+ * @swagger
+ * /game/{id}:
+ *   get:
+ *     summary: Get a built-in game/AAC activity by ID
+ *     tags: [Game]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: builtin-cboard-aac
+ *     responses:
+ *       200:
+ *         description: Built-in game retrieved
  */
 
 /**
  * @swagger
  * /game/{id}/assign:
  *   post:
- *     summary: Assign a game, Cboard AAC activity, or CPC accessible game to a patient (SP only)
+ *     summary: Assign a built-in game/AAC activity to a patient (SP only)
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
@@ -180,10 +103,9 @@
  *                 type: array
  *                 items:
  *                   type: string
- *                 example: ["Request preferred item using symbols", "Reduce prompted selections"]
  *               frequency:
  *                 type: string
- *                 example: 10 minutes daily
+ *                 example: 5 minutes daily
  *               dueDate:
  *                 type: string
  *                 format: date-time
@@ -198,7 +120,7 @@
  * @swagger
  * /game/{id}/participation:
  *   post:
- *     summary: Log a patient game, Cboard, or CPC accessible-game participation session
+ *     summary: Log a built-in game/AAC participation session
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
@@ -266,7 +188,7 @@
  * @swagger
  * /game/patients/{patientId}/improvement:
  *   get:
- *     summary: Summarize patient improvement across game, Cboard, or CPC accessible-game sessions
+ *     summary: Summarize patient improvement across built-in game/AAC sessions
  *     tags: [Game]
  *     security:
  *       - bearerAuth: []
@@ -280,7 +202,7 @@
  *         name: gameId
  *         schema:
  *           type: string
- *         example: builtin-cboard-aac
+ *         example: builtin-cpc-touch-anywhere
  *       - in: query
  *         name: from
  *         schema:
@@ -294,42 +216,4 @@
  *     responses:
  *       200:
  *         description: Improvement summary retrieved
- */
-
-/**
- * @swagger
- * /game/{id}/publish:
- *   post:
- *     summary: Publish a game resource (owner SP only)
- *     tags: [Game]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Game published
- */
-
-/**
- * @swagger
- * /game/{id}/unpublish:
- *   post:
- *     summary: Unpublish a game resource (owner SP only)
- *     tags: [Game]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Game unpublished
  */

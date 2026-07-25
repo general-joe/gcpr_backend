@@ -256,7 +256,7 @@
  *   post:
  *     summary: Request password reset
  *     security: []
- *     description: Sends password reset instructions to the user's email or phone number. Email delivery includes a clickable reset button and plain fallback link. SMS delivery includes the OTP and reset link. Configure PASSWORD_RESET_URL to point to the web/mobile reset-password screen.
+ *     description: Sends a password reset OTP to the user's email or phone number. The mobile/web app should collect identifier, OTP, and new password, then call /auth/reset-password.
  *     tags: [Auth]
  *     requestBody:
  *       required: true

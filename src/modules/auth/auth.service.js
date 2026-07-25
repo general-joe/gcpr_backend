@@ -568,11 +568,6 @@ class AuthService {
     const otpCode = UtilFunctions.genOTP();
     const codeHash = await hash(otpCode);
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-    const resetLink = buildPasswordResetLink({
-      identifier: normalizedIdentifier,
-      otp: otpCode,
-    });
-
     await prisma.otp.deleteMany({ where: { userId: user.id } });
 
     await prisma.otp.create({
@@ -590,8 +585,6 @@ class AuthService {
       await sendEmail(user.email, "reset", {
         otp: otpCode,
         name: user.fullName,
-        reset_link: resetLink,
-        resetLink,
       });
     } else {
       if (!user.phoneNumber) {
@@ -600,7 +593,7 @@ class AuthService {
 
       await SendSMS(
         user.phoneNumber,
-        `Hello ${user.fullName || "there"}, use OTP ${otpCode} to reset your password. Reset link: ${resetLink}. This code expires in 15 minutes.`,
+        `Hello ${user.fullName || "there"}, use OTP ${otpCode} to reset your password. This code expires in 15 minutes.`,
       );
     }
 
@@ -608,7 +601,7 @@ class AuthService {
       message: "Password reset instructions sent",
       deliveryChannel,
       expiresInMinutes: 15,
-      ...(shouldReturnPasswordResetLink() && { resetLink, otp: otpCode }),
+      ...(shouldReturnPasswordResetLink() && { otp: otpCode }),
     };
   }
 
