@@ -91,6 +91,20 @@
 /**
  * @swagger
  * /support/tickets/{ticketId}/messages:
+ *   get:
+ *     summary: List messages for a support ticket (owner only)
+ *     tags: [Support Tickets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: ticketId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Ticket messages retrieved
  *   post:
  *     summary: Add a reply to a ticket
  *     tags: [Support Tickets]

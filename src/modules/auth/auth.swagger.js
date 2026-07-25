@@ -43,6 +43,8 @@
  *         - gender
  *         - userType
  *         - otpChannel
+ *         - acceptedTerms
+ *         - acceptedPrivacyPolicy
  *       properties:
  *         fullName:
  *           type: string
@@ -75,6 +77,20 @@
  *         otpChannel:
  *           type: string
  *           enum: [sms, email]
+ *         acceptedTerms:
+ *           type: boolean
+ *           enum: [true]
+ *           description: Must be true before registration can complete
+ *         acceptedPrivacyPolicy:
+ *           type: boolean
+ *           enum: [true]
+ *           description: Must be true before registration can complete
+ *         termsVersion:
+ *           type: string
+ *           example: "1.0"
+ *         privacyPolicyVersion:
+ *           type: string
+ *           example: "1.0"
  *
  *     OTPVerification:
  *       type: object
@@ -96,7 +112,7 @@
  *       properties:
  *         identifier:
  *           type: string
- *           description: Email address or phone number
+ *           description: Email address or phone number. If email is supplied, reset instructions are emailed. If phone number is supplied, reset instructions are sent by SMS.
  *         password:
  *           type: string
  *           format: password
@@ -240,7 +256,7 @@
  *   post:
  *     summary: Request password reset
  *     security: []
- *     description: Sends a password reset OTP to the user's email or phone number
+ *     description: Sends password reset instructions to the user's email or phone number. Email delivery includes a clickable reset button and plain fallback link. SMS delivery includes the OTP and reset link. Configure PASSWORD_RESET_URL to point to the web/mobile reset-password screen.
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -250,7 +266,7 @@
  *             $ref: '#/components/schemas/ForgotPasswordRequest'
  *     responses:
  *       200:
- *         description: Password reset OTP sent
+ *         description: Password reset instructions sent
  *       404:
  *         description: User not found
  *

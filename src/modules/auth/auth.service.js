@@ -6,8 +6,8 @@ import HttpStatus from "../../utils/http-status.js";
 import { sendEmail } from "../../utils/emailSmtp.js";
 import UploadService from "../../utils/uploadService.js";
 import constants from "../../utils/constants.js";
+import gcprError from "../../utils/http-error.js";
 import {
-  OTPMessage,
   SendOTP,
   SendSMS,
   VerifyOTP,
@@ -54,6 +54,28 @@ const buildIdentifierWhere = (identifier) => {
   };
 };
 
+const getPasswordResetBaseUrl = () => {
+  const configuredUrl =
+    process.env.PASSWORD_RESET_URL ||
+    process.env.FRONTEND_PASSWORD_RESET_URL ||
+    (process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL.replace(/\/$/, "")}/reset-password` : null) ||
+    (process.env.APP_URL ? `${process.env.APP_URL.replace(/\/$/, "")}/reset-password` : null);
+
+  return configuredUrl || "http://localhost:3000/reset-password";
+};
+
+const buildPasswordResetLink = ({ identifier, otp }) => {
+  const url = new URL(getPasswordResetBaseUrl());
+  url.searchParams.set("identifier", identifier);
+  url.searchParams.set("otp", otp);
+  return url.toString();
+};
+
+const shouldReturnPasswordResetLink = () => process.env.RETURN_PASSWORD_RESET_LINK === "true";
+
+const currentTermsVersion = () => process.env.TERMS_VERSION || "1.0";
+const currentPrivacyPolicyVersion = () => process.env.PRIVACY_POLICY_VERSION || "1.0";
+
 class AuthService {
   static async registerUser(rq, userData) {
     WRITE.info("User registration started", {
@@ -64,6 +86,21 @@ class AuthService {
     });
     userData.userType =userData.role;
     delete userData.role;
+    const acceptedTerms = userData.acceptedTerms === true;
+    const acceptedPrivacyPolicy = userData.acceptedPrivacyPolicy === true;
+    if (!acceptedTerms || !acceptedPrivacyPolicy) {
+      throw new gcprError(
+        HttpStatus.BAD_REQUEST,
+        "You must accept the Terms and Conditions and Privacy Policy to register",
+      );
+    }
+
+    const termsVersion = userData.termsVersion || currentTermsVersion();
+    const privacyPolicyVersion = userData.privacyPolicyVersion || currentPrivacyPolicyVersion();
+    delete userData.acceptedTerms;
+    delete userData.acceptedPrivacyPolicy;
+    delete userData.termsVersion;
+    delete userData.privacyPolicyVersion;
     if (rq.files?.profileImage) {
       const fileName = `${userData.id}.jpg`;
       userData.profileImage = await UploadService.saveFile(
@@ -122,6 +159,10 @@ class AuthService {
       data: {
         ...userData,
         password: hashedPassword,
+        termsAcceptedAt: new Date(),
+        privacyPolicyAcceptedAt: new Date(),
+        termsVersion,
+        privacyPolicyVersion,
         dateOfBirth: userData.dateOfBirth
           ? new Date(userData.dateOfBirth)
           : new Date(),
@@ -514,7 +555,7 @@ class AuthService {
   }
 
   static async forgotPassword(identifier) {
-    const { where } = buildIdentifierWhere(identifier);
+    const { normalizedIdentifier, where } = buildIdentifierWhere(identifier);
 
     const user = await prisma.user.findFirst({
       where,
@@ -527,6 +568,10 @@ class AuthService {
     const otpCode = UtilFunctions.genOTP();
     const codeHash = await hash(otpCode);
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    const resetLink = buildPasswordResetLink({
+      identifier: normalizedIdentifier,
+      otp: otpCode,
+    });
 
     await prisma.otp.deleteMany({ where: { userId: user.id } });
 
@@ -534,19 +579,37 @@ class AuthService {
       data: { codeHash, expiresAt, userId: user.id },
     });
 
-    if (identifier.includes("@")) {
+    const requestedEmailReset = normalizedIdentifier.includes("@");
+    const deliveryChannel = requestedEmailReset ? "EMAIL" : "SMS";
+
+    if (requestedEmailReset) {
+      if (!user.email) {
+        throw new gcprError(HttpStatus.BAD_REQUEST, "This account does not have an email address. Use phone number instead.");
+      }
+
       await sendEmail(user.email, "reset", {
         otp: otpCode,
         name: user.fullName,
+        reset_link: resetLink,
+        resetLink,
       });
     } else {
+      if (!user.phoneNumber) {
+        throw new gcprError(HttpStatus.BAD_REQUEST, "This account does not have a phone number. Use email instead.");
+      }
+
       await SendSMS(
         user.phoneNumber,
-        OTPMessage({ user_name: user.fullName, OTP: otpCode }),
+        `Hello ${user.fullName || "there"}, use OTP ${otpCode} to reset your password. Reset link: ${resetLink}. This code expires in 15 minutes.`,
       );
     }
 
-    return { message: "Password reset OTP sent" };
+    return {
+      message: "Password reset instructions sent",
+      deliveryChannel,
+      expiresInMinutes: 15,
+      ...(shouldReturnPasswordResetLink() && { resetLink, otp: otpCode }),
+    };
   }
 
   static async resetPassword(identifier, otp, newPassword) {

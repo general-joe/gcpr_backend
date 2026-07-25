@@ -51,6 +51,12 @@ supportRouter.get(
   SupportController.getTicket
 );
 
+supportRouter.get(
+  "/tickets/:ticketId/messages",
+  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
+  SupportController.getTicketMessages
+);
+
 supportRouter.post(
   "/tickets/:ticketId/messages",
   authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
