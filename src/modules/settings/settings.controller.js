@@ -152,9 +152,6 @@ const PLATFORM_SETTING_DEFAULTS = {
     ],
   },
   "platform:compliance": {
-    requireConsentForDataSharing: true,
-    requireConsentForRecording: true,
-    requireConsentForPhoto: true,
     enableHipaaCompliance: true,
     dataEncryptionAtRest: true,
     dataEncryptionInTransit: true,

@@ -15,8 +15,8 @@
  *       The entire room creation (room + creator participant + invitations) is wrapped in a
  *       database transaction for atomicity — if any step fails, everything rolls back.
  *
- *       Google Meet creation is non-critical: if it fails, the room is still created with
- *       the error stored in `metadata.providerError`. The room remains fully usable.
+ *       Google Meet creation is required. If Google Meet cannot be created, the request fails
+ *       with GOOGLE_MEET_PROVISIONING_FAILED and no telehealth room is kept.
  *
  *       Invitations send exactly ONE in-app notification per user (via NotificationService).
  *       Push notifications are handled by NotificationService.createNotification internally.
@@ -112,7 +112,21 @@
  *                     joinUrl:
  *                       type: string
  *                       format: uri
- *                       nullable: true
+ *                       description: Google Meet link.
+ *                     meetingLink:
+ *                       type: string
+ *                       description: Alias of joinUrl for mobile clients.
+ *                     joinLink:
+ *                       type: string
+ *                       description: Alias of joinUrl for mobile clients.
+ *                     meetingProvider:
+ *                       type: string
+ *                       enum: [GOOGLE_MEET]
+ *                     providerStatus:
+ *                       type: string
+ *                       enum: [GOOGLE_MEET_READY, GOOGLE_MEET_NOT_READY, GOOGLE_MEET_FAILED]
+ *                     canJoin:
+ *                       type: boolean
  *                     scheduledStart:
  *                       type: string
  *                       format: date-time
@@ -143,6 +157,9 @@
  *                         providerError:
  *                           type: string
  *                           nullable: true
+ *                         providerStatus:
+ *                           type: string
+ *                           enum: [GOOGLE_MEET_READY, GOOGLE_MEET_NOT_READY, GOOGLE_MEET_FAILED]
  *                     participants:
  *                       type: array
  *                       items:

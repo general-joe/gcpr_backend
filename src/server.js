@@ -194,6 +194,29 @@ app.use((err, req, res, next) => {
   };
 
   // Known HTTP errors (your custom errors)
+  if (err?.type === 'entity.too.large' || err?.code === 'LIMIT_FILE_SIZE') {
+    const statusCode = 413;
+    WRITE.warn('Upload/request too large', {
+      ...errorContext,
+      statusCode,
+      errorCode: 'REQUEST_ENTITY_TOO_LARGE',
+    });
+
+    return res.status(statusCode).json({
+      status: 'FAILED',
+      success: false,
+      statusCode,
+      errorCode: 'REQUEST_ENTITY_TOO_LARGE',
+      message: 'The uploaded file or request body is too large',
+      details: {
+        maxFileUploadBytes: CONSTANTS.MAX_FILE_UPLOAD,
+        maxFileUploadMb: Math.floor(CONSTANTS.MAX_FILE_UPLOAD / (1024 * 1024)),
+      },
+      hint: 'Upload a smaller file or contact support if the file is below the documented limit. Server proxy limits may need to be increased.',
+      errorId,
+    });
+  }
+
   if (err instanceof gcprError) {
     const statusCode = err.status || 400;
     const errorCode = err.errorCode || errorCodeFromMessage(err.message);
