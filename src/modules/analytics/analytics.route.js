@@ -11,7 +11,7 @@ const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
 analyticsRouter.get(
   "/admin",
   limiter,
-  requireRbacRole(["ADMIN"]),
+  requireRbacRole(["ADMIN", "SUPPORT"]),
   AnalyticsController.getAdminDashboard
 );
 

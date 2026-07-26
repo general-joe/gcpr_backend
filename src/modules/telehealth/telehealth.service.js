@@ -1,5 +1,6 @@
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
+import gcprError from "../../utils/http-error.js";
 import NotificationService from "../notification/notification.service.js";
 import { SendSMS } from "../../utils/hubtel-sms.js";
 import WRITE from "../../utils/logger.js";
@@ -11,6 +12,29 @@ import {
 } from "./google-meet.service.js";
 
 class TelehealthService {
+  static formatRoomResponse(room) {
+    if (!room) return room;
+
+    const joinUrl = room.joinUrl || null;
+    const metadata = room.metadata || {};
+    const providerStatus = metadata.providerStatus || (room.externalMeetingId ? "GOOGLE_MEET_READY" : "GOOGLE_MEET_NOT_READY");
+
+    return {
+      ...room,
+      joinUrl,
+      meetingLink: joinUrl,
+      joinLink: joinUrl,
+      canJoin: Boolean(joinUrl),
+      meetingProvider: "GOOGLE_MEET",
+      providerStatus,
+      providerError: metadata.providerError || null,
+      metadata: {
+        ...metadata,
+        providerStatus,
+      },
+    };
+  }
+
   static async requireServiceProvider(userId, userType) {
     const sp = await prisma.serviceProvider.findUnique({
       where: { userId },
@@ -289,7 +313,7 @@ class TelehealthService {
           externalMeetingId: meetData.externalMeetingId,
           joinUrl: meetData.joinUrl,
           providerPayload: meetData.providerPayload,
-          metadata: { reminders, providerError: null }
+          metadata: { reminders, providerError: null, providerStatus: "GOOGLE_MEET_READY" }
         },
         include: {
           participants: {
@@ -313,7 +337,7 @@ class TelehealthService {
       // 6. Send creator a confirmation notification
       await TelehealthService.sendRoomCreatedNotification(user.id, updatedRoom, joinUrl);
 
-      return updatedRoom;
+      return TelehealthService.formatRoomResponse(updatedRoom);
     } catch (e) {
       providerError = e?.message || "Unable to provision Google Meet";
       WRITE.error("[Telehealth] Google Meet creation failed", {
@@ -326,23 +350,26 @@ class TelehealthService {
       const roomWithError = await prisma.telehealthRoom.update({
         where: { id: result.id },
         data: {
-          metadata: { reminders, providerError }
-        },
-        include: {
-          participants: {
-            include: { user: { select: { id: true, fullName: true, profileImage: true } } },
+          metadata: {
+            reminders,
+            providerError,
+            providerStatus: "GOOGLE_MEET_FAILED",
           }
-        }
+        },
+        select: { id: true }
       });
 
-      // Still try to invite users and send notification even if Google Meet failed
-      if (resolvedAttendees.length > 0) {
-        await TelehealthService.inviteUsersInTransaction(prisma, user, roomWithError, resolvedAttendees, null);
-      }
+      await prisma.telehealthRoom.delete({ where: { id: roomWithError.id } });
 
-      await TelehealthService.sendRoomCreatedNotification(user.id, roomWithError, null);
-
-      return roomWithError;
+      throw new gcprError(
+        HttpStatus.FAILED_DEPENDENCY,
+        "Google Meet could not be created. Please reconnect the provider Google account before creating a telehealth room.",
+        {
+          errorCode: "GOOGLE_MEET_PROVISIONING_FAILED",
+          details: { providerError },
+          hint: "Reconnect Google Calendar/Meet for this provider or configure a valid production Google OAuth refresh token.",
+        },
+      );
     }
 
     WRITE.info("[Telehealth] Room creation completed successfully", {
@@ -710,7 +737,7 @@ class TelehealthService {
     ]);
 
     return {
-      data: rooms,
+      data: rooms.map(TelehealthService.formatRoomResponse),
       pagination: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) }
     };
   }
@@ -741,7 +768,7 @@ class TelehealthService {
 
     const countdown = room.scheduledStart ? computeCountdown(room.scheduledStart) : null;
 
-    return { ...room, countdown };
+    return TelehealthService.formatRoomResponse({ ...room, countdown });
   }
 
   static async updateRoom(user, roomId, data) {
@@ -903,7 +930,8 @@ class TelehealthService {
 
     WRITE.info("[Telehealth] User joined room", { roomId, userId: user.id });
 
-    return { joinUrl: room.joinUrl, room };
+    const formattedRoom = TelehealthService.formatRoomResponse(room);
+    return { joinUrl: formattedRoom.joinUrl, meetingLink: formattedRoom.meetingLink, joinLink: formattedRoom.joinLink, room: formattedRoom };
   }
 
   static async getCountdown(user, roomId) {
@@ -921,7 +949,8 @@ class TelehealthService {
 
     return {
       room: { id: room.id, title: room.title, scheduledStart: room.scheduledStart, status: room.status },
-      joinUrl: room.joinUrl,
+      joinUrl: TelehealthService.formatRoomResponse(room).joinUrl,
+      meetingLink: TelehealthService.formatRoomResponse(room).meetingLink,
       countdown
     };
   }
