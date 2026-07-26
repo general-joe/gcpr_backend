@@ -4,7 +4,19 @@ import HttpStatus from "../../utils/http-status.js";
 export default class RbacService {
   // ─── Roles ────────────────────────────────────────────────────────────────
 
-  static async listRoles() {
+  static async listRoles({ lite = false } = {}) {
+    if (lite) {
+      return prisma.appRole.findMany({
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          description: true,
+        },
+        orderBy: { name: "asc" },
+      });
+    }
+
     return prisma.appRole.findMany({
       include: {
         rolePermissions: {
@@ -178,22 +190,31 @@ export default class RbacService {
   }
 
   /**
-   * Get roles for multiple users in a single query. Returns an object
-   * mapping userId -> array of userRole records (same shape as getUserRoles).
+   * Get roles for multiple users in a single lightweight query. Returns an
+   * object mapping userId -> array of assignment records used by admin screens.
    */
   static async getUsersRoles(userIds = []) {
     if (!Array.isArray(userIds) || userIds.length === 0) return {};
     const userRoles = await prisma.userRole.findMany({
       where: { userId: { in: userIds }, active: true },
-      include: {
+      select: {
+        id: true,
+        userId: true,
+        roleId: true,
+        scopeType: true,
+        scopeId: true,
+        grantedAt: true,
+        expiresAt: true,
+        active: true,
         role: {
-          include: {
-            rolePermissions: {
-              include: { permission: { select: { id: true, code: true, name: true } } }
-            }
-          }
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+          },
         }
-      }
+      },
+      orderBy: { grantedAt: "desc" },
     });
 
     const map = {};

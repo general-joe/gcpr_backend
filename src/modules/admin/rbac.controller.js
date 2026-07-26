@@ -5,7 +5,7 @@ import RbacService from "./rbac.service.js";
 export default class RbacController {
   // Roles
   static listRoles = catchAsync(async (req, res) => {
-    const result = await RbacService.listRoles();
+    const result = await RbacService.listRoles({ lite: req.query.lite === "true" });
     UtilFunctions.outputSuccess(res, result, "Roles retrieved successfully");
   });
 
@@ -78,7 +78,7 @@ export default class RbacController {
     if (!userIds) {
       return UtilFunctions.outputError(res, "userIds query param is required", {}, "VALIDATION_ERROR", 400);
     }
-    const ids = String(userIds).split(",").map(s => s.trim()).filter(Boolean);
+    const ids = [...new Set(String(userIds).split(",").map(s => s.trim()).filter(Boolean))];
     const result = await RbacService.getUsersRoles(ids);
     UtilFunctions.outputSuccess(res, result, "User roles retrieved successfully");
   });

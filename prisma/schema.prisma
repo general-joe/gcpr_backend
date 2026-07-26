@@ -697,6 +697,7 @@ model TelehealthRoom {
   transcripts           TelehealthTranscript[]
 
   @@index([organizationId, status, scheduledStart])
+  @@index([status, scheduledStart, deletedAt])
   @@index([externalMeetingId])
   @@index([creatorUserId])
   @@map("TelehealthRoom")
