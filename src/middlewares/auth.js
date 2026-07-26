@@ -129,15 +129,17 @@ export function authorize(allowedUserTypes = []) {
         );
       }
 
-      // Always allow users with the ADMIN RBAC role (case-insensitive)
-      const isAdmin = await prisma.userRole.findFirst({
-        where: {
-          userId: decoded.id,
-          active: true,
-          role: { slug: "ADMIN" },
-          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-        },
-      });
+      let isAdmin = false;
+      if (!allowedUserTypes.includes(decoded.userType)) {
+        isAdmin = Boolean(await prisma.userRole.findFirst({
+          where: {
+            userId: decoded.id,
+            active: true,
+            role: { slug: "ADMIN" },
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+          },
+        }));
+      }
       if (!allowedUserTypes.includes(decoded.userType) && !isAdmin) {
         WRITE.warn("Insufficient user type", {
           userId: decoded.id,
@@ -275,20 +277,11 @@ export function authorizeOrRbacRole(
         );
       }
 
-      // Always allow users with the ADMIN RBAC role (case-insensitive)
-      const isAdmin = await prisma.userRole.findFirst({
-        where: {
-          userId: decoded.id,
-          active: true,
-          role: { slug: "ADMIN" },
-          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-        },
-      });
-if (
-         allowedUserTypes.includes(decoded.userType) ||
-         (await hasRbacRole(decoded.id, allowedRoleSlugs)) ||
-         isAdmin
-       ) {
+      const hasAllowedUserType = allowedUserTypes.includes(decoded.userType);
+      const hasAllowedRole = hasAllowedUserType ? false : await hasRbacRole(decoded.id, allowedRoleSlugs);
+      const isAdmin = hasAllowedUserType || hasAllowedRole ? false : await hasRbacRole(decoded.id, ["ADMIN"]);
+
+      if (hasAllowedUserType || hasAllowedRole || isAdmin) {
          // Fetch service provider ID if user is a service provider
          let serviceProviderId = null;
          if (decoded.userType === 'SERVICE_PROVIDER') {

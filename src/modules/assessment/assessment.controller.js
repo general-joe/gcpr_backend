@@ -108,6 +108,12 @@ class AssessmentController {
     UtilFunctions.outputSuccess(res, result, "Assigned rehab tasks retrieved successfully");
   });
 
+  static getRehabTask = catchAsync(async (req, res) => {
+    const user = res.locals.user;
+    const result = await AssessmentService.getRehabTask(user, req.params.taskId);
+    UtilFunctions.outputSuccess(res, result, "Rehab task retrieved successfully");
+  });
+
   static getReferralRecommendations = catchAsync(async (req, res) => {
     const user = res.locals.user;
     const { assessmentId } = req.params;
