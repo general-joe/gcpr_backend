@@ -48,7 +48,8 @@ class SignatureController {
     try {
       const { userId } = req.params;
       const requesterId = res.locals.user.id;
-      if (requesterId !== userId && !(res.locals.user.roles || []).includes("ADMIN")) {
+      const roles = (res.locals.user.roles || []).map((role) => String(role).toUpperCase());
+      if (requesterId !== userId && !roles.includes("ADMIN")) {
         return UtilFunctions.outputError(res, "Forbidden", {}, "FORBIDDEN", 403);
       }
 

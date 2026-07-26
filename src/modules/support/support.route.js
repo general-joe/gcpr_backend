@@ -75,21 +75,21 @@ supportRouter.patch(
 adminSupportRouter.get(
   "/tickets",
   adminSupportLimiter,
-  requireRbacRole(["ADMIN"]),
+  requireRbacRole(["ADMIN", "SUPPORT"]),
   SupportController.adminListTickets
 );
 
 adminSupportRouter.get(
   "/tickets/:ticketId",
   adminSupportLimiter,
-  requireRbacRole(["ADMIN"]),
+  requireRbacRole(["ADMIN", "SUPPORT"]),
   SupportController.adminGetTicket
 );
 
 adminSupportRouter.patch(
   "/tickets/:ticketId",
   adminSupportLimiter,
-  requireRbacRole(["ADMIN"]),
+  requireRbacRole(["ADMIN", "SUPPORT"]),
   validate(adminUpdateTicketSchema),
   SupportController.adminUpdateTicket
 );
@@ -97,7 +97,7 @@ adminSupportRouter.patch(
 adminSupportRouter.post(
   "/tickets/:ticketId/messages",
   adminSupportLimiter,
-  requireRbacRole(["ADMIN"]),
+  requireRbacRole(["ADMIN", "SUPPORT"]),
   messageLimiter,
   validate(addMessageSchema),
   SupportController.adminAddMessage
