@@ -1,4 +1,5 @@
 import prisma from "../config/database.js";
+import WRITE from "./logger.js";
 
 const FAQ_SEED_DATA = [
   {
@@ -166,14 +167,13 @@ const FAQ_SEED_DATA = [
 
 export async function seedFaqs() {
   try {
-    if (process.env.FAQ_AUTO_SEED === "false") {
-      WRITE.info("[FAQ Seed] Skipped because FAQ_AUTO_SEED=false");
+    if (process.env.FAQ_AUTO_SEED !== "true") {
+      WRITE.info("[FAQ Seed] Skipped. Set FAQ_AUTO_SEED=true to seed FAQs on startup.");
       return;
     }
 
     const existingFaq = await prisma.faq.findFirst({
       select: { id: true },
-      orderBy: { id: "asc" },
     });
 
     if (existingFaq) {

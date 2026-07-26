@@ -244,7 +244,7 @@ export default class SupportService {
       prisma.supportTicket.findMany({
         where,
         include: {
-          user: { select: { id: true, fullName: true, email: true, role: true } }
+          user: { select: { id: true, fullName: true, email: true, userType: true } }
         },
         orderBy: { createdAt: "desc" },
         skip,
@@ -262,7 +262,7 @@ export default class SupportService {
     const ticket = await prisma.supportTicket.findUnique({
       where: { id: ticketId },
       include: {
-        user: { select: { id: true, fullName: true, email: true, role: true, phoneNumber: true } },
+        user: { select: { id: true, fullName: true, email: true, userType: true, phoneNumber: true } },
         messages: {
           orderBy: { createdAt: "asc" },
           include: {

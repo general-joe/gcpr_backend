@@ -102,4 +102,10 @@ assessmentRouter.get(
   AssessmentController.getMyAssignedTasks,
 );
 
+assessmentRouter.get(
+  "/tasks/:taskId",
+  assessmentAuth,
+  AssessmentController.getRehabTask,
+);
+
 export default assessmentRouter;

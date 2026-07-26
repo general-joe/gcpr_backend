@@ -1049,8 +1049,7 @@ class AssessmentService {
   }
 
   static async updateReferralStatus(user, referralId, status) {
-    const serviceProvider =
-      await AssessmentService.requireServiceProvider(user);
+    const isAdminLike = await isAdminLikeUser(user, ["ADMIN", "TESTER"]);
 
     const referral = await prisma.clinicalReferral.findUnique({
       where: { id: referralId },
@@ -1060,47 +1059,23 @@ class AssessmentService {
       throw new gcprError(HttpStatus.NOT_FOUND, "Referral not found");
     }
 
-    const isAdminLike = await isAdminLikeUser(user, ["ADMIN", "TESTER"]);
+    if (!isAdminLike) {
+      const serviceProvider =
+        await AssessmentService.requireServiceProvider(user);
 
-    let resolvedProviderId = serviceProvider.id;
-    if (isAdminLike) {
-      let realProvider = serviceProvider;
-      if (!realProvider || typeof realProvider.id !== 'string' || realProvider.id === user.id) {
-        realProvider = await prisma.serviceProvider.findUnique({
-          where: { userId: user.id },
-          select: { id: true },
-        });
-      }
+      const isTargetProvider =
+        referral.toProviderId === serviceProvider.id ||
+        (referral.toProviderId === null &&
+          referral.toProfession === serviceProvider.profession);
 
-      if (!realProvider) {
-        realProvider = await prisma.serviceProvider.findFirst({
-          orderBy: { createdAt: 'asc' },
-          select: { id: true },
-        });
-      }
+      const isSenderProvider = referral.fromProviderId === serviceProvider.id;
 
-      if (!realProvider) {
+      if (!isTargetProvider && !isSenderProvider) {
         throw new gcprError(
           HttpStatus.FORBIDDEN,
-          "No service provider profile is available to update this referral.",
+          "Only the target provider or referring provider can update this referral",
         );
       }
-
-      resolvedProviderId = realProvider.id;
-    }
-
-    const isTargetProvider =
-      referral.toProviderId === resolvedProviderId ||
-      (referral.toProviderId === null &&
-        referral.toProfession === serviceProvider.profession);
-
-    const isSenderProvider = referral.fromProviderId === resolvedProviderId;
-
-    if (!isTargetProvider && !isSenderProvider) {
-      throw new gcprError(
-        HttpStatus.FORBIDDEN,
-        "Only the target provider or referring provider can update this referral",
-      );
     }
 
     if (status === 'DECLINED' || status === 'EXPIRED') {
@@ -1119,9 +1094,10 @@ class AssessmentService {
   }
 
   static async createRehabTaskFromReferral(user, referralId, data) {
-    const serviceProvider =
-      await AssessmentService.requireVerifiedServiceProvider(user);
     const isAdminLike = await isAdminLikeUser(user, ["ADMIN", "TESTER"]);
+    const serviceProvider = isAdminLike
+      ? await AssessmentService.requireServiceProvider(user)
+      : await AssessmentService.requireVerifiedServiceProvider(user);
 
     let resolvedProviderId = serviceProvider.id;
     if (isAdminLike && (!serviceProvider.id || serviceProvider.id === user.id)) {
@@ -1241,7 +1217,7 @@ class AssessmentService {
     const task = await prisma.rehabTask.create({
       data: {
         patientId: referral.patientId,
-        providerId: serviceProvider.id,
+        providerId: resolvedProviderId,
         referralId: referral.id,
         carePlanId: carePlan.id,
         title: data.title,
@@ -1342,11 +1318,13 @@ class AssessmentService {
   }
 
   static async getMyAssignedTasks(user) {
-    const serviceProvider =
-      await AssessmentService.requireServiceProvider(user);
+    const isAdminLike = await isAdminLikeUser(user, ["ADMIN", "TESTER"]);
+    const serviceProvider = isAdminLike
+      ? null
+      : await AssessmentService.requireServiceProvider(user);
 
     const tasks = await prisma.rehabTask.findMany({
-      where: { providerId: serviceProvider.id },
+      where: isAdminLike ? {} : { providerId: serviceProvider.id },
       include: {
         patient: {
           select: { id: true, fullName: true },
@@ -1365,6 +1343,70 @@ class AssessmentService {
       total: tasks.length,
       tasks,
     };
+  }
+
+  static async getRehabTask(user, taskId) {
+    const isAdminLike = await isAdminLikeUser(user, ["ADMIN", "TESTER"]);
+    const serviceProvider = isAdminLike
+      ? null
+      : await AssessmentService.requireServiceProvider(user);
+
+    const task = await prisma.rehabTask.findUnique({
+      where: { id: taskId },
+      include: {
+        patient: true,
+        provider: {
+          include: {
+            user: { select: { id: true, fullName: true, email: true, phoneNumber: true, userType: true } },
+          },
+        },
+        referral: {
+          include: {
+            fromProvider: { include: { user: { select: { id: true, fullName: true, email: true } } } },
+            toProvider: { include: { user: { select: { id: true, fullName: true, email: true } } } },
+            patient: { select: { id: true, fullName: true } },
+            relatedAssessment: { select: { id: true, toolCode: true, status: true, assessedAt: true } },
+          },
+        },
+        carePlan: {
+          include: {
+            patient: { select: { id: true, fullName: true } },
+            primaryProvider: { include: { user: { select: { id: true, fullName: true, email: true } } } },
+            assessment: { select: { id: true, toolCode: true, status: true, assessedAt: true } },
+            signatures: {
+              include: { signer: { select: { id: true, fullName: true, email: true, userType: true } } },
+              orderBy: { signedAt: "desc" },
+            },
+          },
+        },
+        adherenceLogs: {
+          orderBy: { logDate: "asc" },
+          take: 120,
+        },
+        participationLogs: {
+          orderBy: { participatedOn: "desc" },
+          take: 30,
+        },
+      },
+    });
+
+    if (!task) {
+      throw new gcprError(HttpStatus.NOT_FOUND, "Rehab task not found");
+    }
+
+    if (!isAdminLike && task.providerId !== serviceProvider.id) {
+      const referralAllowsAccess = task.referral && (
+        task.referral.fromProviderId === serviceProvider.id ||
+        task.referral.toProviderId === serviceProvider.id ||
+        (task.referral.toProviderId === null && task.referral.toProfession === serviceProvider.profession)
+      );
+
+      if (!referralAllowsAccess) {
+        throw new gcprError(HttpStatus.FORBIDDEN, "Access to rehab task denied");
+      }
+    }
+
+    return task;
   }
 
   static async updateAssessmentStatus(user, assessmentId, status, comment) {
