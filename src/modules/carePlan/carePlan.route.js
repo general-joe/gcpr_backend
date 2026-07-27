@@ -3,8 +3,7 @@ import {
   getCarePlan,
   listCarePlans,
   generateCarePlan,
-  updateCarePlanStatus,
-  updateCarePlanContent,
+  updateCarePlan,
 } from "./carePlan.controller.js";
 import { authorize } from "../../middlewares/auth.js";
 
@@ -29,15 +28,9 @@ router.get(
 );
 
 router.patch(
-  "/:carePlanId/status",
+  "/:carePlanId",
   authorize(["SERVICE_PROVIDER", "ADMIN"]),
-  updateCarePlanStatus,
-);
-
-router.patch(
-  "/:carePlanId/content",
-  authorize(["SERVICE_PROVIDER", "ADMIN"]),
-  updateCarePlanContent,
+  updateCarePlan,
 );
 
 export default router;

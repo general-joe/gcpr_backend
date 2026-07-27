@@ -217,6 +217,15 @@ const BUILT_IN_GAMES = [
   })),
 ];
 
+const VALID_PARTICIPATION_OUTCOMES = new Set([
+  "COMPLETED",
+  "PARTIAL",
+  "SKIPPED",
+  "INTERRUPTED",
+  "REFUSED",
+  "CANCELLED",
+]);
+
 function extractYoutubeVideoId(url) {
   if (!url) return null;
   // Handle youtu.be/ID
@@ -416,6 +425,14 @@ class GameService {
     const { patientId, participatedOn, durationMinutes, outcome, metrics, note } = data;
     if (!patientId) throw new gcprError(HttpStatus.BAD_REQUEST, "patientId is required");
 
+    const normalizedOutcome = outcome ? String(outcome).trim().toUpperCase() : null;
+    if (normalizedOutcome && !VALID_PARTICIPATION_OUTCOMES.has(normalizedOutcome)) {
+      throw new gcprError(
+        HttpStatus.BAD_REQUEST,
+        `outcome must be one of: ${[...VALID_PARTICIPATION_OUTCOMES].join(", ")}`,
+      );
+    }
+
     await assertPatientAccess(user, patientId);
     const game = await GameService.getGameById(user, gameId);
     let provider = await getServiceProviderForUser(user.id);
@@ -447,7 +464,7 @@ class GameService {
         activityCategory: "GAME_PLAY",
         participatedOn: normalizeDate(participatedOn),
         durationMinutes: normalizeDuration(durationMinutes),
-        outcome: outcome || null,
+        outcome: normalizedOutcome,
         metadata: {
           type: "GAME_PLAY",
           gameId,

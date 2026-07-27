@@ -1,6 +1,6 @@
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
-import WRITE from "../../utils/logger.js";
+import gcprError from "../../utils/http-error.js";
 import NotificationService from "../../modules/notification/notification.service.js";
 import auditService from "../audit/audit.service.js";
 import {
@@ -9,6 +9,8 @@ import {
 } from "./clinicalAccess.service.js";
 
 class CarePlanService {
+  static VALID_STATUSES = new Set(["ACTIVE", "COMPLETED", "SUPERSEDED"]);
+
   static async generateFromAssessment(user, assessmentId) {
     const assessment = await prisma.clinicalAssessment.findUnique({
       where: { id: assessmentId },
@@ -152,7 +154,7 @@ class CarePlanService {
     });
   }
 
-  static async updateCarePlanStatus(user, carePlanId, status) {
+  static async updateCarePlan(user, carePlanId, { status, goals, interventions, reviewDate }) {
     const carePlan = await prisma.carePlan.findUnique({
       where: { id: carePlanId },
       include: {
@@ -164,39 +166,33 @@ class CarePlanService {
       throw new Error("Care plan not found");
     }
 
-    return prisma.carePlan.update({
-      where: { id: carePlanId },
-      data: { status },
-      include: {
-        patient: true,
-        primaryProvider: {
-          include: {
-            user: true,
-          },
-        },
-        rehabTasks: {
-          orderBy: { createdAt: "desc" },
-        },
-      },
-    });
-  }
+    const updateData = {};
+    if (status !== undefined) {
+      if (!CarePlanService.VALID_STATUSES.has(status)) {
+        throw new gcprError(HttpStatus.BAD_REQUEST, "Invalid care plan status");
+      }
+      updateData.status = status;
+    }
+    if (goals !== undefined) updateData.goals = goals;
+    if (interventions !== undefined) updateData.interventions = interventions;
+    if (reviewDate !== undefined) {
+      const parsedReviewDate = new Date(reviewDate);
+      if (Number.isNaN(parsedReviewDate.getTime())) {
+        throw new gcprError(HttpStatus.BAD_REQUEST, "Invalid reviewDate value");
+      }
+      updateData.reviewDate = parsedReviewDate;
+    }
 
-  static async updateCarePlanContent(user, carePlanId, { goals, interventions, reviewDate }) {
-    const carePlan = await prisma.carePlan.findUnique({
-      where: { id: carePlanId },
-    });
-
-    if (!carePlan) {
-      throw new Error("Care plan not found");
+    if (Object.keys(updateData).length === 0) {
+      throw new gcprError(
+        HttpStatus.BAD_REQUEST,
+        "Provide at least one care plan field to update",
+      );
     }
 
     return prisma.carePlan.update({
       where: { id: carePlanId },
-      data: {
-        goals: goals ?? carePlan.goals,
-        interventions: interventions ?? carePlan.interventions,
-        reviewDate: reviewDate ?? carePlan.reviewDate,
-      },
+      data: updateData,
       include: {
         patient: true,
         primaryProvider: {
