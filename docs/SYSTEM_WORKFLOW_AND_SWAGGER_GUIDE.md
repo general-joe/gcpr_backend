@@ -603,14 +603,13 @@ Main endpoints:
 - `POST /care-plan/generate/{assessmentId}`
 - `GET /care-plan?patientId={patientId}`
 - `GET /care-plan/list?patientId={patientId}`
-- `PATCH /care-plan/{carePlanId}/status`
-- `PATCH /care-plan/{carePlanId}/content`
+- `PATCH /care-plan/{carePlanId}`
 
 Who does what:
 
 - Provider/admin generates care plan from approved assessment.
 - Caregiver views active care plan read-only.
-- Provider/admin updates goals, interventions, status, and review date.
+- Provider/admin updates status, goals, interventions, and review date through one PATCH endpoint.
 
 Important:
 
