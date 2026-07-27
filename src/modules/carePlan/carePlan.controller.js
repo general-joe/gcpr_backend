@@ -1,6 +1,5 @@
 import CarePlanService from "../../services/clinical/carePlan.service.js";
 import HttpStatus from "../../utils/http-status.js";
-import { hasRbacRole } from "../../middlewares/auth.js";
 import catchAsync from "../../middlewares/catchAsync.js";
 
 const getCarePlan = catchAsync(async (req, res) => {
@@ -29,22 +28,13 @@ const generateCarePlan = catchAsync(async (req, res) => {
   return res.status(HttpStatus.CREATED).json({ status: HttpStatus.CREATED, data: carePlan });
 });
 
-const updateCarePlanStatus = catchAsync(async (req, res) => {
-  const { carePlanId } = req.params;
-  const { status } = req.body;
-
-  const carePlan = await CarePlanService.updateCarePlanStatus(res.locals.user, carePlanId, status);
-
-  return res.status(HttpStatus.OK).json({ status: HttpStatus.OK, data: carePlan });
-});
-
-const updateCarePlanContent = catchAsync(async (req, res) => {
+const updateCarePlan = catchAsync(async (req, res) => {
   const { carePlanId } = req.params;
   const payload = req.body;
 
-  const carePlan = await CarePlanService.updateCarePlanContent(res.locals.user, carePlanId, payload);
+  const carePlan = await CarePlanService.updateCarePlan(res.locals.user, carePlanId, payload);
 
   return res.status(HttpStatus.OK).json({ status: HttpStatus.OK, data: carePlan });
 });
 
-export { getCarePlan, listCarePlans, generateCarePlan, updateCarePlanStatus, updateCarePlanContent };
+export { getCarePlan, listCarePlans, generateCarePlan, updateCarePlan };
