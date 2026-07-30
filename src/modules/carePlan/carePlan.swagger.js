@@ -134,6 +134,7 @@
  *       and notifies the caregiver. Only service providers/admins can generate care plans.
  *
  *       Linkage: ClinicalAssessment.id -> CarePlan.assessmentId -> RehabTask.carePlanId.
+ *       Notification: creates an in-app notification for the patient caregiver's user account when the patient is linked to a caregiver user. Push delivery also requires the caregiver device to register a push token through Notification endpoints.
  *     parameters:
  *       - in: path
  *         name: assessmentId
