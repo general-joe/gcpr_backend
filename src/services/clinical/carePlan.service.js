@@ -1,6 +1,7 @@
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
 import gcprError from "../../utils/http-error.js";
+import WRITE from "../../utils/logger.js";
 import NotificationService from "../../modules/notification/notification.service.js";
 import auditService from "../audit/audit.service.js";
 import {
@@ -26,8 +27,8 @@ class CarePlanService {
       throw new Error("Assessment not found");
     }
 
-    if (assessment.status !== "APPROVED") {
-      throw new Error("Only approved assessments can generate care plans");
+    if (!["APPROVED", "COMPLETED"].includes(assessment.status)) {
+      throw new Error("Only completed or approved assessments can generate care plans");
     }
 
     const existingActive = await prisma.carePlan.findFirst({
@@ -38,7 +39,23 @@ class CarePlanService {
     });
 
     if (existingActive) {
-      throw new Error("Active care plan already exists for this patient");
+      return prisma.carePlan.findUnique({
+        where: { id: existingActive.id },
+        include: {
+          patient: true,
+          primaryProvider: {
+            include: { user: true },
+          },
+          assessment: true,
+          signatures: {
+            include: { signer: true },
+            orderBy: { signedAt: "desc" },
+          },
+          rehabTasks: {
+            orderBy: { createdAt: "desc" },
+          },
+        },
+      });
     }
 
     const primaryProviderId = assessment.providerId;
@@ -57,21 +74,51 @@ class CarePlanService {
       },
       include: {
         patient: true,
-        primaryProvider: true,
+        primaryProvider: {
+          include: { user: true },
+        },
         assessment: true,
+        signatures: {
+          include: { signer: true },
+          orderBy: { signedAt: "desc" },
+        },
+        rehabTasks: {
+          orderBy: { createdAt: "desc" },
+        },
       },
     });
 
-    const caregiverUserId = await getPatientCaregiverUserId(assessment.patientId);
-    if (caregiverUserId) {
-      await NotificationService.createNotification({
-        userId: caregiverUserId,
-        type: "IN_APP",
-        category: "SYSTEM",
-        title: "Care plan generated",
-        content: `Care plan created from assessment ${assessment.id.slice(0, 8)}`,
-        relatedId: carePlan.id,
-        relatedModel: "CarePlan",
+    try {
+      const caregiverUserId = await getPatientCaregiverUserId(assessment.patientId);
+      if (caregiverUserId) {
+        const notification = await NotificationService.createNotification({
+          userId: caregiverUserId,
+          type: "IN_APP",
+          category: "SYSTEM",
+          title: "Care plan generated",
+          content: `A new care plan has been created for ${assessment.patient.fullName}.`,
+          relatedId: carePlan.id,
+          relatedModel: "CarePlan",
+          expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        });
+
+        WRITE.info("[CarePlan] Caregiver notification created", {
+          carePlanId: carePlan.id,
+          patientId: assessment.patientId,
+          caregiverUserId,
+          notificationId: notification.id,
+        });
+      } else {
+        WRITE.warn("[CarePlan] Caregiver notification skipped because patient has no caregiver user", {
+          carePlanId: carePlan.id,
+          patientId: assessment.patientId,
+        });
+      }
+    } catch (error) {
+      WRITE.error("[CarePlan] Caregiver notification failed", {
+        carePlanId: carePlan.id,
+        patientId: assessment.patientId,
+        error: error.message,
       });
     }
 

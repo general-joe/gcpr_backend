@@ -615,7 +615,7 @@ Important:
 
 - Assessment must be `APPROVED` before generating care plan.
 - Active plan uses latest report recommendations as initial goals/interventions.
-- Caregiver is notified.
+- Caregiver receives an in-app notification when the patient is linked to a caregiver user. Push delivery also requires an active device token registered through `POST /notification/push-token`.
 - Reads are audit logged.
 
 ---
@@ -868,7 +868,7 @@ Purpose:
 - Protected profile/license/audio file access.
 - User account/profile utilities.
 - Video/resource utility operations.
-- Game content management, assignment, participation logging, and improvement tracking.
+- Built-in Cboard/CPC activity catalog, assignment, participation logging, and improvement tracking.
 
 Important:
 
@@ -877,8 +877,8 @@ Important:
 
 Game, Cboard, and Cerebral Palsy Center workflow:
 
-- Providers can upload or link games with `POST /game`, then publish them for caregiver use.
-- Clients should use `GET /game/selectable` when showing a picker. It includes published game resources plus built-in external options.
+- Providers cannot upload, create, publish, or delete games through the current public API.
+- Clients should use `GET /game/selectable` when showing a picker. It returns the built-in Cboard and Cerebral Palsy Center activities only.
 - Mobile apps should render the selected game's `embedUrl` or `metadata.launchUrl` inside an in-app WebView screen. Do not redirect the user to the external browser unless the WebView fails or the user explicitly chooses to open externally.
 - Built-in games return `metadata.launchMode: IN_APP_WEBVIEW` and `metadata.shouldOpenExternally: false` to make the mobile behavior explicit.
 - Cboard is treated as a selectable external AAC activity, not a deep API integration. Launch URL: `https://app.cboard.io/`; website: `https://www.cboard.io/en/`.
