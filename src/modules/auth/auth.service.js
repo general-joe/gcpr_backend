@@ -84,10 +84,15 @@ class AuthService {
       hasPhone: Boolean(userData.phoneNumber),
       otpChannel: userData.otpChannel,
     });
-    userData.userType =userData.role;
+
+    const normalizedUserType = userData.role ?? userData.userType;
+    if (normalizedUserType) {
+      userData.userType = normalizedUserType;
+    }
     delete userData.role;
-    const acceptedTerms = userData.acceptedTerms === true;
-    const acceptedPrivacyPolicy = userData.acceptedPrivacyPolicy === true;
+
+    const acceptedTerms = userData.acceptedTerms !== false;
+    const acceptedPrivacyPolicy = userData.acceptedPrivacyPolicy !== false;
     if (!acceptedTerms || !acceptedPrivacyPolicy) {
       throw new gcprError(
         HttpStatus.BAD_REQUEST,
