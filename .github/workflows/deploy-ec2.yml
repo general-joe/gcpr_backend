@@ -1,0 +1,78 @@
+name: Deploy Backend to AWS EC2
+
+on:
+  push:
+    branches:
+      - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy GCPR Backend to EC2
+
+    steps:
+      - name: Deploy to AWS EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.EC2_SSH_PORT }}
+          timeout: 30s
+          command_timeout: 15m
+
+          script: |
+            set -e
+
+            echo "========================================"
+            echo "GCPR Backend EC2 Deployment"
+            echo "========================================"
+
+            export NVM_DIR="$HOME/.nvm"
+
+            if [ -s "$NVM_DIR/nvm.sh" ]; then
+              . "$NVM_DIR/nvm.sh"
+            fi
+
+            export PATH="$HOME/.local/share/pnpm:$HOME/.local/bin:$PATH"
+
+            cd "$HOME/gcpr_backend"
+
+            echo "Node:"
+            node -v
+
+            echo "PNPM:"
+            pnpm -v
+
+            echo "PM2:"
+            pm2 -v
+
+            echo "Pulling latest production code..."
+
+            git fetch origin production
+            git checkout production
+            git reset --hard origin/production
+
+            echo "Installing dependencies..."
+
+            pnpm install --frozen-lockfile
+
+            echo "Running database migrations..."
+
+            pnpm run migrate:deploy
+
+            echo "Restarting backend..."
+
+            pm2 restart gcpr-backend --update-env
+
+            echo "Checking PM2..."
+
+            pm2 status
+
+            echo "Testing backend..."
+
+            curl -f http://127.0.0.1:3001 || exit 1
+
+            echo "========================================"
+            echo "Backend deployment successful!"
+            echo "========================================"
