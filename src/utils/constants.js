@@ -3,7 +3,7 @@ dotenv.config();
 
 export default {
   LOG_LEVEL: "debug",
-  MAX_FILE_UPLOAD: 51000000,
+  MAX_FILE_UPLOAD: parseInt(process.env.MAX_FILE_UPLOAD) || 1073741824, // 1GB default
   BUCKET: "files",
   BUS_DOC_BUCKET: "business-docs",
   VERIFY_BUCKET: "verifications",

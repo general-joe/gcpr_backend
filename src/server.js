@@ -150,8 +150,9 @@ app.use(cors({
 }))
 
 
-app.use(express.json({ limit: '50mb' }))
-app.use(express.urlencoded({ limit: '50mb', extended: true }))
+const expressBodyLimit = Math.floor(CONSTANTS.MAX_FILE_UPLOAD / (1024 * 1024)) + 'mb';
+app.use(express.json({ limit: expressBodyLimit }))
+app.use(express.urlencoded({ limit: expressBodyLimit, extended: true }))
 app.use(cookieParser())
 app.use(morgan("dev", { stream: morganStream }));
 app.use(auditRequest());
