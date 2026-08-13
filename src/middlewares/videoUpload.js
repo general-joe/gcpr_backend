@@ -14,7 +14,7 @@ const fileFilter = (req, file, cb) => {
 const videoUpload = multer({
     storage,
     limits: {
-        fileSize: 100 * 1024 * 1024 // example: 100MB
+        fileSize: CONSTANTS.MAX_FILE_UPLOAD
     },
     fileFilter
 })

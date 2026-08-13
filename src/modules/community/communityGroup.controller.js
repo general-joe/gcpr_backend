@@ -169,7 +169,7 @@ class CommunityGroupController {
     const message = await CommunityGroupService.sendMessage(
       groupId,
       userId,
-      req.body
+      req.validatedData
     );
 
     return UtilFunctions.outputSuccess(res, message, "Message sent successfully", 201);
