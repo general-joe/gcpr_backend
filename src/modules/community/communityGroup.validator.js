@@ -60,9 +60,10 @@ export const sendMessageSchema = z.object({
     .enum(["TEXT", "IMAGE", "VIDEO", "AUDIO", "DOCUMENT", "LOCATION"])
     .optional()
     .default("TEXT"),
-  mediaUrl: z.string().url("Invalid media URL").optional().default(""),
+  mediaUrl: z.string().url("Invalid media URL").optional(),
   metadata: z.record(z.any()).optional(),
-  replyToId: z.string().uuid("Invalid reply message ID").optional().default(""),
+  replyToId: z.string().uuid("Invalid reply message ID").optional(),
+  caption: z.string().max(5000, "Caption cannot exceed 5000 characters").optional(),
 });
 
 export const groupIdParamSchema = z.object({
