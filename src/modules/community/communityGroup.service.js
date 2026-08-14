@@ -3,10 +3,9 @@ import HttpStatus from "../../utils/http-status.js";
 import UtilFunctions from "../../utils/UtilFunctions.js";
 import UploadService from "../../utils/uploadService.js";
 import constants from "../../utils/constants.js";
+import WRITE from "../../utils/logger.js";
 import { getIO } from "../../socket.io.js";
 import NotificationService from "../notification/notification.service.js";
-
-const WRITE = global.WRITE;
 
 class CommunityGroupService {
   /**

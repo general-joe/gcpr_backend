@@ -264,15 +264,26 @@ export default class NotificationService {
 
   static async createCommunityMessageNotification(message) {
     // Community messages use push notifications only, not in-app
-    const members = await prisma.communityMember.findMany({
-      where: {
-        communityId: message.group ? undefined : message.communityId,
-        ...(message.group && { groupId: message.groupId }),
-        userId: { not: message.senderId },
-        status: "ACTIVE",
-      },
-      select: { userId: true },
-    });
+    let members;
+
+    if (message.group) {
+      members = await prisma.communityGroupMember.findMany({
+        where: {
+          groupId: message.groupId,
+          userId: { not: message.senderId },
+        },
+        select: { userId: true },
+      });
+    } else {
+      members = await prisma.communityMember.findMany({
+        where: {
+          communityId: message.communityId,
+          userId: { not: message.senderId },
+          status: "ACTIVE",
+        },
+        select: { userId: true },
+      });
+    }
 
     const truncatedContent = message.content
       ? message.content.length > 50
