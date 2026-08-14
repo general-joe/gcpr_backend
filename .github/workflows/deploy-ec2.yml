@@ -1,61 +1,65 @@
-      name: Deploy backend to EC2
+name: Deploy Backend to EC2
 
-      on:
-        workflow_dispatch:
+on:
+  push:
+    branches:
+      - production
+  workflow_dispatch:
 
-      jobs:
-        deploy:
-          runs-on: ubuntu-latest
-          steps:
-            - name: Deploy backend to EC2
-              uses: appleboy/ssh-action@v1.0.3
-              with:
-                host: ${{ secrets.EC2_HOST }}
-                username: ubuntu
-                key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-                port: 22
-                timeout: 60s
-                command_timeout: 15m
-                script: |
-                  set -e
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
 
-                  export NVM_DIR="$HOME/.nvm"
-                  [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+    steps:
+      - name: Deploy backend to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          port: 22
+          timeout: 60s
+          command_timeout: 15m
+          script: |
+            set -e
 
-                  export PATH="$HOME/.local/share/pnpm:$PATH"
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
-                  cd /home/ubuntu/gcpr_backend
+            export PATH="$HOME/.local/share/pnpm:$PATH"
 
-                  echo "Node:"
-                  node -v
+            cd /home/ubuntu/gcpr_backend
 
-                  echo "PNPM:"
-                  pnpm -v
+            echo "Node:"
+            node -v
 
-                  echo "PM2:"
-                  pm2 -v
+            echo "PNPM:"
+            pnpm -v
 
-                  echo "Disk before deployment:"
-                  df -h /
+            echo "PM2:"
+            pm2 -v
 
-                  echo "Updating backend..."
-                  git fetch origin production
-                  git checkout production
-                  git reset --hard origin/production
+            echo "Disk before deployment:"
+            df -h /
 
-                  echo "Installing dependencies..."
-                  pnpm install --frozen-lockfile
+            echo "Updating backend..."
+            git fetch origin production
+            git checkout production
+            git reset --hard origin/production
 
-                  echo "Running migrations..."
-                  pnpm run migrate:deploy
+            echo "Installing dependencies..."
+            pnpm install --frozen-lockfile
 
-                  echo "Restarting backend..."
-                  pm2 restart gcpr-backend --update-env
+            echo "Running migrations..."
+            pnpm run migrate:deploy
 
-                  echo "Cleaning pnpm store..."
-                  pnpm store prune || true
+            echo "Restarting backend..."
+            pm2 restart gcpr-backend --update-env
 
-                  echo "Deployment completed successfully!"
+            echo "Cleaning pnpm store..."
+            pnpm store prune || true
 
-                  echo "Disk after deployment:"
-                  df -h /
+            echo "Deployment completed successfully!"
+
+            echo "Disk after deployment:"
+            df -h /
