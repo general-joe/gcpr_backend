@@ -4,9 +4,9 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client
 // Your existing allowed extensions
 const ALLOWED_EXTENSIONS = new Set([
     '.jpg', '.jpeg', '.png', '.gif', '.webp',  // Images
-    '.pdf',                                    // Documents
+    '.pdf', '.doc', '.docx',                    // Documents
     '.mp3', '.wav', '.m4a', '.ogg',            // Audio
-    '.mp4', '.mov', '.avi',                    // Video
+    '.mp4', '.webm', '.mov', '.avi',            // Video
 ]);
 
 // Initialize the S3 Client pointed at Cloudflare R2
