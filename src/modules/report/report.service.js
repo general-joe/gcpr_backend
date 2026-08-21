@@ -2,6 +2,8 @@ import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
 import NotificationService from "../notification/notification.service.js";
 import WRITE from "../../utils/logger.js";
+import ExcelJS from "exceljs";
+import PDFDocument from "pdfkit";
 
 export default class ReportService {
   static async createReport(userId, data) {
@@ -181,5 +183,160 @@ export default class ReportService {
     }
 
     return updated;
+  }
+
+  static async downloadReports(userId, query = {}) {
+    const { format = "csv", status, reportType } = query;
+
+    const where = { reporterId: userId };
+    if (status) where.status = status;
+    if (reportType) where.reportType = reportType;
+
+    const reports = await prisma.report.findMany({
+      where,
+      include: {
+        targetUser: { select: { id: true, fullName: true, role: true } }
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const rows = reports.map((r) => ({
+      id: r.id,
+      reportType: r.reportType,
+      targetUser: r.targetUser?.fullName ?? "",
+      subject: r.subject,
+      description: r.description,
+      status: r.status,
+      adminNotes: r.adminNotes ?? "",
+      evidence: (r.evidence ?? []).join("; "),
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+      resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : "",
+    }));
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const filename = `reports-${timestamp}`;
+
+    switch (format.toLowerCase()) {
+      case "excel": {
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet("Reports");
+
+        worksheet.columns = [
+          { header: "ID", key: "id", width: 36 },
+          { header: "Report Type", key: "reportType", width: 20 },
+          { header: "Target User", key: "targetUser", width: 25 },
+          { header: "Subject", key: "subject", width: 30 },
+          { header: "Description", key: "description", width: 40 },
+          { header: "Status", key: "status", width: 15 },
+          { header: "Admin Notes", key: "adminNotes", width: 30 },
+          { header: "Evidence", key: "evidence", width: 40 },
+          { header: "Created At", key: "createdAt", width: 25 },
+          { header: "Updated At", key: "updatedAt", width: 25 },
+          { header: "Resolved At", key: "resolvedAt", width: 25 },
+        ];
+
+        rows.forEach((row) => worksheet.addRow(row));
+        worksheet.getRow(1).font = { bold: true };
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        return {
+          buffer,
+          filename: `${filename}.xlsx`,
+          contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        };
+      }
+      case "pdf": {
+        const doc = new PDFDocument({ margin: 30, size: "A4", layout: "landscape" });
+        const chunks = [];
+
+        doc.on("data", (chunk) => chunks.push(chunk));
+        doc.on("end", () => {});
+
+        doc.fontSize(18).text("Reports Export", { align: "center" });
+        doc.moveDown();
+        doc.fontSize(10).text(`Generated: ${new Date().toLocaleString()}`, { align: "center" });
+        doc.moveDown();
+
+        const headers = [
+          { key: "id", label: "ID", width: 80 },
+          { key: "reportType", label: "Type", width: 60 },
+          { key: "targetUser", label: "Target", width: 80 },
+          { key: "subject", label: "Subject", width: 100 },
+          { key: "status", label: "Status", width: 70 },
+          { key: "createdAt", label: "Created", width: 90 },
+        ];
+
+        const startX = doc.page.margins.left;
+        let y = doc.y;
+
+        doc.font("Helvetica-Bold").fontSize(8);
+        let x = startX;
+        headers.forEach((h) => {
+          doc.text(h.label, x, y, { width: h.width });
+          x += h.width;
+        });
+        y += 15;
+        doc.font("Helvetica").fontSize(7);
+
+        for (const row of rows) {
+          if (y > doc.page.height - doc.page.margins.bottom - 20) {
+            doc.addPage();
+            y = doc.page.margins.top;
+            doc.font("Helvetica-Bold").fontSize(8);
+            x = startX;
+            headers.forEach((h) => {
+              doc.text(h.label, x, y, { width: h.width });
+              x += h.width;
+            });
+            y += 15;
+            doc.font("Helvetica").fontSize(7);
+          }
+          x = startX;
+          headers.forEach((h) => {
+            const val = row[h.key] ?? "";
+            doc.text(String(val).substring(0, 50), x, y, { width: h.width });
+            x += h.width;
+          });
+          y += 14;
+        }
+
+        doc.end();
+
+        return new Promise((resolve, reject) => {
+          doc.on("end", () => {
+            const buffer = Buffer.concat(chunks);
+            resolve({
+              buffer,
+              filename: `${filename}.pdf`,
+              contentType: "application/pdf",
+            });
+          });
+          doc.on("error", reject);
+        });
+      }
+      case "csv":
+      default: {
+        const headers = [
+          "id",
+          "reportType",
+          "targetUser",
+          "subject",
+          "description",
+          "status",
+          "adminNotes",
+          "evidence",
+          "createdAt",
+          "updatedAt",
+          "resolvedAt",
+        ];
+        const csv = [headers.join(","), ...rows.map((r) => headers.map((h) => `"${String(r[h] ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
+        return {
+          buffer: Buffer.from(csv),
+          filename: `${filename}.csv`,
+          contentType: "text/csv",
+        };
+      }
+    }
   }
 }

@@ -95,6 +95,48 @@
 
 /**
  * @swagger
+ * /report/download:
+ *   get:
+ *     summary: Download own reports as CSV, Excel, or PDF
+ *     tags: [Report]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: format
+ *         schema:
+ *           type: string
+ *           enum: [csv, excel, pdf]
+ *           default: csv
+ *         description: Export format
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, UNDER_REVIEW, RESOLVED, DISMISSED]
+ *       - in: query
+ *         name: reportType
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: File downloaded
+ *         content:
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ */
+
+/**
+ * @swagger
  * /admin/reports:
  *   get:
  *     summary: List all reports (admin)
