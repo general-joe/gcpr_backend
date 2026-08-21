@@ -41,6 +41,12 @@ reportRouter.get(
   ReportController.getReport
 );
 
+reportRouter.get(
+  "/download",
+  authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
+  ReportController.downloadReports
+);
+
 // ─── Admin Report Routes ───────────────────────────────────────────────────────
 adminReportRouter.get("/", adminReportLimiter, requireRbacRole(["ADMIN"]), ReportController.adminListReports);
 adminReportRouter.get("/:id", adminReportLimiter, requireRbacRole(["ADMIN"]), ReportController.adminGetReport);

@@ -36,4 +36,11 @@ export default class ReportController {
     );
     UtilFunctions.outputSuccess(res, result, "Report updated successfully");
   });
+
+  static downloadReports = catchAsync(async (req, res) => {
+    const result = await ReportService.downloadReports(res.locals.user.id, req.query);
+    res.setHeader("Content-Type", result.contentType);
+    res.setHeader("Content-Disposition", `attachment; filename="${result.filename}"`);
+    res.send(result.buffer);
+  });
 }
