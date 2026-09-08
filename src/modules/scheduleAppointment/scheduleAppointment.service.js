@@ -308,6 +308,11 @@ class ScheduleAppointmentService {
       }
       // ── End provider settings check ───────────────────────────────
 
+      // The transaction holds ONLY the three DB statements that must be
+      // atomic (availability check, double-book check, create). Notification
+      // fan-out (DB writes + socket + Firebase push) runs AFTER commit:
+      // network I/O inside a transaction held it open past Prisma's timeout
+      // (P2028), returning 500 for appointments that were actually created.
       const createdAppointment = await prisma.$transaction(async (tx) => {
         const { dayOfWeek, time } =
           ScheduleAppointmentService.getDateTimeParts(appointmentDate);
@@ -404,54 +409,55 @@ class ScheduleAppointmentService {
           appointmentDate: appointment.appointmentDate,
         });
 
-        try {
-          // Notify patient's caregiver (the user who can view notifications)
-          const patientCaregiver = await tx.cpPatient.findUnique({
-            where: { id: appointment.patientId },
-            include: {
-              caregiver: {
-                select: {
-                  userId: true,
-                },
+        return appointment;
+      }, { timeout: 15000 });
+
+      // Post-commit notifications (never inside the transaction above).
+      try {
+        // Notify patient's caregiver (the user who can view notifications)
+        const patientCaregiver = await prisma.cpPatient.findUnique({
+          where: { id: createdAppointment.patientId },
+          include: {
+            caregiver: {
+              select: {
+                userId: true,
               },
             },
-          });
-          
-          if (patientCaregiver?.caregiver?.userId) {
-            await NotificationService.createNotification({
-              userId: patientCaregiver.caregiver.userId,
-              type: "IN_APP",
-              category: "APPOINTMENT_REMINDER",
-              title: "Appointment Scheduled",
-              content: `Your appointment is scheduled for ${appointment.appointmentDate}.`,
-              relatedId: appointment.id,
-              relatedModel: "Appointment"
-            });
-            WRITE.debug("Patient notification sent", { operationId, appointmentId: appointment.id });
-          }
+          },
+        });
 
-          // Notify provider
+        if (patientCaregiver?.caregiver?.userId) {
           await NotificationService.createNotification({
-            userId: appointment.provider.user.id,
+            userId: patientCaregiver.caregiver.userId,
             type: "IN_APP",
             category: "APPOINTMENT_REMINDER",
-            title: "New Appointment",
-            content: `You have a new appointment scheduled for ${appointment.appointmentDate}.`,
-            relatedId: appointment.id,
+            title: "Appointment Scheduled",
+            content: `Your appointment is scheduled for ${createdAppointment.appointmentDate}.`,
+            relatedId: createdAppointment.id,
             relatedModel: "Appointment"
           });
-          WRITE.debug("Provider notification sent", { operationId, appointmentId: appointment.id });
-        } catch (notificationError) {
-          WRITE.warn("Failed to send appointment notifications", {
-            operationId,
-            appointmentId: appointment.id,
-            error: notificationError.message,
-          });
-          // Don't throw - notifications should not block appointment creation
+          WRITE.debug("Patient notification sent", { operationId, appointmentId: createdAppointment.id });
         }
 
-        return appointment;
-      });
+        // Notify provider
+        await NotificationService.createNotification({
+          userId: createdAppointment.provider.user.id,
+          type: "IN_APP",
+          category: "APPOINTMENT_REMINDER",
+          title: "New Appointment",
+          content: `You have a new appointment scheduled for ${createdAppointment.appointmentDate}.`,
+          relatedId: createdAppointment.id,
+          relatedModel: "Appointment"
+        });
+        WRITE.debug("Provider notification sent", { operationId, appointmentId: createdAppointment.id });
+      } catch (notificationError) {
+        WRITE.warn("Failed to send appointment notifications", {
+          operationId,
+          appointmentId: createdAppointment.id,
+          error: notificationError.message,
+        });
+        // Don't throw - notifications should not block appointment creation
+      }
 
       WRITE.info("Appointment creation completed successfully", {
         operationId,
