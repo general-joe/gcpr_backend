@@ -19,7 +19,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           port: 22
           timeout: 60s
-          command_timeout: 20m
+          command_timeout: 30m
           script: |
             set -e
 
@@ -81,31 +81,12 @@ jobs:
             sudo journalctl --vacuum-size=100M || true
 
             echo ""
-            echo "--- Removing PNPM store cache ---"
+            echo "--- Removing PNPM store ---"
             rm -rf "$HOME/.local/share/pnpm/store"
 
             echo ""
-            echo "PNPM store after cleanup:"
+            echo "PNPM directory after cleanup:"
             du -sh "$HOME/.local/share/pnpm" 2>/dev/null || true
-
-            echo ""
-            echo "========================================"
-            echo "DISK AFTER CACHE CLEANUP"
-            echo "========================================"
-
-            df -h /
-
-            AVAILABLE_KB=$(df -Pk / | awk 'NR==2 {print $4}')
-
-            echo ""
-            echo "Available disk: ${AVAILABLE_KB} KB"
-
-            if [ "$AVAILABLE_KB" -lt 524288 ]; then
-              echo ""
-              echo "ERROR: Less than 512 MB is available."
-              echo "Stopping deployment."
-              exit 1
-            fi
 
             echo ""
             echo "========================================"
@@ -120,21 +101,29 @@ jobs:
             fi
 
             echo ""
-            echo "Disk after removing old node_modules:"
+            echo "========================================"
+            echo "DISK AFTER CLEANUP"
+            echo "========================================"
+
             df -h /
 
             AVAILABLE_KB=$(df -Pk / | awk 'NR==2 {print $4}')
 
-            if [ "$AVAILABLE_KB" -lt 524288 ]; then
+            echo ""
+            echo "Available disk: ${AVAILABLE_KB} KB"
+
+            # We need enough space to perform git operations and install
+            # dependencies. 300 MB is the absolute minimum safety threshold.
+            if [ "$AVAILABLE_KB" -lt 307200 ]; then
               echo ""
-              echo "ERROR: Less than 512 MB is available."
-              echo "Stopping deployment."
+              echo "ERROR: Less than 300 MB is available after cleanup."
+              echo "Stopping deployment to prevent filesystem corruption."
               exit 1
             fi
 
             echo ""
             echo "========================================"
-            echo "UPDATING BACKEND"
+            echo "UPDATING BACKEND FROM GITHUB"
             echo "========================================"
 
             git fetch origin production
@@ -143,10 +132,24 @@ jobs:
 
             echo ""
             echo "========================================"
+            echo "CURRENT COMMIT"
+            echo "========================================"
+
+            git log -1 --oneline
+
+            echo ""
+            echo "========================================"
             echo "INSTALLING DEPENDENCIES"
             echo "========================================"
 
             pnpm install --frozen-lockfile
+
+            echo ""
+            echo "========================================"
+            echo "DISK AFTER DEPENDENCY INSTALL"
+            echo "========================================"
+
+            df -h /
 
             echo ""
             echo "========================================"
@@ -164,10 +167,20 @@ jobs:
 
             echo ""
             echo "========================================"
-            echo "CLEANING PNPM STORE AFTER INSTALL"
+            echo "VERIFYING BACKEND PROCESS"
             echo "========================================"
 
-            pnpm store prune || true
+            pm2 list
+
+            echo ""
+            echo "========================================"
+            echo "REMOVING PNPM STORE AFTER INSTALL"
+            echo "========================================"
+
+            # PNPM's store is only a cache. The application runs from
+            # node_modules, so remove the store after deployment to
+            # prevent the 6.7 GB server from filling up again.
+            rm -rf "$HOME/.local/share/pnpm/store"
 
             echo ""
             echo "========================================"
@@ -175,6 +188,18 @@ jobs:
             echo "========================================"
 
             df -h /
+
+            echo ""
+            echo "========================================"
+            echo "FINAL APPLICATION SIZES"
+            echo "========================================"
+
+            echo "GCPR node_modules:"
+            du -sh /home/ubuntu/gcpr_backend/node_modules 2>/dev/null || true
+
+            echo ""
+            echo "PNPM store:"
+            du -sh "$HOME/.local/share/pnpm/store" 2>/dev/null || echo "PNPM store removed"
 
             echo ""
             echo "========================================"
