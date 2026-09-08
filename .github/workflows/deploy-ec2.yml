@@ -19,7 +19,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           port: 22
           timeout: 60s
-          command_timeout: 15m
+          command_timeout: 20m
           script: |
             set -e
 
@@ -54,101 +54,120 @@ jobs:
 
             echo ""
             echo "========================================"
-            echo "TOP-LEVEL DISK USAGE"
+            echo "CURRENT DISK USAGE"
             echo "========================================"
 
-            sudo du -xhd1 / 2>/dev/null | sort -h || true
+            echo "PNPM store:"
+            du -sh "$HOME/.local/share/pnpm/store" 2>/dev/null || true
+
+            echo "GCPR node_modules:"
+            du -sh /home/ubuntu/gcpr_backend/node_modules 2>/dev/null || true
+
+            echo "GCPR application:"
+            du -sh /home/ubuntu/gcpr_backend 2>/dev/null || true
+
+            echo ""
+            echo "========================================"
+            echo "CLEANING SAFE CACHE DATA"
+            echo "========================================"
+
+            echo "--- Cleaning APT cache ---"
+            sudo apt clean || true
+            sudo apt autoclean || true
+
+            echo ""
+            echo "--- Cleaning old system journals ---"
+            sudo journalctl --vacuum-time=3d || true
+            sudo journalctl --vacuum-size=100M || true
+
+            echo ""
+            echo "--- Removing PNPM store cache ---"
+            rm -rf "$HOME/.local/share/pnpm/store"
+
+            echo ""
+            echo "PNPM store after cleanup:"
+            du -sh "$HOME/.local/share/pnpm" 2>/dev/null || true
+
+            echo ""
+            echo "========================================"
+            echo "DISK AFTER CACHE CLEANUP"
+            echo "========================================"
+
+            df -h /
 
             AVAILABLE_KB=$(df -Pk / | awk 'NR==2 {print $4}')
 
             echo ""
             echo "Available disk: ${AVAILABLE_KB} KB"
 
-            echo ""
-            echo "========================================"
-            echo "EMERGENCY CLEANUP"
-            echo "========================================"
-
-            if [ "$AVAILABLE_KB" -lt 1048576 ]; then
-
-              echo "WARNING: Less than 1 GB available."
-              echo "Running safe cleanup operations..."
-
+            if [ "$AVAILABLE_KB" -lt 524288 ]; then
               echo ""
-              echo "--- Cleaning APT cache ---"
-              sudo apt clean || true
-              sudo apt autoclean || true
-
-              echo ""
-              echo "--- Cleaning old system journals ---"
-              sudo journalctl --vacuum-time=3d || true
-              sudo journalctl --vacuum-size=100M || true
-
-              echo ""
-              echo "--- Cleaning pnpm store ---"
-              pnpm store prune || true
-
-            else
-              echo "More than 1 GB available."
-              echo "No emergency cleanup required."
+              echo "ERROR: Less than 512 MB is available."
+              echo "Stopping deployment."
+              exit 1
             fi
 
             echo ""
             echo "========================================"
-            echo "DISK AFTER BASIC CLEANUP"
+            echo "REMOVING OLD GCPR NODE_MODULES"
             echo "========================================"
 
+            if [ -d "/home/ubuntu/gcpr_backend/node_modules" ]; then
+              echo "Removing existing GCPR node_modules..."
+              rm -rf /home/ubuntu/gcpr_backend/node_modules
+            else
+              echo "GCPR node_modules does not exist."
+            fi
+
+            echo ""
+            echo "Disk after removing old node_modules:"
             df -h /
 
+            AVAILABLE_KB=$(df -Pk / | awk 'NR==2 {print $4}')
+
+            if [ "$AVAILABLE_KB" -lt 524288 ]; then
+              echo ""
+              echo "ERROR: Less than 512 MB is available."
+              echo "Stopping deployment."
+              exit 1
+            fi
+
             echo ""
             echo "========================================"
-            echo "DETAILED DISK ANALYSIS"
+            echo "UPDATING BACKEND"
             echo "========================================"
 
-            echo ""
-            echo "--- /home/ubuntu ---"
-            sudo du -xhd1 /home/ubuntu 2>/dev/null | sort -h || true
+            git fetch origin production
+            git checkout production
+            git reset --hard origin/production
 
             echo ""
-            echo "--- /var ---"
-            sudo du -xhd1 /var 2>/dev/null | sort -h || true
+            echo "========================================"
+            echo "INSTALLING DEPENDENCIES"
+            echo "========================================"
+
+            pnpm install --frozen-lockfile
 
             echo ""
-            echo "--- /var/log ---"
-            sudo du -xhd1 /var/log 2>/dev/null | sort -h || true
+            echo "========================================"
+            echo "RUNNING DATABASE MIGRATIONS"
+            echo "========================================"
+
+            pnpm run migrate:deploy
 
             echo ""
-            echo "--- /var/lib ---"
-            sudo du -xhd1 /var/lib 2>/dev/null | sort -h || true
+            echo "========================================"
+            echo "RESTARTING BACKEND"
+            echo "========================================"
+
+            pm2 restart gcpr-backend --update-env
 
             echo ""
-            echo "--- GCPR BACKEND ---"
-            sudo du -xhd1 /home/ubuntu/gcpr_backend 2>/dev/null | sort -h || true
+            echo "========================================"
+            echo "CLEANING PNPM STORE AFTER INSTALL"
+            echo "========================================"
 
-            echo ""
-            echo "--- GCPR .git ---"
-            sudo du -sh /home/ubuntu/gcpr_backend/.git 2>/dev/null || true
-
-            echo ""
-            echo "--- GCPR node_modules ---"
-            sudo du -sh /home/ubuntu/gcpr_backend/node_modules 2>/dev/null || true
-
-            echo ""
-            echo "--- PNPM STORE ---"
-            sudo du -sh /home/ubuntu/.local/share/pnpm 2>/dev/null || true
-
-            echo ""
-            echo "--- PM2 ---"
-            sudo du -xhd2 /home/ubuntu/.pm2 2>/dev/null | sort -h || true
-
-            echo ""
-            echo "--- LARGE FILES OVER 100MB ---"
-
-            sudo find /home /var -xdev -type f -size +100M \
-              -printf '%s %p\n' 2>/dev/null \
-              | sort -nr \
-              | head -30 \
-              | awk '{printf "%.1f MB\t%s\n", $1/1024/1024, $2}' || true
+            pnpm store prune || true
 
             echo ""
             echo "========================================"
@@ -157,17 +176,7 @@ jobs:
 
             df -h /
 
-            AVAILABLE_KB=$(df -Pk / | awk 'NR==2 {print $4}')
-
-            echo ""
-            echo "Available disk: ${AVAILABLE_KB} KB"
-
             echo ""
             echo "========================================"
-            echo "DIAGNOSTIC COMPLETE"
+            echo "DEPLOYMENT COMPLETED SUCCESSFULLY"
             echo "========================================"
-
-            echo "The deployment is intentionally stopping here."
-            echo "Review the disk analysis above before removing application data."
-
-            exit 1
