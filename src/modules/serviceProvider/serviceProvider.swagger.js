@@ -54,7 +54,7 @@
  * /service-provider/complete-profile:
  *   post:
  *     summary: Complete service provider profile
- *     tags: [Service Providers]
+ *     tags: [Profile Completion]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -76,7 +76,7 @@
  * /service-provider:
  *   get:
  *     summary: Get service providers (paginated)
- *     tags: [Service Providers]
+ *     tags: [Profile Completion]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -99,7 +99,7 @@
  * /service-provider/search:
  *   get:
  *     summary: Search service providers
- *     tags: [Service Providers]
+ *     tags: [Profile Completion]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -145,7 +145,7 @@
  * /service-provider/{id}:
  *   get:
  *     summary: Get one service provider by ID
- *     tags: [Service Providers]
+ *     tags: [Profile Completion]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -162,7 +162,7 @@
  *         description: Service provider not found
  *   put:
  *     summary: Update own service provider profile
- *     tags: [Service Providers]
+ *     tags: [Profile Completion]
  *     security:
  *       - bearerAuth: []
  *     description: Caller can update only profile matching own service provider ID.
@@ -217,7 +217,7 @@
  *         description: Service provider not found
  *   delete:
  *     summary: Delete own service provider profile
- *     tags: [Service Providers]
+ *     tags: [Profile Completion]
  *     security:
  *       - bearerAuth: []
  *     description: Caller can delete only profile matching own service provider ID.
@@ -239,7 +239,7 @@
  * /service-provider/{id}/availability:
  *   put:
  *     summary: Update service provider availability
- *     tags: [Service Providers]
+ *     tags: [Profile Completion]
  *     security:
  *       - bearerAuth: []
  *     description: Replace the availability slots for the specified service provider.

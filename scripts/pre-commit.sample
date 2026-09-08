@@ -1,0 +1,8 @@
+#!/bin/sh
+# Sample pre-commit hook (Group 8). Install with:
+#   cp scripts/pre-commit.sample .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# Fails the commit when the secret scanner finds a hit.
+npm run --silent secret:scan || {
+  echo "pre-commit: secret scan failed — remove the flagged value and rotate it if real."
+  exit 1
+}

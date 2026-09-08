@@ -24,20 +24,9 @@ const providerVerificationSchema = z.object({
   licenseStatus: z.enum(["ACTIVE", "INACTIVE"]).optional().default("ACTIVE"),
 });
 
-const createToolSchema = z.object({
-  toolCode: z.string().min(2).max(100),
-  toolName: z.string().min(2).max(200),
-  version: z.string().optional().default("1.0"),
-  description: z.string().optional(),
-  schema: z.record(z.string(), z.any()).optional(),
-  professions: z.array(z.string()).optional().default([]),
-});
-
-const updateToolSchema = z.object({
-  isActive: z.boolean().optional(),
-  description: z.string().optional(),
-  schema: z.record(z.string(), z.any()).optional(),
-});
+// NOTE (Group 5): legacy tool schemas removed with the
+// dead AssessmentTool tables. Tool authoring lives in
+// modules/assessment/definitions (mounted at /admin/assessment-tools).
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 // Seed default RBAC roles and permissions. Protected by BOOTSTRAP_SECRET env var.
@@ -157,26 +146,7 @@ adminRouter.delete(
   AdminController.removeCommunityMember,
 );
 
-// Assessment Tools
-adminRouter.get(
-  "/assessment-tools",
-  limiter,
-  requireRbacRole(["ADMIN"]),
-  AdminController.listAssessmentTools,
-);
-adminRouter.post(
-  "/assessment-tools",
-  limiter,
-  requireRbacRole(["ADMIN"]),
-  validate(createToolSchema),
-  AdminController.createAssessmentTool,
-);
-adminRouter.patch(
-  "/assessment-tools/:id",
-  limiter,
-  requireRbacRole(["ADMIN"]),
-  validate(updateToolSchema),
-  AdminController.updateAssessmentTool,
-);
+// Assessment tool authoring moved to modules/assessment/definitions
+// (mounted at /admin/assessment-tools). See toolDefinition.route.js.
 
 export default adminRouter;

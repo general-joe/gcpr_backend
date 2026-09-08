@@ -29,6 +29,9 @@ import analyticsRouter from "../modules/analytics/analytics.route.js";
 import signatureRouter from "../modules/signature/signature.route.js";
 import carePlanRouter from "../modules/carePlan/carePlan.route.js";
 import dashboardRouter from "../modules/dashboard/dashboard.route.js";
+import syncRouter from "../modules/sync/sync.route.js";
+import fcRouter from "../modules/functionalClassification/functionalClassification.route.js";
+import adminToolsRouter from "../modules/assessment/definitions/toolDefinition.route.js";
 
 router.use("/auth", authRouter);
 router.use("/service-provider", serviceProviderRouter);
@@ -63,5 +66,10 @@ router.use("/analytics", analyticsRouter);
 router.use("/signature", signatureRouter);
 router.use("/care-plan", carePlanRouter);
 router.use("/dashboard", dashboardRouter);
+router.use("/sync", syncRouter);
+router.use("/functional-classification", fcRouter);
+// Configurable tool engine admin API (Group 5). Owns /admin/assessment-tools
+// exclusively — the legacy AssessmentTool routes/tables were removed.
+router.use("/admin/assessment-tools", adminToolsRouter);
 
 export default router;

@@ -1,19 +1,13 @@
 import prisma from "../../config/database.js";
 import NotificationService from "../notification/notification.service.js";
-import {
-  gmfm88Config,
-  sltCpBaselineConfig,
-  paediatricPhysiotherapyAssessmentConfig,
-  homeRehabPharmacyConfig,
-  cpProgramIntakeConfig,
-  otCpClinicalAssessmentConfig,
-  dietitianNutritionConsultationConfig,
-} from "../../config/tools/index.js";
-import {
-  processAssessment,
-  getToolConfigByCode,
-} from "../../services/assessment/assessment.service.js";
+// Group 5: runtime tool source is the published definition versions in the
+// DB (seeded once from src/config/tools). The config files remain only as
+// the migration seed source; nothing here reads them directly anymore.
+import ToolDefinitionService from "./definitions/toolDefinition.service.js";
+import { renderSnapshotAsForm } from "./definitions/toolSchema.js";
 import { generateReferralRecommendations } from "../../services/assessment/referral.engine.js";
+import { TOOL_CLASSIFICATION_SCALES } from "../../services/assessment/classificationPolicy.js";
+import FunctionalClassificationService from "../functionalClassification/functionalClassification.service.js";
 import HttpStatus from "../../utils/http-status.js";
 import { hasRbacRole } from "../../middlewares/auth.js";
 import auditService from "../../services/audit/audit.service.js";
@@ -79,161 +73,6 @@ const TOOL_ALIASES = {
 };
 
 const normalizeToolCode = (toolCode) => TOOL_ALIASES[toolCode] ?? toolCode;
-const ALL_TOOL_CONFIGS = [
-  gmfm88Config,
-  sltCpBaselineConfig,
-  paediatricPhysiotherapyAssessmentConfig,
-  otCpClinicalAssessmentConfig,
-  cpProgramIntakeConfig,
-  homeRehabPharmacyConfig,
-  dietitianNutritionConsultationConfig,
-];
-
-const ITEM_TYPE_TO_FORMAT = {
-  TEXT: "string",
-  TEXTAREA: "textarea",
-  NUMBER: "number",
-  BOOLEAN: "boolean",
-  DATE: "date",
-  SELECT: "string",
-  CHECKBOX: "checkbox",
-  RADIO: "radio",
-};
-
-const toTitleFromId = (value) =>
-  String(value)
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/[_-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\b\w/g, (match) => match.toUpperCase());
-
-const sectionLetter = (index) => {
-  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  return letters[index] ?? `S${index + 1}`;
-};
-
-const buildItemLookup = (toolConfig) => {
-  const items = Array.isArray(toolConfig?.items) ? toolConfig.items : [];
-  return new Map(items.map((item) => [item.id, item]));
-};
-
-const buildGMFMFields = (toolConfig) => {
-  const dimensions = Array.isArray(toolConfig?.dimensions)
-    ? toolConfig.dimensions
-    : [];
-  const itemLookup = buildItemLookup(toolConfig);
-  const scoringKey = toolConfig?.scoringKey;
-  const scoringOptions = scoringKey
-    ? Object.entries(scoringKey).map(([code, label]) => ({
-        label,
-        value: String(code),
-      }))
-    : [];
-
-  return dimensions.map((dimension) => {
-    const [start, end] = dimension.itemRange;
-    const fields = [];
-
-    for (let itemNumber = start; itemNumber <= end; itemNumber += 1) {
-      const fieldCode = `${dimension.code}${itemNumber}`;
-      const itemDef = itemLookup.get(fieldCode);
-
-      fields.push({
-        fieldCode,
-        question: itemDef?.text ?? `GMFM Item ${fieldCode}`,
-        dimension: itemDef?.dimension ?? dimension.code,
-        itemNumber: itemDef?.number ?? itemNumber,
-        expectedAnswerFormat: scoringOptions.length > 0 ? "select" : "number_or_NT",
-        options: scoringOptions,
-        allowedValues: [0, 1, 2, 3, "NT"],
-      });
-    }
-
-    return {
-      sectionCode: dimension.code,
-      sectionName: dimension.name,
-      fields,
-    };
-  });
-};
-
-const buildSectionFields = (toolConfig) => {
-  const sections = Array.isArray(toolConfig?.sections)
-    ? toolConfig.sections
-    : [];
-  return sections.map((section, sectionIndex) => ({
-    sectionCode: section.code,
-    sectionName: section.name,
-    fields: (section.items ?? []).map((item, itemIndex) => ({
-      fieldCode: `${sectionLetter(sectionIndex)}${itemIndex + 1}`,
-      fieldKey: item.id,
-      question: item.text ?? item.label ?? toTitleFromId(item.id),
-      expectedAnswerFormat: ITEM_TYPE_TO_FORMAT[item.type] ?? "string",
-      options: item.options ?? null,
-    })),
-  }));
-};
-
-const buildFormSchema = (toolConfig) => {
-  if (
-    Array.isArray(toolConfig?.dimensions) &&
-    toolConfig.dimensions.length > 0
-  ) {
-    const sections = buildGMFMFields(toolConfig);
-
-    sections.push({
-      sectionCode: "clinical_notes",
-      sectionName: "Clinical Notes",
-      description:
-        "Indicate whether this assessment reflects the child's typical/regular performance.",
-      fields: [
-        {
-          fieldCode: "clinical_notes_is_regular_performance",
-          fieldKey: "isRegularPerformance",
-          question:
-            "Was this assessment indicative of this child's regular performance?",
-          expectedAnswerFormat: "boolean",
-          options: [
-            { label: "YES", value: true },
-            { label: "NO", value: false },
-          ],
-          required: false,
-        },
-        {
-          fieldCode: "clinical_notes_comment",
-          fieldKey: "clinicalNotesComment",
-          question: "COMMENTS:",
-          expectedAnswerFormat: "string",
-          required: false,
-        },
-      ],
-    });
-
-    return sections;
-  }
-
-  if (Array.isArray(toolConfig?.sections) && toolConfig.sections.length > 0) {
-    return buildSectionFields(toolConfig);
-  }
-
-  return [];
-};
-
-const getAllowedProfessions = (toolConfig) => {
-  const professions = toolConfig?.metadata?.professions;
-  const legacyProfession = toolConfig?.metadata?.profession;
-
-  if (Array.isArray(professions) && professions.length > 0) {
-    return professions;
-  }
-
-  if (legacyProfession) {
-    return [legacyProfession];
-  }
-
-  return [];
-};
 
 const isAdminLikeUser = async (user, roles = ["ADMIN"]) => {
   if (!user) return false;
@@ -345,17 +184,20 @@ class AssessmentService {
       userRoles.add(String(serviceProvider.profession).toUpperCase());
     }
 
-    const tools = ALL_TOOL_CONFIGS.map((toolConfig) => {
-      const allowed = getAllowedProfessions(toolConfig).map((r) =>
+    const definitions = await ToolDefinitionService.listDefinitions();
+    const tools = definitions.map((tool) => {
+      const allowed = (tool.allowedProfessions ?? []).map((r) =>
         String(r).toUpperCase(),
       );
       const canUse = isAdmin
         ? true
-        : allowed.some((role) => userRoles.has(role));
+        : allowed.length === 0 || allowed.some((role) => userRoles.has(role));
       return {
-        toolName: toolConfig.toolName,
-        toolCode: toolConfig.toolCode,
-        whoCanUseTool: getAllowedProfessions(toolConfig),
+        toolName: tool.name,
+        toolCode: tool.code,
+        version: tool.currentVersion,
+        status: tool.status,
+        whoCanUseTool: tool.allowedProfessions ?? [],
         canCurrentUserUse: canUse,
       };
     });
@@ -366,23 +208,51 @@ class AssessmentService {
     };
   }
 
-  static async getAssessmentFormByToolCode(user, toolCode) {
+  static async getAssessmentFormByToolCode(user, toolCode, patientId = null) {
     await AssessmentService.requireServiceProvider(user);
     const normalizedToolCode = normalizeToolCode(toolCode);
-    const { config: toolConfig } = getToolConfigByCode(normalizedToolCode);
 
-    if (!toolConfig) {
+    // Group 5: form schema comes exclusively from the latest published
+    // definition version — the same frozen schema submissions validate
+    // against — so the client always renders what the server enforces.
+    let published;
+    try {
+      published = await ToolDefinitionService.getPublishedTool(normalizedToolCode);
+    } catch {
       throw new gcprError(
         HttpStatus.NOT_FOUND,
         `Assessment tool not found for code: ${toolCode}`,
       );
     }
+    const { definition, version } = published;
+
+    // Classification context (Group 4): which scale(s) inform this tool,
+    // what is already on file for the patient, and whether re-assessment
+    // is due (>12 months). patientId is optional — without it the client
+    // still learns the applicable scales.
+    const applicableScales = version.applicableScales ?? [];
+    let classification = {
+      applicableScales,
+      onFile: null,
+      missingScales: [...applicableScales],
+      staleScales: [],
+      isStale: false,
+      classificationRecommended: applicableScales.length > 0,
+    };
+    if (patientId) {
+      await AssessmentService.ensurePatientExists(patientId);
+      classification =
+        await FunctionalClassificationService.getClassificationContext(patientId, applicableScales);
+      classification.applicableScales = applicableScales;
+    }
 
     return {
-      toolName: toolConfig.toolName,
-      toolCode: toolConfig.toolCode,
-      version: toolConfig.version,
-      sections: buildFormSchema(toolConfig),
+      toolName: definition?.name ?? normalizedToolCode,
+      toolCode: normalizedToolCode,
+      version: String(version.version),
+      definitionVersion: version.version,
+      ...renderSnapshotAsForm(version.snapshot),
+      classification,
     };
   }
 
@@ -529,19 +399,38 @@ class AssessmentService {
 
     const normalizedToolCode = normalizeToolCode(data.toolCode);
     const responses = data.responses || {};
-    if (normalizedToolCode === "GMFM_88") {
-      validateGMFMResponses(responses);
-    }
 
-    const { config: toolConfig } = getToolConfigByCode(normalizedToolCode);
-    if (!toolConfig) {
+    // Group 5: the published definition version is the single source of
+    // truth — the same frozen snapshot the form rendered. Its version is
+    // recorded on the row so history stays interpretable after later edits.
+    let published;
+    try {
+      published = await ToolDefinitionService.getPublishedTool(normalizedToolCode);
+    } catch {
       throw new gcprError(
         HttpStatus.UNPROCESSABLE_ENTITY,
         `Unsupported assessment tool code: ${normalizedToolCode}`,
       );
     }
+    const { version } = published;
 
-    const allowedProfessions = getAllowedProfessions(toolConfig);
+    // Server-side field validation for every tool (previously GMFM-only;
+    // all other tools accepted any non-empty object). GMFM additionally
+    // keeps its exact legacy strict validator.
+    const checked = ToolDefinitionService.validateAgainstVersion(version, responses);
+    if (!checked.valid) {
+      const parts = checked.issues.slice(0, 10).map((i) => `${i.fieldKey}: ${i.message}`);
+      throw new gcprError(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        `Invalid ${normalizedToolCode} response payload: ${parts.join("; ")}`,
+        { details: checked.issues },
+      );
+    }
+    if (normalizedToolCode === "GMFM_88") {
+      validateGMFMResponses(responses);
+    }
+
+    const allowedProfessions = version.allowedProfessions ?? [];
     // Admin users can use any tool.
     const isAdmin = await isAdminLikeUser(user, ["ADMIN", "TESTER"]);
     if (
@@ -613,9 +502,29 @@ class AssessmentService {
       }
     }
 
-    const scoring = processAssessment({
+    // Optional classification link (Group 4): must exist and belong to the
+    // same patient. Nullable — the form response flags when one is recommended.
+    let linkedClassification = null;
+    if (data.functionalClassificationId) {
+      linkedClassification = await prisma.functionalClassification.findUnique({
+        where: { id: data.functionalClassificationId },
+        select: { id: true, patientId: true, classifier: true, level: true },
+      });
+      if (!linkedClassification) {
+        throw new gcprError(HttpStatus.NOT_FOUND, "Functional classification not found");
+      }
+      if (linkedClassification.patientId !== data.patientId) {
+        throw new gcprError(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          "Functional classification does not belong to the selected patient",
+        );
+      }
+    }
+
+    const scoring = ToolDefinitionService.scoreAgainstVersion({
       toolCode: normalizedToolCode,
-      responses,
+      version,
+      responses: checked.coerced && Object.keys(checked.coerced).length > 0 ? { ...responses, ...checked.coerced } : responses,
     });
 
     const structuredReport = scoring.result?.scores
@@ -633,13 +542,15 @@ class AssessmentService {
           patientId: data.patientId,
           providerId: providerId,
           toolCode: normalizedToolCode,
-          toolVersion: data.toolVersion ?? "1.0.0",
+          // Record the exact definition version used — never client echo.
+          toolVersion: String(version.version),
           responses: {
             ...responses,
             isRegularPerformance: data.isRegularPerformance,
             clinicalNotesComment: data.clinicalNotesComment,
           },
           appointmentId: data.appointmentId ?? null,
+          functionalClassificationId: linkedClassification?.id ?? null,
           status: data.status ?? "COMPLETED",
           assessedAt: new Date(),
         },
@@ -654,6 +565,15 @@ class AssessmentService {
           recommendations: structuredReport.recommendations,
         },
       });
+
+      // Complete the two-way link: the referenced classification records
+      // the assessment session that used it (when not already linked).
+      if (linkedClassification) {
+        await tx.functionalClassification.updateMany({
+          where: { id: linkedClassification.id, assessmentId: null },
+          data: { assessmentId: assessment.id },
+        });
+      }
 
       return {
         assessment,
@@ -697,7 +617,13 @@ class AssessmentService {
       });
     }
 
-    return result;
+    return {
+      ...result,
+      classificationAttached: Boolean(linkedClassification),
+      classificationRecommended:
+        !linkedClassification &&
+        (TOOL_CLASSIFICATION_SCALES[normalizedToolCode] ?? []).length > 0,
+    };
   }
 
   static async createReferral(user, data) {
@@ -777,6 +703,34 @@ class AssessmentService {
 
     const referral = await prisma.$transaction(async (tx) => {
       const slaDeadline = new Date(Date.now() + 72 * 60 * 60 * 1000);
+
+      // Cross-org disclosure: if the target provider's organization differs
+      // from the referring provider's (or the target is not a known
+      // provider yet), the caregiver must re-confirm in plain language.
+      // The referring provider's facility anchors the patient's current org
+      // (enrollment records carry no org).
+      let crossOrg = false;
+      if (!isAdminLike) {
+        let toFacilityName = null;
+        if (data.toProviderId) {
+          const toProvider = await tx.serviceProvider.findUnique({
+            where: { id: data.toProviderId },
+            select: { facilityName: true },
+          });
+          toFacilityName = toProvider?.facilityName ?? null;
+        }
+        const fromFacilityName = serviceProvider.facilityName ?? null;
+        crossOrg = !toFacilityName || !fromFacilityName || toFacilityName !== fromFacilityName;
+        if (crossOrg && data.crossOrgConfirmed !== true) {
+          throw new gcprError(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            toFacilityName
+              ? `This referral sends the patient's information to a different organization (${toFacilityName}). Please confirm with the caregiver and resubmit with crossOrgConfirmed: true.`
+              : "The referral target organization is not known yet. Please confirm with the caregiver and resubmit with crossOrgConfirmed: true.",
+          );
+        }
+      }
+
       const createdReferral = await tx.clinicalReferral.create({
         data: {
           patientId: data.patientId,
@@ -785,6 +739,7 @@ class AssessmentService {
           toProfession: data.toProfession,
           reason: data.reason,
           slaDeadline,
+          crossOrgConfirmed: crossOrg ? true : (data.crossOrgConfirmed ?? false),
         },
       });
 
@@ -1060,8 +1015,11 @@ class AssessmentService {
     }
 
     if (!isAdminLike) {
+      // Same bar as creation (Group 6): only verified providers participate
+      // in referral transitions — an unverified account must not accept,
+      // decline, or complete referrals.
       const serviceProvider =
-        await AssessmentService.requireServiceProvider(user);
+        await AssessmentService.requireVerifiedServiceProvider(user);
 
       const isTargetProvider =
         referral.toProviderId === serviceProvider.id ||
@@ -1074,6 +1032,21 @@ class AssessmentService {
         throw new gcprError(
           HttpStatus.FORBIDDEN,
           "Only the target provider or referring provider can update this referral",
+        );
+      }
+
+      // Second enforcement point for the physio-only creation rule: a
+      // referral whose sender is not physiotherapist-attributed cannot
+      // progress through non-admin hands. (Admins may still act, e.g. to
+      // resolve legacy rows — auditable via their identity.)
+      const sender = await prisma.serviceProvider.findUnique({
+        where: { id: referral.fromProviderId },
+        select: { profession: true },
+      });
+      if (sender && sender.profession !== "PHYSIOTHERAPIST") {
+        throw new gcprError(
+          HttpStatus.FORBIDDEN,
+          "Only referrals created by a physiotherapist can progress. Ask an admin to review this referral.",
         );
       }
     }
@@ -1305,14 +1278,24 @@ class AssessmentService {
     const report = assessment.reports[0] ?? null;
     const scores = report?.scores ?? null;
 
+    // Latest classification weights routing alongside score cutoffs
+    // (Group 4). Advisory only — the engine never writes records.
+    const latestClassification = await prisma.functionalClassification.findFirst({
+      where: { patientId: assessment.patientId },
+      orderBy: { assessedAt: "desc" },
+      select: { id: true, classifier: true, level: true, assessedAt: true },
+    });
+
     const recommendations = generateReferralRecommendations({
       toolCode: assessment.toolCode,
       scores,
+      classification: latestClassification,
     });
 
     return {
       assessmentId: assessment.id,
       toolCode: assessment.toolCode,
+      classification: latestClassification,
       ...recommendations,
     };
   }

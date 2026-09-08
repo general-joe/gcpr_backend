@@ -1,9 +1,5 @@
 /**
  * @swagger
- * tags:
- *   name: Community
- *   description: Endpoints for community management
- *
  * components:
  *   securitySchemes:
  *     bearerAuth:
@@ -77,7 +73,7 @@
  *   post:
  *     summary: Create a new community
  *     description: Create a new community with the authenticated user as owner
- *     tags: [Community]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -136,7 +132,7 @@
  *   get:
  *     summary: Get user communities
  *     description: Get all communities the authenticated user is a member of
- *     tags: [Community]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -169,7 +165,7 @@
  *   get:
  *     summary: Search public communities
  *     description: Search for public communities by name or description
- *     tags: [Community]
+ *     tags: [Ongoing Platform]
  *     parameters:
  *       - name: search
  *         in: query
@@ -204,7 +200,7 @@
  *   post:
  *     summary: Join community by invite code
  *     description: Join a community using an invite code
- *     tags: [Community]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -251,7 +247,7 @@
  *   get:
  *     summary: Get community by ID
  *     description: Get community details by ID
- *     tags: [Community]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -283,7 +279,7 @@
  *   put:
  *     summary: Update community
  *     description: Update community details (admin/owner only)
- *     tags: [Community]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -350,7 +346,7 @@
  *   delete:
  *     summary: Delete community
  *     description: Delete a community (creator only)
- *     tags: [Community]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -389,7 +385,7 @@
  *   post:
  *     summary: Leave community
  *     description: Leave a community
- *     tags: [Community]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -426,7 +422,7 @@
  *   get:
  *     summary: Get community members
  *     description: Get all members of a community
- *     tags: [Community]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -468,7 +464,7 @@
  *   put:
  *     summary: Update member role
  *     description: Update a member's role in the community (admin/owner only)
- *     tags: [Community]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -531,7 +527,7 @@
  *   post:
  *     summary: Ban member
  *     description: Ban a member from the community (admin/owner only)
- *     tags: [Community]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -577,7 +573,7 @@
  *   post:
  *     summary: Generate new invite code
  *     description: Generate a new invite code for the community (admin/owner only)
- *     tags: [Community]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:

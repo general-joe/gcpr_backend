@@ -3,7 +3,7 @@
  * /assessment/tools:
  *   get:
  *     summary: Get assessment tools with code and professions allowed to use each tool
- *     tags: [Assessment]
+ *     tags: [Clinical Assessment]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -15,8 +15,8 @@
  * @swagger
  * /assessment/tools/{toolCode}/form:
  *   get:
- *     summary: Get normalized form schema for a tool code
- *     tags: [Assessment]
+ *     summary: Get form schema for a tool code, rendered from its latest published version with classification context
+ *     tags: [Clinical Assessment]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -37,8 +37,8 @@
  * @swagger
  * /assessment/submit:
  *   post:
- *     summary: Submit a clinical assessment
- *     tags: [Assessment]
+ *     summary: Submit a clinical assessment (validated against the published tool version, version recorded, optional classification link)
+ *     tags: [Clinical Assessment]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -98,8 +98,8 @@
  * @swagger
  * /assessment/referrals:
  *   post:
- *     summary: Create referral independently from assessment submission (physiotherapist only)
- *     tags: [Assessment]
+ *     summary: Create referral from assessment (physiotherapist only; cross-org targets need caregiver confirmation)
+ *     tags: [Referrals & Care Plans]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -138,6 +138,13 @@
  *               reason:
  *                 type: string
  *                 example: "Needs occupational therapy for fine motor and ADL intervention"
+ *               crossOrgConfirmed:
+ *                 type: boolean
+ *                 description: >
+ *                   Required (true) when the target provider sits outside the
+ *                   referring provider's organization, or when the target org
+ *                   is not yet known — the plain-language caregiver
+ *                   re-confirmation from Group 3. Persisted on the record.
  *           example:
  *             patientId: "8f2c1c0b-4f9d-4a3c-9e7a-3d8b2f1c9eaa"
  *             assessmentId: "2af4f668-3026-47d0-9c81-d40f5323f10b"
@@ -154,7 +161,7 @@
  * /assessment/{assessmentId}/report:
  *   get:
  *     summary: Get latest clinical report for an assessment (authorized care team only)
- *     tags: [Assessment]
+ *     tags: [Clinical Assessment]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -177,8 +184,8 @@
  * @swagger
  * /assessment/{assessmentId}/referral-recommendations:
  *   get:
- *     summary: Get referral recommendations based on assessment results
- *     tags: [Assessment]
+ *     summary: Get referral recommendations weighted by scores and classification level
+ *     tags: [Referrals & Care Plans]
  *     security:
  *       - bearerAuth: []
  *     description: Analyses the scored assessment report and returns profession-level referral recommendations. For GMFM-88, dimensions below 50% trigger targeted recommendations. For other tools, standard profession mappings are returned.
@@ -224,7 +231,7 @@
  * /assessment/patient/{patientId}/reports:
  *   get:
  *     summary: Get assessment history for a patient (authorized care team only)
- *     tags: [Assessment]
+ *     tags: [Clinical Assessment]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -246,7 +253,7 @@
  * /assessment/referrals/incoming:
  *   get:
  *     summary: Get incoming referrals for logged-in provider
- *     tags: [Assessment]
+ *     tags: [Referrals & Care Plans]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -259,7 +266,7 @@
  * /assessment/referrals/outgoing:
  *   get:
  *     summary: Get outgoing referrals created by logged-in provider
- *     tags: [Assessment]
+ *     tags: [Referrals & Care Plans]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -271,8 +278,8 @@
  * @swagger
  * /assessment/referrals/{referralId}/status:
  *   patch:
- *     summary: Accept/decline/complete a referral (target provider only)
- *     tags: [Assessment]
+ *     summary: Accept/decline/complete a referral (verified target or sender; physio rule re-enforced)
+ *     tags: [Referrals & Care Plans]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -308,7 +315,7 @@
  *   post:
  *     summary: Assign rehab task to referred patient under an active care plan
  *     description: A rehab task must belong to an existing active care plan. If carePlanId is omitted, the backend uses the latest active care plan for the referral patient and referral assessment. If no matching care plan exists, task creation fails.
- *     tags: [Assessment]
+ *     tags: [Tasks & Adherence]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -379,7 +386,7 @@
  * /assessment/tasks/my:
  *   get:
  *     summary: Get rehab tasks assigned to logged-in provider
- *     tags: [Assessment]
+ *     tags: [Tasks & Adherence]
  *     security:
  *       - bearerAuth: []
  *     responses:

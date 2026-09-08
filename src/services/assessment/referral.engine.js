@@ -7,6 +7,8 @@
  * to the clinician for review before creating a ClinicalReferral.
  */
 
+import { weightingForClassification } from "./classificationPolicy.js";
+
 // Maps GMFM-88 dimension codes to the professions most relevant when
 // that dimension shows marked or severe limitation.
 const GMFM_DIMENSION_PROFESSIONS = {
@@ -97,12 +99,34 @@ const analyseGenericTool = (toolCode) => {
  * @param {object} params
  * @param {string} params.toolCode  – normalised assessment tool code
  * @param {object} [params.scores]  – the `scores` object from processAssessment result
- * @returns {{ suggestedProfessions: string[], dimensionFindings: object[], reasoning: string }}
+ * @param {object} [params.classification] – latest { classifier, level } to
+ *   weight routing alongside score cutoffs (Group 4)
+ * @returns {{ suggestedProfessions: string[], dimensionFindings: object[], classificationFindings: object[], reasoning: string }}
  */
-export const generateReferralRecommendations = ({ toolCode, scores }) => {
-  if (toolCode === "GMFM_88" && scores) {
-    return analyseGMFM(scores);
+export const generateReferralRecommendations = ({ toolCode, scores, classification }) => {
+  const base =
+    toolCode === "GMFM_88" && scores ? analyseGMFM(scores) : analyseGenericTool(toolCode);
+
+  // Weight by functional classification level alongside score cutoffs.
+  let classificationFindings = [];
+  const professionSet = new Set(base.suggestedProfessions);
+  if (classification?.classifier && classification?.level != null) {
+    const weighted = weightingForClassification(classification);
+    weighted.professions.forEach((p) => professionSet.add(p));
+    classificationFindings = weighted.findings;
   }
 
-  return analyseGenericTool(toolCode);
+  const reasoningParts = [base.reasoning];
+  if (classificationFindings.length > 0) {
+    reasoningParts.push(
+      `Classification input (${classification.classifier} Level ${classification.level}) escalates: ${[...professionSet].join(", ")}.`,
+    );
+  }
+
+  return {
+    suggestedProfessions: [...professionSet],
+    dimensionFindings: base.dimensionFindings,
+    classificationFindings,
+    reasoning: reasoningParts.join(" "),
+  };
 };

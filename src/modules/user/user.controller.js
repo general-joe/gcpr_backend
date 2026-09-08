@@ -90,6 +90,25 @@ class UserController {
 
     return UtilFunctions.outputSuccess(res, { user }, "Account deleted successfully");
   });
+
+  /**
+   * Versioned re-acceptance of Terms + Privacy Policy.
+   * Available to: SERVICE_PROVIDER, CAREGIVER, ADMIN
+   */
+  static acceptTerms = catchAsync(async (req, res) => {
+    const userId = res.locals.user?.id;
+
+    if (!userId) {
+      return UtilFunctions.outputError(res, "Unauthorized", {}, undefined, 401);
+    }
+
+    const user = await UserService.acceptTerms(userId, {
+      ip: req?.ip ?? null,
+      device: req?.headers?.["x-device-id"] ?? req?.headers?.["x-device"] ?? req?.headers?.["user-agent"] ?? null,
+    });
+
+    return UtilFunctions.outputSuccess(res, { user }, "Terms accepted successfully");
+  });
 }
 
 export default UserController;

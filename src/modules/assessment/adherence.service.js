@@ -1,7 +1,26 @@
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
+import gcprError from "../../utils/http-error.js";
+import WRITE from "../../utils/logger.js";
 
 class AdherenceService {
+  /**
+   * Append-only history write (Group 6). Best-effort: history must never
+   * block the primary write, and failures are logged with context.
+   */
+  static async recordHistory({ logId = null, taskId, patientId, logDate, oldStatus = null, newStatus, changedById = null, changeSource, notes = null }) {
+    try {
+      await prisma.taskAdherenceLogHistory.create({
+        data: {
+          logId, taskId, patientId, logDate,
+          oldStatus: oldStatus ?? undefined,
+          newStatus, changedById, changeSource, notes,
+        },
+      });
+    } catch (e) {
+      WRITE.warn("[Adherence] History write failed", { taskId, error: e.message });
+    }
+  }
   static async requireServiceProvider(userOrUserId) {
     let user = userOrUserId;
     let userId = userOrUserId;
@@ -92,6 +111,10 @@ class AdherenceService {
     const task = await prisma.rehabTask.findUnique({ where: { id: taskId } });
     if (!task) throw new gcprError(HttpStatus.NOT_FOUND, "Task not found");
 
+    const prior = await prisma.taskAdherenceLog.findUnique({
+      where: { taskId_logDate: { taskId, logDate: logDateObj } },
+    });
+
     const log = await prisma.taskAdherenceLog.upsert({
       where: { taskId_logDate: { taskId, logDate: logDateObj } },
       create: {
@@ -112,6 +135,18 @@ class AdherenceService {
       }
     });
 
+    await AdherenceService.recordHistory({
+      logId: log.id,
+      taskId,
+      patientId: task.patientId,
+      logDate: logDateObj,
+      oldStatus: prior?.status ?? null,
+      newStatus: "COMPLETED",
+      changedById: user.id,
+      changeSource: "CAREGIVER_APP",
+      notes: notes || null,
+    });
+
     return log;
   }
 
@@ -127,7 +162,21 @@ class AdherenceService {
     updateData.markedById = user.id;
     updateData.markedAt = new Date();
 
-    return prisma.taskAdherenceLog.update({ where: { id: logId }, data: updateData });
+    const updated = await prisma.taskAdherenceLog.update({ where: { id: logId }, data: updateData });
+
+    await AdherenceService.recordHistory({
+      logId,
+      taskId,
+      patientId: log.patientId,
+      logDate: log.logDate,
+      oldStatus: log.status,
+      newStatus: updated.status,
+      changedById: user.id,
+      changeSource: "PROVIDER_CORRECTION",
+      notes: data.notes ?? null,
+    });
+
+    return updated;
   }
 
   static async getPatientSummary(user, patientId, query = {}) {

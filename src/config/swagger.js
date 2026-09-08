@@ -9,6 +9,9 @@ import '../modules/scheduleAppointment/scheduleAppointment.swagger.js';
 import '../modules/cpPatient/cpPatient.swagger.js';
 import '../modules/careGiver/careGiver.swagger.js';
 import '../modules/assessment/assessment.swagger.js';
+import '../modules/assessment/definitions/toolDefinition.swagger.js';
+import '../modules/functionalClassification/functionalClassification.swagger.js';
+import '../modules/sync/sync.swagger.js';
 import '../modules/directMessage/directMessage.swagger.js';
 import '../modules/resource/resource.swagger.js';
 import '../modules/user/user.swagger.js';
@@ -51,128 +54,54 @@ const swaggerOptions = {
     },
     tags: [
       {
-        name: "Auth",
-        description: "1. Registration, OTP verification, login, token refresh, and current user profile.",
+        name: "Auth & Onboarding",
+        description:
+          "Step 1 — identity and consent to the platform itself. Register captures explicit acceptedTerms/acceptedPrivacyPolicy plus server-pinned document versions (Group 3); verify-OTP activates the account; login returns the 7-day access / 30-day refresh pair plus a terms re-acceptance flag the app must honor. Every later section assumes a valid Bearer token from here, and offline mode depends on refresh succeeding before sync/push.",
       },
       {
-        name: "Caregiver",
-        description: "2. Caregiver profile onboarding and caregiver account management.",
+        name: "Profile Completion",
+        description:
+          "Step 2 — role onboarding after auth. Caregivers complete their profile (type, documents); service providers submit licence details and availability, then wait for admin verification. Downstream clinical writes require a VERIFIED provider profile, so this gate directly enables the assessment and referral sections below.",
       },
       {
-        name: "Service Providers",
-        description: "3. Service provider onboarding, verification status, discovery, search, and availability setup.",
+        name: "Patient Enrollment",
+        description:
+          "Step 3 — the single enrollment path: POST /cp-patient/ registers the child and auto-creates the ACTIVE PatientEnrollmentRecord (the standalone enrollment route is deprecated and unmounted — do not look for it). Registration-time terms acceptance covers enrollment by construction. All clinical reads/writes key off the patient id created here.",
       },
       {
-        name: "CP Patient",
-        description: "4. CP patient registration, patient listing, assigned tasks, and full patient timeline.",
+        name: "Clinical Assessment",
+        description:
+          "Step 4 — the clinical core. Forms are rendered from the latest published tool-definition version (Group 5), so the client never hardcodes questions; submissions validate server-side against that same frozen snapshot and record its version. Functional classification (GMFCS/MACS/CFCS/EDACS) feeds this flow: the form flags which scales apply and whether re-assessment is stale, and outcome direction is recomputed whenever a classification changes.",
       },
       {
-        name: "Notification",
-        description: "5. In-app notifications, unread counts, and mobile push-token registration.",
+        name: "Referrals & Care Plans",
+        description:
+          "Step 5 — acting on assessment output. Referrals move patient data across providers/orgs, so creation is physiotherapist-only with a cross-org caregiver confirmation, and status transitions re-enforce the same rule (Group 6). Care-plan generation branches review intensity on classification level; re-generating for a new assessment explicitly supersedes the old ACTIVE plan so exactly one ACTIVE plan exists per patient (Group 6).",
       },
       {
-        name: "Dashboard",
-        description: "6. Mobile-optimized caregiver and service-provider home dashboards.",
+        name: "Tasks & Adherence",
+        description:
+          "Step 6 — daily therapy execution. Providers assign rehab tasks (often from accepted referrals); caregivers mark days done, which also writes adherence logs. Every adherence write appends to an immutable history table, so provider corrections and late-arriving offline syncs never silently erase prior entries (Group 6). Progress here rolls up into dashboards and metrics.",
       },
       {
-        name: "Schedule Appointment",
-        description: "7. Provider discovery by availability, appointment booking, approval, rescheduling, and appointment lists.",
+        name: "Appointments & Telehealth",
+        description:
+          "Step 7 — scheduled and virtual care. Caregivers discover providers by availability and book; providers approve/reschedule. Telehealth rooms carry the full lifecycle (create, invite, join credentials, countdown, status) for remote consultations, including rural follow-ups that could not happen in person.",
       },
       {
-        name: "Assessment",
-        description: "8. Clinical assessment tools, forms, submissions, reports, referrals, and rehab task assignment.",
+        name: "Ongoing Platform",
+        description:
+          "Step 8 — everything that keeps families and teams engaged between visits: community groups and announcements, direct and group messaging, prescribed educational resources, notifications and push tokens, the AI support chat, therapeutic games, user reports, support tickets with their reply threads, and the FAQ/offline bundle (including the public CP intro the app caches before login). None of these drive the clinical pipeline, but tickets and FAQs are the front door for help.",
       },
       {
-        name: "Outcomes",
-        description: "9. Motor/function outcome tracking and patient outcome history.",
+        name: "Sync",
+        description:
+          "Step 9 — the offline reconciliation layer for rural use. The app queues support tickets, ticket replies, adherence marks, and direct messages while offline, then POSTs them as one ordered batch when connectivity returns. Operations are idempotent per (user, clientId) via a 90-day idempotency record, processed sequentially in client order, with per-op success/failure so the client retries only what failed. Positioned next to Tasks & Adherence because that is its primary payload.",
       },
       {
-        name: "Care Plan",
-        description: "10. Care plans generated from approved assessments, caregiver reads, and provider updates.",
-      },
-      {
-        name: "Adherence",
-        description: "11. Rehab task adherence logs, completion marking, calendars, and summaries.",
-      },
-      {
-        name: "Resources",
-        description: "12. Educational resources and personalized resource prescriptions for patients.",
-      },
-      {
-        name: "Telehealth",
-        description: "13. Virtual consultation rooms, invitations, participants, joins, and status updates.",
-      },
-      {
-        name: "Chat",
-        description: "17. AI-supported caregiver/provider chat sessions and message history.",
-      },
-      {
-        name: "Community",
-        description: "18. Community creation, discovery, membership, invite codes, and moderation.",
-      },
-      {
-        name: "Community Groups",
-        description: "19. Community group creation, membership, and group messages.",
-      },
-      {
-        name: "Community Announcements",
-        description: "20. Community announcements for caregivers and providers.",
-      },
-      {
-        name: "Direct Messages",
-        description: "21. User-to-user messaging and conversation support.",
-      },
-      {
-        name: "Metrics",
-        description: "22. Patient, provider, and system KPI snapshots.",
-      },
-      {
-        name: "Analytics",
-        description: "23. Admin analytics and operational dashboards.",
-      },
-      {
-        name: "Report",
-        description: "24. User-submitted operational reports, complaints, and system issue reports.",
-      },
-      {
-        name: "Support",
-        description: "25. Support tickets and user support conversations.",
-      },
-      {
-        name: "FAQ",
-        description: "26. Public and role-targeted frequently asked questions.",
-      },
-      {
-        name: "Files",
-        description: "27. Protected file retrieval and uploads.",
-      },
-      {
-        name: "User",
-        description: "28. User profile, account, and utility endpoints.",
-      },
-      {
-        name: "Videos",
-        description: "29. Video-related user/resource endpoints.",
-      },
-      {
-        name: "Games",
-        description: "30. Game resource endpoints.",
-      },
-      {
-        name: "RBAC Check",
-        description: "31. Runtime RBAC permission checks.",
-      },
-      {
-        name: "RBAC",
-        description: "32. Admin role and permission management.",
-      },
-      {
-        name: "Admin",
-        description: "33. Admin platform operations and oversight.",
-      },
-      {
-        name: "Admin Reports",
-        description: "34. Admin review and resolution of submitted reports.",
+        name: "Admin & RBAC",
+        description:
+          "Step 10 — platform governance. User/provider/patient moderation (including provider licence verification and enrollment-aware patient reads), role and permission management with runtime permission checks, the read-only SQL query endpoint (row-capped and audit-logged) and log inspection, system metrics and analytics dashboards, platform settings, and the assessment-tool builder (draft, version, publish, preview) that owns the schemas the Clinical Assessment section renders.",
       },
     ],
     servers: getServerUrls(),

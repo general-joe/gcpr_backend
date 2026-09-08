@@ -3,7 +3,7 @@
  * /audio:
  *   post:
  *     summary: Upload an audio file and receive a protected URL
- *     tags: [Files]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -36,7 +36,7 @@
  * /audio/{fileName}:
  *   get:
  *     summary: Get protected audio file
- *     tags: [Files]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -63,7 +63,7 @@
  * /profiles/{fileName}:
  *   get:
  *     summary: Get protected profile file
- *     tags: [Files]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -90,7 +90,7 @@
  * /licenses/{fileName}:
  *   get:
  *     summary: Get protected license file (own license only)
- *     tags: [Files]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:

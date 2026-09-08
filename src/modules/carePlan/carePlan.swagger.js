@@ -1,8 +1,5 @@
 /**
  * @swagger
- * tags:
- *   - name: Care Plan
- *     description: Patient care plans generated from approved clinical assessments.
  * components:
  *   schemas:
  *     CarePlanLinkedRehabTask:
@@ -124,8 +121,8 @@
  *
  * /care-plan/generate/{assessmentId}:
  *   post:
- *     summary: Generate an active care plan from an approved assessment
- *     tags: [Care Plan]
+ *     summary: Generate an active care plan from an approved assessment (supersedes any older ACTIVE plan)
+ *     tags: [Referrals & Care Plans]
  *     security:
  *       - bearerAuth: []
  *     description: |
@@ -172,7 +169,7 @@
  * /care-plan:
  *   get:
  *     summary: Get latest active care plan for a patient
- *     tags: [Care Plan]
+ *     tags: [Referrals & Care Plans]
  *     security:
  *       - bearerAuth: []
  *     description: |
@@ -225,7 +222,7 @@
  * /care-plan/list:
  *   get:
  *     summary: List care plans
- *     tags: [Care Plan]
+ *     tags: [Referrals & Care Plans]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -254,7 +251,7 @@
  * /care-plan/{carePlanId}:
  *   patch:
  *     summary: Update care plan status, goals, interventions, or review date
- *     tags: [Care Plan]
+ *     tags: [Referrals & Care Plans]
  *     security:
  *       - bearerAuth: []
  *     description: |

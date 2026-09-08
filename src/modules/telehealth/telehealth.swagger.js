@@ -1,12 +1,5 @@
 /**
  * @swagger
- * tags:
- *   name: Telehealth
- *   description: Telehealth room management via Google Meet
- */
-
-/**
- * @swagger
  * /telehealth/rooms:
  *   post:
  *     summary: Create a telehealth room
@@ -22,7 +15,7 @@
  *       Push notifications are handled by NotificationService.createNotification internally.
  *       No duplicate push notifications are sent. SMS is sent only for external invitees
  *       (phone without email/app account).
- *     tags: [Telehealth]
+ *     tags: [Appointments & Telehealth]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -215,7 +208,7 @@
  *     description: |
  *       Returns only rooms the logged-in user belongs to (as creator or participant).
  *       Admins see all rooms. Soft-deleted rooms (deletedAt set) are excluded from results.
- *     tags: [Telehealth]
+ *     tags: [Appointments & Telehealth]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -270,7 +263,7 @@
  *     description: |
  *       Returns room details if the user is a participant or creator.
  *       Soft-deleted rooms return 404.
- *     tags: [Telehealth]
+ *     tags: [Appointments & Telehealth]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -335,7 +328,7 @@
  *       Reschedules the room and updates the linked Google Calendar event.
  *       Reminders are rebuilt automatically when scheduledStart changes.
  *       Google Calendar update failures are logged but do not block the room update.
- *     tags: [Telehealth]
+ *     tags: [Appointments & Telehealth]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -376,7 +369,7 @@
  *       Google Calendar cancellation failures are logged but do not block the room cancellation.
  *       This is NOT a soft delete — the room remains visible in past filters.
  *       Use DELETE /telehealth/rooms/{id}/force for soft deletion.
- *     tags: [Telehealth]
+ *     tags: [Appointments & Telehealth]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -405,7 +398,7 @@
  *       Soft-deleted rooms are excluded from all queries (listRooms, getRoomById, reminder job).
  *       This is irreversible through the API — the room can only be restored via database.
  *       Use DELETE /telehealth/rooms/{id} for cancellation (room remains visible in past).
- *     tags: [Telehealth]
+ *     tags: [Appointments & Telehealth]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -437,7 +430,7 @@
  *
  *       Duplicate detection prevents multiple invitations for the same user.
  *       Each invitation is stored in TelehealthInvitation for audit.
- *     tags: [Telehealth]
+ *     tags: [Appointments & Telehealth]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -487,7 +480,7 @@
  *   get:
  *     summary: Get room participants (SERVICE_PROVIDER only)
  *     description: Returns a list of all participants with their name and role in this room.
- *     tags: [Telehealth]
+ *     tags: [Appointments & Telehealth]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -541,7 +534,7 @@
  *       Records the user's attendance and returns the Google Meet joinUrl.
  *       Uses upsert to handle both new and returning participants.
  *       Canceled or soft-deleted rooms cannot be joined.
- *     tags: [Telehealth]
+ *     tags: [Appointments & Telehealth]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -585,7 +578,7 @@
  *       Returns time remaining until the session starts.
  *       Automatically switches to LIVE when within 2 hours of start time.
  *       Returns isPast=true if session ended more than 2 hours ago.
- *     tags: [Telehealth]
+ *     tags: [Appointments & Telehealth]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -618,7 +611,7 @@
  *       - rescheduled → scheduled, live, canceled
  *
  *       Invalid transitions return 400.
- *     tags: [Telehealth]
+ *     tags: [Appointments & Telehealth]
  *     security:
  *       - bearerAuth: []
  *     parameters:

@@ -128,6 +128,22 @@ class UtilFunctions {
     return autoId;
   }
 
+  static getAccessTokenExpiresIn() {
+    return process.env.JWT_ACCESS_EXPIRES_IN || "7d";
+  }
+
+  static getRefreshTokenExpiresDays() {
+    const days = parseInt(process.env.REFRESH_TOKEN_EXPIRES_DAYS || "30", 10);
+    return Number.isFinite(days) && days > 0 ? days : 30;
+  }
+
+  static getRefreshTokenExpiryDate(fromDate = new Date()) {
+    return new Date(
+      fromDate.getTime() +
+        UtilFunctions.getRefreshTokenExpiresDays() * 24 * 60 * 60 * 1000,
+    );
+  }
+
   static generateAccessToken(payload) {
     const { tokenVersion, ...rest } = payload;
     const jwtPayload = { ...rest };
@@ -136,7 +152,7 @@ class UtilFunctions {
     }
     return jwt.sign(jwtPayload, process.env.JWT, {
       algorithm: "HS256",
-      expiresIn: "4h",
+      expiresIn: UtilFunctions.getAccessTokenExpiresIn(),
     });
   }
 

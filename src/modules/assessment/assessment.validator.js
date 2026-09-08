@@ -36,6 +36,11 @@ export const submitAssessmentSchema = z.object({
 
   clinicalNotesComment: z.string().optional(),
 
+  // Optional link to an existing functional classification (Group 4).
+  // Validated against the patient's records in submitAssessment; the
+  // response flags when attaching one is recommended.
+  functionalClassificationId: z.string().uuid().optional(),
+
   responses: z
     .record(z.string(), z.any())
     .refine(
@@ -55,7 +60,10 @@ export const createReferralSchema = z
     assessmentId: z.string().uuid().optional(),
     toProfession: professionEnum,
     toProviderId: z.string().uuid().optional(),
-    reason: z.string().min(10).max(1000)
+    reason: z.string().min(10).max(1000),
+    // Plain-language yes/no re-confirmation from the caregiver when the
+    // referral target sits outside the referring provider's organization.
+    crossOrgConfirmed: z.boolean().optional(),
   })
   .strict();
 

@@ -3,6 +3,35 @@ import WRITE from "./logger.js";
 
 const FAQ_SEED_DATA = [
   {
+    category: { name: "Understanding Cerebral Palsy", description: "What CP is, common myths, and how to get help", sortOrder: 0 },
+    faqs: [
+      {
+        question: "Is cerebral palsy caused by witchcraft or a curse?",
+        answer: "No. Cerebral palsy is caused by injury to the developing brain — before, during, or shortly after birth (for example, difficult labour, lack of oxygen, severe jaundice, infections, or premature birth). It is not caused by witchcraft, curses, or anything the parents did wrong, and it is not contagious.",
+        tags: ["cerebral-palsy", "myths", "beliefs", "intro"],
+        targetRoles: []
+      },
+      {
+        question: "What is cerebral palsy, in simple terms?",
+        answer: "Cerebral palsy (CP) affects movement, posture, and muscle control. Every child is different. With early support — physiotherapy, speech and feeding help, home exercises, and regular follow-up — children can gain new skills and participate in family, school, and community life.",
+        tags: ["cerebral-palsy", "overview", "intro"],
+        targetRoles: []
+      },
+      {
+        question: "How does this app help families in rural areas?",
+        answer: "The app connects you with verified therapists and doctors, shows home exercises with pictures and videos, tracks your child's progress, and lets you book appointments or join video calls when you have network. It works offline: read lessons and save tasks or questions without internet, and the app pushes your saved data to the server automatically once you reconnect.",
+        tags: ["offline", "rural", "how-it-helps", "intro"],
+        targetRoles: []
+      },
+      {
+        question: "How do I open a support ticket?",
+        answer: "Go to Support > New Ticket, choose a category, write a short subject and describe the problem in your own words. Tap Submit. If you are offline, the ticket is saved on your phone and sent automatically once you have internet. Replies appear under Support > My Tickets.",
+        tags: ["support", "ticket", "help", "intro"],
+        targetRoles: []
+      }
+    ]
+  },
+  {
     category: { name: "Getting Started", description: "Learn how to use GetMyNeuroCare", sortOrder: 1 },
     faqs: [
       {

@@ -1,13 +1,9 @@
 /**
  * @openapi
- * tags:
- *   - name: Notification
- *     description: In-app notification and push token management
- *
  * /notification:
  *   get:
  *     summary: Get user's notifications
- *     tags: [Notification]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -39,7 +35,7 @@
  * /notification/unread-count:
  *   get:
  *     summary: Get unread notification count
- *     tags: [Notification]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -63,7 +59,7 @@
  * /notification/read-all:
  *   put:
  *     summary: Mark all notifications as read
- *     tags: [Notification]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -75,7 +71,7 @@
  * /notification/push-token:
  *   get:
  *     summary: Get user's push notification token
- *     tags: [Notification]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -85,7 +81,7 @@
  *         description: Unauthorized
  *   post:
  *     summary: Register or update push notification token
- *     tags: [Notification]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -116,7 +112,7 @@
  *         description: Unauthorized
  *   delete:
  *     summary: Remove push notification token
- *     tags: [Notification]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -128,7 +124,7 @@
  * /notification/{id}/read:
  *   put:
  *     summary: Mark a specific notification as read
- *     tags: [Notification]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -149,7 +145,7 @@
  * /notification/{id}/archive:
  *   put:
  *     summary: Archive a notification
- *     tags: [Notification]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -170,7 +166,7 @@
  * /notification/{id}:
  *   delete:
  *     summary: Delete a notification
- *     tags: [Notification]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:

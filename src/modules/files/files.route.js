@@ -54,6 +54,18 @@ filesRouter.get(
       return UtilFunctions.outputError(res, "Invalid filename", {}, "FORBIDDEN", 403);
     }
 
+    // Ownership check (same pattern as /licenses/:fileName): profile files
+    // are stored as `<userId>.jpg`, so a user may only read their own.
+    if (fileName !== `${res.locals.user.id}.jpg`) {
+      return UtilFunctions.outputError(
+        res,
+        "You can only access your own profile file",
+        {},
+        "FORBIDDEN",
+        403
+      );
+    }
+
     return sendProtectedFile(res, "profiles", fileName);
   }
 );
@@ -84,7 +96,7 @@ filesRouter.post(
       );
     }
 
-    const safeName = `${Date.now()}-${Math.random()
+    const safeName = `${res.locals.user.id}-${Date.now()}-${Math.random()
       .toString(36)
       .slice(2, 10)}${path.extname(file.originalname) || ".webm"}`;
 
@@ -104,6 +116,19 @@ filesRouter.get(
 
     if (!isSafeFileName(fileName)) {
       return UtilFunctions.outputError(res, "Invalid filename", {}, "FORBIDDEN", 403);
+    }
+
+    // Ownership check (same pattern as /licenses/:fileName): audio uploads
+    // are stored as `<userId>-<timestamp>-<rand><ext>`, so a user may only
+    // read files they uploaded themselves.
+    if (!fileName.startsWith(`${res.locals.user.id}-`)) {
+      return UtilFunctions.outputError(
+        res,
+        "You can only access your own audio files",
+        {},
+        "FORBIDDEN",
+        403
+      );
     }
 
     return sendProtectedFile(res, audioBucket, fileName);

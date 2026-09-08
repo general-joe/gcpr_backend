@@ -1,9 +1,5 @@
 /**
  * @swagger
- * tags:
- *   name: Community Groups
- *   description: Endpoints for community group management
- *
  * components:
  *   securitySchemes:
  *     bearerAuth:
@@ -118,7 +114,7 @@
  *   post:
  *     summary: Create a new group
  *     description: Create a new group in a community
- *     tags: [Community Groups]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -181,7 +177,7 @@
  *   get:
  *     summary: Get community groups
  *     description: Get all groups in a community
- *     tags: [Community Groups]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -223,7 +219,7 @@
  *   get:
  *     summary: Get group by ID
  *     description: Get group details by ID
- *     tags: [Community Groups]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -262,7 +258,7 @@
  *   put:
  *     summary: Update group
  *     description: Update group details (admin only)
- *     tags: [Community Groups]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -331,7 +327,7 @@
  *   delete:
  *     summary: Delete group
  *     description: Delete a group (admin only, cannot delete default group)
- *     tags: [Community Groups]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -379,7 +375,7 @@
  *   post:
  *     summary: Join group
  *     description: Join a group in the community
- *     tags: [Community Groups]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -429,7 +425,7 @@
  *   post:
  *     summary: Leave group
  *     description: Leave a group (cannot leave default group)
- *     tags: [Community Groups]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -473,7 +469,7 @@
  *   get:
  *     summary: Get group messages
  *     description: Get messages from a group
- *     tags: [Community Groups]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -518,7 +514,7 @@
  *   post:
  *     summary: Send message
  *     description: Send a message to a group
- *     tags: [Community Groups]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -593,7 +589,7 @@
  *   delete:
  *     summary: Delete message
  *     description: Delete a message from a group
- *     tags: [Community Groups]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:

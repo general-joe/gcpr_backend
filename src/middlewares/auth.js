@@ -10,6 +10,8 @@ import ResponseCodes from "../utils/responseCodes.js";
  * Validates that the tokenVersion (tv) in the JWT matches the
  * user's current tokenVersion in the database. Returns true if valid.
  * Old tokens without `tv` are allowed through for backwards compatibility.
+ * DB errors fail CLOSED (reject) so a revoked token cannot slip through
+ * during an outage.
  */
 async function validateTokenVersion(decoded, clientIp, path) {
   if (!decoded?.id || decoded.tv === undefined) return true;
@@ -28,9 +30,15 @@ async function validateTokenVersion(decoded, clientIp, path) {
       return false;
     }
     return true;
-  } catch {
-    // If DB is unreachable, fail-open to avoid locking everyone out
-    return true;
+  } catch (err) {
+    WRITE.error("Token version check failed – rejecting token (fail-closed)", {
+      userId: decoded?.id,
+      ip: clientIp,
+      path,
+      error: err?.message,
+      timestamp: new Date().toISOString(),
+    });
+    return false;
   }
 }
 

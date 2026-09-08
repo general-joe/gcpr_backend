@@ -1,6 +1,11 @@
 import prisma from "../../config/database.js";
 import youtubeApi from "../../utils/youtube-api.js";
+import WRITE from "../../utils/logger.js";
 import NotificationService from "../notification/notification.service.js";
+import auditService from "../../services/audit/audit.service.js";
+import gcprError from "../../utils/http-error.js";
+import HttpStatus from "../../utils/http-status.js";
+import { getLiveTermsVersions } from "../auth/termsAcceptance.js";
 
 /**
  * User Service - Handles user-related business logic
@@ -259,6 +264,42 @@ class UserService {
       },
     });
 
+    // Cascade: a deactivating caregiver's dependent patients must not keep
+    // receiving active services. Suspend their ACTIVE enrollments so
+    // appointments/tasks stop being scheduled under a deactivated account.
+    let suspendedEnrollments = 0;
+    try {
+      const caregiver = await prisma.careGiver.findUnique({
+        where: { userId },
+        select: { id: true, cpPatients: { select: { id: true } } },
+      });
+      const patientIds = (caregiver?.cpPatients || []).map((p) => p.id);
+      if (patientIds.length > 0) {
+        const result = await prisma.patientEnrollmentRecord.updateMany({
+          where: { patientId: { in: patientIds }, status: "ACTIVE" },
+          data: {
+            status: "SUSPENDED",
+            unenrollReason: "Caregiver account deactivated",
+            unenrolledAt: new Date(),
+          },
+        });
+        suspendedEnrollments = result.count;
+      }
+    } catch (e) {
+      WRITE.warn("[Deactivation] Enrollment cascade failed", { userId, error: e.message });
+    }
+
+    try {
+      await auditService.write({
+        action: "USER_DEACTIVATED",
+        userId,
+        suspendedEnrollments,
+        at: new Date().toISOString(),
+      });
+    } catch {
+      // Audit failure must not block deactivation.
+    }
+
     // Notify user on account deactivation
     try {
       await NotificationService.createNotification({
@@ -281,8 +322,48 @@ class UserService {
 
     return user;
   }
-  static async deleteUserAccount(userId) {
+  /**
+   * Versioned re-acceptance of the live Terms + Privacy Policy.
+   * Both flags must already be validated true; versions are pinned to the
+   * live server-owned documents and the request IP/device is audited.
+   */
+  static async acceptTerms(userId, { ip = null, device = null } = {}) {
+    const live = getLiveTermsVersions();
     const user = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        termsVersion: live.termsVersion,
+        privacyPolicyVersion: live.privacyPolicyVersion,
+        termsAcceptedAt: new Date(),
+        privacyPolicyAcceptedAt: new Date(),
+      },
+      select: {
+        id: true,
+        termsVersion: true,
+        privacyPolicyVersion: true,
+        termsAcceptedAt: true,
+        privacyPolicyAcceptedAt: true,
+      },
+    });
+
+    try {
+      await auditService.write({
+        action: "USER_TERMS_REACCEPTED",
+        userId,
+        termsVersion: live.termsVersion,
+        privacyPolicyVersion: live.privacyPolicyVersion,
+        ip,
+        device,
+        at: new Date().toISOString(),
+      });
+    } catch {
+      // Audit failure must not block re-acceptance.
+    }
+
+    return user;
+  }
+
+  static async deleteUserAccount(userId) {    const user = await prisma.user.update({
       where: { id: userId },
       data: {
         accountStatus: "DELETED",

@@ -1,9 +1,5 @@
 /**
  * @swagger
- * tags:
- *   name: Schedule Appointment
- *   description: Endpoints for caregivers to view available providers and schedule appointments
- *
  * components:
  *   securitySchemes:
  *     bearerAuth:
@@ -193,7 +189,7 @@
  *   get:
  *     summary: Get list of service providers available at a specific date and time
  *     description: Returns providers who are available on the given day of week and have no conflicting appointment at the exact datetime.
- *     tags: [Schedule Appointment]
+ *     tags: [Appointments & Telehealth]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -240,7 +236,7 @@
  *   post:
  *     summary: Create a new appointment for a patient with a service provider
  *     description: Only caregivers can schedule appointments for their associated patients. Validates availability and no conflicts.
- *     tags: [Schedule Appointment]
+ *     tags: [Appointments & Telehealth]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -309,7 +305,7 @@
  * /schedule-appointment/approve:
  *   patch:
  *     summary: Approve an appointment for the authenticated service provider
- *     tags: [Schedule Appointment]
+ *     tags: [Appointments & Telehealth]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -342,7 +338,7 @@
  * /schedule-appointment/reschedule:
  *   patch:
  *     summary: Reschedule an appointment for the authenticated service provider
- *     tags: [Schedule Appointment]
+ *     tags: [Appointments & Telehealth]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -380,7 +376,7 @@
  *   get:
  *     summary: Get availability slots for a specific provider on a given date
  *     description: Returns all availability slots defined for the provider on the requested day of week.
- *     tags: [Schedule Appointment]
+ *     tags: [Appointments & Telehealth]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -421,7 +417,7 @@
  * /schedule-appointment/provider:
  *   get:
  *     summary: Get appointments for the authenticated service provider
- *     tags: [Schedule Appointment]
+ *     tags: [Appointments & Telehealth]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -458,7 +454,7 @@
  * /schedule-appointment/caregiver:
  *   get:
  *     summary: Get appointments for the authenticated caregiver
- *     tags: [Schedule Appointment]
+ *     tags: [Appointments & Telehealth]
  *     security:
  *       - bearerAuth: []
  *     parameters:

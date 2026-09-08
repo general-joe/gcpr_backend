@@ -170,12 +170,14 @@
  *
  * /auth/register:
  *   post:
- *     summary: Register a new user
+ *     summary: Register a new user (explicit terms/privacy acceptance required; versions pinned server-side)
  *     security: []
  *     description: >
- *       Registers a new user and sends an OTP via the selected channel (SMS or Email).
- *       Profile image (selfie) is required.
- *     tags: [Auth]
+ *       Step 1 of onboarding. Requires acceptedTerms and acceptedPrivacyPolicy
+ *       to be boolean true — omission or false rejects registration — and the
+ *       acceptance is persisted with server-pinned document versions plus an
+ *       IP/device audit entry. Sends an OTP via the selected channel next.
+ *     tags: [Auth & Onboarding]
  *     requestBody:
  *       required: true
  *       content:
@@ -192,7 +194,7 @@
  *   post:
  *     summary: Verify OTP and activate account
  *     security: []
- *     tags: [Auth]
+ *     tags: [Auth & Onboarding]
  *     requestBody:
  *       required: true
  *       content:
@@ -216,7 +218,7 @@
  *     summary: Resend OTP
  *     security: []
  *     description: Resends a new OTP to the user's registered email or phone number
- *     tags: [Auth]
+ *     tags: [Auth & Onboarding]
  *     requestBody:
  *       required: true
  *       content:
@@ -233,9 +235,15 @@
  *
  * /auth/login:
  *   post:
- *     summary: Login user
+ *     summary: Login user (returns tokens plus a terms re-acceptance flag)
  *     security: []
- *     tags: [Auth]
+ *     tags: [Auth & Onboarding]
+ *     description: >
+ *       Returns the 7-day access / 30-day refresh pair. The response also
+ *       carries terms.reacceptanceRequired when the live Terms/Privacy
+ *       versions moved past what the user accepted — the app must then show
+ *       the re-accept screen (PATCH /user/accept-terms). Offline mode depends
+ *       on refreshing before sync/push.
  *     requestBody:
  *       required: true
  *       content:
@@ -257,7 +265,7 @@
  *     summary: Request password reset
  *     security: []
  *     description: Sends a password reset OTP to the user's email or phone number. The mobile/web app should collect identifier, OTP, and new password, then call /auth/reset-password.
- *     tags: [Auth]
+ *     tags: [Auth & Onboarding]
  *     requestBody:
  *       required: true
  *       content:
@@ -275,7 +283,7 @@
  *     summary: Reset password
  *     security: []
  *     description: Resets the user's password using a valid OTP
- *     tags: [Auth]
+ *     tags: [Auth & Onboarding]
  *     requestBody:
  *       required: true
  *       content:
@@ -293,7 +301,7 @@
  *     summary: Refresh access token
  *     security: []
  *     description: Generates a new access token using a valid refresh token and user ID
- *     tags: [Auth]
+ *     tags: [Auth & Onboarding]
  *     requestBody:
  *       required: true
  *       content:
@@ -317,7 +325,7 @@
  *     summary: Initiate Google OAuth login
  *     security: []
  *     description: Generates and returns the Google OAuth authorization URL for user login
- *     tags: [Auth]
+ *     tags: [Auth & Onboarding]
  *     responses:
  *       200:
  *         description: Google OAuth URL generated successfully
@@ -350,7 +358,7 @@
  *       Handles the OAuth callback from Google. This endpoint receives the authorization code
  *       from Google and exchanges it for tokens. If user doesn't exist, a new account is automatically created.
  *       Redirect here from the authUrl provided by /auth/google endpoint.
- *     tags: [Auth]
+ *     tags: [Auth & Onboarding]
  *     parameters:
  *       - in: query
  *         name: code

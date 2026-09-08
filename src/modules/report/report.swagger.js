@@ -1,18 +1,9 @@
 /**
  * @swagger
- * tags:
- *   - name: Report
- *     description: Report service providers and system issues
- *   - name: Admin Reports
- *     description: Admin management of submitted reports
- */
-
-/**
- * @swagger
  * /report:
  *   post:
  *     summary: Submit a report
- *     tags: [Report]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -48,7 +39,7 @@
  * /report/my:
  *   get:
  *     summary: List own submitted reports
- *     tags: [Report]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -79,7 +70,7 @@
  * /report/{id}:
  *   get:
  *     summary: Get a submitted report by ID (owner only)
- *     tags: [Report]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -98,7 +89,7 @@
  * /report/download:
  *   get:
  *     summary: Download own reports as CSV, Excel, or PDF
- *     tags: [Report]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -140,7 +131,7 @@
  * /admin/reports:
  *   get:
  *     summary: List all reports (admin)
- *     tags: [Admin Reports]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -162,7 +153,7 @@
  * /admin/reports/{id}:
  *   get:
  *     summary: Get report details (admin)
- *     tags: [Admin Reports]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -181,7 +172,7 @@
  * /admin/reports/{id}:
  *   patch:
  *     summary: Update report status (admin)
- *     tags: [Admin Reports]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:

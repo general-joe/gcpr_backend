@@ -1,5 +1,6 @@
 import { google } from "googleapis";
 import axios from "axios";
+import crypto from "node:crypto";
 import prisma from "../../config/database.js";
 import gcprError from "../../utils/http-error.js";
 import HttpStatus from "../../utils/http-status.js";
@@ -29,9 +30,30 @@ class GoogleService {
   }
 
   /**
-   * Generate Google OAuth authorization URL
+   * Generate a cryptographically random OAuth state value (CSRF protection).
+   * The client must return it unchanged on the callback; see handleGoogleCallback.
    */
-  static generateAuthUrl() {
+  static generateAuthState() {
+    return crypto.randomBytes(32).toString("hex");
+  }
+
+  /**
+   * PKCE helpers (RFC 7636 S256). The client keeps the verifier and sends it
+   * back on the callback; only the challenge travels in the auth URL.
+   */
+  static generateCodeVerifier() {
+    return crypto.randomBytes(32).toString("base64url");
+  }
+
+  static buildCodeChallenge(codeVerifier) {
+    return crypto.createHash("sha256").update(codeVerifier).digest("base64url");
+  }
+
+  /**
+   * Generate Google OAuth authorization URL.
+   * Pass `state` (required in production) and `codeChallenge` for PKCE.
+   */
+  static generateAuthUrl({ state, codeChallenge } = {}) {
     const oauth2Client = this.createOAuth2Client();
     const scopes = [
       "https://www.googleapis.com/auth/userinfo.profile",
@@ -42,6 +64,11 @@ class GoogleService {
       access_type: "offline",
       scope: scopes,
       prompt: "consent",
+      ...(state && { state }),
+      ...(codeChallenge && {
+        code_challenge: codeChallenge,
+        code_challenge_method: "S256",
+      }),
     });
 
     return authUrl;
@@ -50,10 +77,12 @@ class GoogleService {
   /**
    * Exchange authorization code for tokens
    */
-  static async exchangeCodeForTokens(code) {
+  static async exchangeCodeForTokens(code, codeVerifier) {
     try {
       const oauth2Client = this.createOAuth2Client();
-      const { tokens } = await oauth2Client.getToken(code);
+      const { tokens } = await oauth2Client.getToken(
+        codeVerifier ? { code, codeVerifier } : code,
+      );
       
       // Validate that we got the expected scopes (profile/email, not calendar)
       const expectedScopes = [
@@ -131,10 +160,19 @@ class GoogleService {
   /**
    * Handle Google OAuth callback and user authentication
    */
-  static async handleGoogleCallback(code) {
+  static async handleGoogleCallback(code, { state, expectedState, codeVerifier } = {}) {
     try {
+      // CSRF protection: state is required and must match the value issued
+      // with the auth URL when the client kept one (expectedState).
+      if (!state || typeof state !== "string" || state.length < 16) {
+        throw new gcprError(HttpStatus.BAD_REQUEST, "OAuth state is missing or invalid");
+      }
+      if (expectedState && state !== expectedState) {
+        throw new gcprError(HttpStatus.UNAUTHORIZED, "OAuth state mismatch");
+      }
+
       // Exchange code for tokens
-      const tokens = await this.exchangeCodeForTokens(code);
+      const tokens = await this.exchangeCodeForTokens(code, codeVerifier);
 
       // Get user information
       const googleUser = await this.getUserInfo(tokens);
@@ -183,15 +221,27 @@ class GoogleService {
         });
       }
 
-      // Generate JWT tokens
+      // Generate JWT tokens (carry tokenVersion so revocation applies
+      // to Google logins exactly like password logins)
       const accessToken = UtilFunctions.generateAccessToken({
         id: user.id,
         email: user.email,
         userType: user.userType,
         roles: user.roles || [],
+        tokenVersion: user.tokenVersion,
       });
 
       const refreshToken = UtilFunctions.generateRefreshToken();
+
+      // Persist the app refresh token so POST /auth/refresh-token works
+      // for Google users (previously returned but never stored).
+      await prisma.refreshToken.create({
+        data: {
+          tokenHash: await hash(refreshToken, 10),
+          userId: user.id,
+          expiresAt: UtilFunctions.getRefreshTokenExpiryDate(),
+        },
+      });
 
       // Store OAuth tokens (optional - for making API calls on behalf of user)
       await prisma.user.update({

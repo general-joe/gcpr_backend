@@ -2,7 +2,15 @@
  * Seed Admin User Script
  *
  * Creates an admin user with ADMIN userType and ADMIN role.
- * Run: node scripts/seed-admin.js
+ * Credentials come ONLY from the environment — there are no baked-in
+ * defaults (Group 8: a previously hardcoded credential is treated as
+ * compromised; rotate it outside of this change).
+ *
+ * Required env:
+ *   SEED_ADMIN_EMAIL     - admin login email
+ *   SEED_ADMIN_PASSWORD  - admin password (min 12 chars, letters + number + symbol)
+ *
+ * Run: SEED_ADMIN_EMAIL=... SEED_ADMIN_PASSWORD=... node scripts/seed-admin.js
  */
 
 import prisma from "../src/config/database.js";
@@ -101,9 +109,31 @@ async function seedInline() {
   return results;
 }
 
+function readSeedCredentials() {
+  const email = process.env.SEED_ADMIN_EMAIL;
+  const password = process.env.SEED_ADMIN_PASSWORD;
+  if (!email || !password) {
+    throw new Error(
+      "SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD must both be set — the seed script has no default credentials by design."
+    );
+  }
+  // Seed admins are break-glass accounts: enforce a strong password here
+  // (stricter than the register minimum) so a weak env value fails loudly.
+  const strong =
+    password.length >= 12 &&
+    /[A-Za-z]/.test(password) &&
+    /[0-9]/.test(password) &&
+    /[^A-Za-z0-9]/.test(password);
+  if (!strong) {
+    throw new Error(
+      "SEED_ADMIN_PASSWORD is too weak: use at least 12 characters with letters, a number, and a symbol."
+    );
+  }
+  return { email, password };
+}
+
 async function seedAdmin() {
-  const email = "oklement3@gmail.com";
-  const password = "Pass123$1";
+  const { email, password } = readSeedCredentials();
 
   console.log("=== Seeding Admin User ===\n");
 
@@ -200,7 +230,6 @@ async function seedAdmin() {
 
   console.log("=== Admin User Created Successfully ===");
   console.log(`Email: ${email}`);
-  console.log(`Password: ${password}`);
   console.log(`User ID: ${user.id}`);
   console.log(`User Type: ADMIN`);
   console.log(`Role: ADMIN\n`);
@@ -208,7 +237,15 @@ async function seedAdmin() {
   await prisma.$disconnect();
 }
 
-seedAdmin().catch((err) => {
-  console.error("Failed to seed admin user:", err);
-  process.exit(1);
-});
+export { seedAdmin, readSeedCredentials };
+
+// Only auto-run when executed directly (node scripts/seed-admin.js), so the
+// module can be imported safely (e.g. by tests) without side effects.
+const invokedDirectly =
+  process.argv[1] && process.argv[1].endsWith("seed-admin.js");
+if (invokedDirectly) {
+  seedAdmin().catch((err) => {
+    console.error("Failed to seed admin user:", err.message);
+    process.exit(1);
+  });
+}

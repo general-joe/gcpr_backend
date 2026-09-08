@@ -4,8 +4,88 @@ import NotificationService from "../notification/notification.service.js";
 import gcprError from "../../utils/http-error.js";
 import WRITE from "../../utils/logger.js";
 import { assertPatientAccess } from "../../services/clinical/clinicalAccess.service.js";
+import { isClassificationStale } from "../../services/assessment/classificationPolicy.js";
+
+const AUTO_OUTCOME_NOTE_PREFIX = "Auto-generated from";
 
 class FunctionalClassificationService {
+  /**
+   * Latest classification context per patient for form/referral/care-plan
+   * consumers: what is on file per scale, what is missing, what is stale
+   * (>12 months, paediatric re-assessment rule).
+   */
+  static async getClassificationContext(patientId, applicableScales = []) {
+    const records = await prisma.functionalClassification.findMany({
+      where: { patientId },
+      orderBy: { assessedAt: "desc" },
+      select: { id: true, classifier: true, level: true, assessedAt: true },
+    });
+    const latestByScale = new Map();
+    for (const r of records) {
+      if (!latestByScale.has(r.classifier)) latestByScale.set(r.classifier, r);
+    }
+    const onFile = [...latestByScale.values()];
+    const missingScales = applicableScales.filter((s) => !latestByScale.has(s));
+    const staleScales = onFile
+      .filter((r) => applicableScales.length === 0 || applicableScales.includes(r.classifier))
+      .filter((r) => isClassificationStale(r.assessedAt))
+      .map((r) => r.classifier);
+    return {
+      onFile,
+      missingScales,
+      staleScales,
+      isStale: staleScales.length > 0,
+      classificationRecommended: missingScales.length > 0 || staleScales.length > 0,
+    };
+  }
+
+  /**
+   * Rebuild the auto-generated MotorFunctionOutcome for one
+   * (patient, classifier) pair from the two latest records. Manual outcomes
+   * (created via the outcomes API) never carry the auto note prefix and are
+   * preserved. Called after update/delete, which previously left outcomes stale.
+   */
+  static async recomputeOutcomeForClassifier(patientId, classifier) {
+    const latest = await prisma.functionalClassification.findMany({
+      where: { patientId, classifier },
+      orderBy: { assessedAt: "desc" },
+      take: 2,
+    });
+    await prisma.motorFunctionOutcome.deleteMany({
+      where: {
+        patientId,
+        assessmentToolUsed: classifier,
+        notes: { startsWith: AUTO_OUTCOME_NOTE_PREFIX },
+      },
+    });
+    const [current, baseline] = latest;
+    if (!current || !baseline) return null;
+    const direction =
+      current.level < baseline.level ? "IMPROVED" : current.level > baseline.level ? "REGRESSED" : "STABLE";
+    const pctChange =
+      baseline.level > 0
+        ? parseFloat((((baseline.level - current.level) / baseline.level) * 100).toFixed(2))
+        : 0;
+    const assessor = await prisma.functionalClassification.findUnique({
+      where: { id: current.id },
+      select: { assessorId: true },
+    });
+    if (!assessor?.assessorId) return null;
+    return prisma.motorFunctionOutcome.create({
+      data: {
+        patientId,
+        assessorId: assessor.assessorId,
+        baselineLevel: baseline.level,
+        currentLevel: current.level,
+        baselineDate: baseline.assessedAt,
+        reviewDate: current.assessedAt,
+        outcomeDirection: direction,
+        percentageChange: pctChange,
+        assessmentToolUsed: classifier,
+        notes: `${AUTO_OUTCOME_NOTE_PREFIX} ${classifier} classification comparison`,
+      },
+    });
+  }
   // ─── Guards ────────────────────────────────────────────────────────────────
 
   static async requireVerifiedServiceProvider(userId) {
@@ -75,6 +155,26 @@ class FunctionalClassificationService {
       orderBy: { assessedAt: "desc" },
     });
 
+    // Optional back-link to the assessment session that produced this
+    // classification (Group 4 linked history).
+    let assessmentLink = null;
+    if (data.assessmentId) {
+      const assessment = await prisma.clinicalAssessment.findUnique({
+        where: { id: data.assessmentId },
+        select: { id: true, patientId: true },
+      });
+      if (!assessment) {
+        throw new gcprError(HttpStatus.NOT_FOUND, "Assessment not found");
+      }
+      if (assessment.patientId !== data.patientId) {
+        throw new gcprError(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          "Assessment does not belong to the selected patient",
+        );
+      }
+      assessmentLink = assessment.id;
+    }
+
     const fc = await prisma.functionalClassification.create({
       data: {
         patientId: data.patientId,
@@ -83,6 +183,7 @@ class FunctionalClassificationService {
         level: data.level,
         assessedAt: data.assessedAt,
         notes: data.notes ?? null,
+        ...(assessmentLink && { assessmentId: assessmentLink }),
       },
       include: {
         patient: { select: { id: true, fullName: true } },
@@ -95,6 +196,20 @@ class FunctionalClassificationService {
         },
       },
     });
+
+    // Link history: the previous latest record for this (patient,
+    // classifier) is now superseded by the new one — a chain, not an
+    // overwrite. priorFC was fetched before create, so it cannot be fc.
+    if (priorFC && !priorFC.supersededById) {
+      try {
+        await prisma.functionalClassification.update({
+          where: { id: priorFC.id },
+          data: { supersededById: fc.id },
+        });
+      } catch (err) {
+        WRITE.warn("[FC] Superseded-by link failed", { err: err.message });
+      }
+    }
 
     // Auto-generate MotorFunctionOutcome from baseline comparison
     if (priorFC) {
@@ -276,6 +391,19 @@ class FunctionalClassificationService {
       },
     });
 
+    // Level/date changes invalidate the auto-generated outcome — rebuild it
+    // from the two latest records (manual outcomes are preserved).
+    if (data.level !== undefined || data.assessedAt !== undefined) {
+      try {
+        await FunctionalClassificationService.recomputeOutcomeForClassifier(
+          updated.patientId,
+          updated.classifier,
+        );
+      } catch (err) {
+        WRITE.warn("[FC] Outcome recompute after update failed", { err: err.message });
+      }
+    }
+
     return updated;
   }
 
@@ -305,6 +433,22 @@ class FunctionalClassificationService {
     }
 
     await prisma.functionalClassification.delete({ where: { id } });
+
+    // Rebuild the auto-generated outcome from the remaining chain so a
+    // deleted record does not leave a stale baseline behind. Records that
+    // pointed at the deleted one inherit its successor, keeping the chain.
+    try {
+      await prisma.functionalClassification.updateMany({
+        where: { supersededById: id },
+        data: { supersededById: fc.supersededById ?? null },
+      });
+      await FunctionalClassificationService.recomputeOutcomeForClassifier(
+        fc.patientId,
+        fc.classifier,
+      );
+    } catch (err) {
+      WRITE.warn("[FC] Outcome recompute after delete failed", { err: err.message });
+    }
 
     return { deleted: true, id };
   }
