@@ -30,6 +30,10 @@ jobs:
 
             cd /home/ubuntu/gcpr_backend
 
+            echo "========================================"
+            echo "SYSTEM INFORMATION"
+            echo "========================================"
+
             echo "Node:"
             node -v
 
@@ -39,27 +43,128 @@ jobs:
             echo "PM2:"
             pm2 -v
 
-            echo "Disk before deployment:"
+            echo ""
+            echo "========================================"
+            echo "DISK BEFORE CLEANUP"
+            echo "========================================"
+
             df -h /
 
-            echo "Updating backend..."
+            echo ""
+            echo "Disk usage by top-level directories:"
+            sudo du -xhd1 / 2>/dev/null | sort -h || true
+
+            # Get available disk space in KB
+            AVAILABLE_KB=$(df -Pk / | awk 'NR==2 {print $4}')
+
+            echo ""
+            echo "Available disk: ${AVAILABLE_KB} KB"
+
+            echo ""
+            echo "========================================"
+            echo "EMERGENCY DISK CLEANUP"
+            echo "========================================"
+
+            # If less than 1 GB is available, perform cleanup.
+            if [ "$AVAILABLE_KB" -lt 1048576 ]; then
+
+              echo "WARNING: Less than 1 GB of disk space available."
+              echo "Running safe cleanup operations..."
+
+              echo ""
+              echo "--- Cleaning APT cache ---"
+              sudo apt clean || true
+              sudo apt autoclean || true
+
+              echo ""
+              echo "--- Cleaning old system journals ---"
+              sudo journalctl --vacuum-time=3d || true
+              sudo journalctl --vacuum-size=100M || true
+
+              echo ""
+              echo "--- Cleaning pnpm store ---"
+              pnpm store prune || true
+
+              echo ""
+              echo "--- Docker disk usage before cleanup ---"
+              docker system df || true
+
+              echo ""
+              echo "--- Removing unused Docker images ---"
+              docker image prune -af || true
+
+              echo ""
+              echo "--- Removing unused Docker build cache ---"
+              docker builder prune -af || true
+
+            else
+              echo "More than 1 GB available. No emergency cleanup required."
+            fi
+
+            echo ""
+            echo "========================================"
+            echo "DISK AFTER CLEANUP"
+            echo "========================================"
+
+            df -h /
+
+            AVAILABLE_KB=$(df -Pk / | awk 'NR==2 {print $4}')
+
+            echo ""
+            echo "Available disk after cleanup: ${AVAILABLE_KB} KB"
+
+            # Require at least 512 MB before continuing.
+            if [ "$AVAILABLE_KB" -lt 524288 ]; then
+              echo ""
+              echo "========================================"
+              echo "DEPLOYMENT ABORTED"
+              echo "========================================"
+              echo "ERROR: Less than 512 MB of disk space is available."
+              echo "The server needs additional disk space."
+              exit 1
+            fi
+
+            echo ""
+            echo "========================================"
+            echo "UPDATING BACKEND"
+            echo "========================================"
+
             git fetch origin production
             git checkout production
             git reset --hard origin/production
 
-            echo "Installing dependencies..."
+            echo ""
+            echo "========================================"
+            echo "INSTALLING DEPENDENCIES"
+            echo "========================================"
+
             pnpm install --frozen-lockfile
 
-            echo "Running migrations..."
+            echo ""
+            echo "========================================"
+            echo "RUNNING DATABASE MIGRATIONS"
+            echo "========================================"
+
             pnpm run migrate:deploy
 
-            echo "Restarting backend..."
+            echo ""
+            echo "========================================"
+            echo "RESTARTING BACKEND"
+            echo "========================================"
+
             pm2 restart gcpr-backend --update-env
 
-            echo "Cleaning pnpm store..."
+            echo ""
+            echo "========================================"
+            echo "CLEANING PNPM STORE"
+            echo "========================================"
+
             pnpm store prune || true
 
-            echo "Deployment completed successfully!"
+            echo ""
+            echo "========================================"
+            echo "DEPLOYMENT COMPLETED"
+            echo "========================================"
 
             echo "Disk after deployment:"
             df -h /
