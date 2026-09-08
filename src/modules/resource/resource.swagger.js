@@ -116,7 +116,7 @@
  * /resource:
  *   post:
  *     summary: Upload a new resource (Document, Video, or Link)
- *     tags: [Resources]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -153,7 +153,7 @@
  *
  *   get:
  *     summary: Get all resources
- *     tags: [Resources]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -180,7 +180,7 @@
  * /resource/{id}/prescribe:
  *   post:
  *     summary: Prescribe a resource to a patient
- *     tags: [Resources]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     description: |
@@ -223,7 +223,7 @@
  * /resource/prescriptions/patient/{patientId}:
  *   get:
  *     summary: Get prescribed resources for a patient
- *     tags: [Resources]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     description: Returns resources prescribed to a patient. Caregiver owner, authorized provider, or admin can access.
@@ -252,7 +252,7 @@
  * /resource/{id}:
  *   get:
  *     summary: Get a specific resource by ID
- *     tags: [Resources]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -284,7 +284,7 @@
  *
  *   put:
  *     summary: Update a resource
- *     tags: [Resources]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -329,7 +329,7 @@
  *
  *   delete:
  *     summary: Delete a resource
- *     tags: [Resources]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -364,7 +364,7 @@
  *   get:
  *     summary: Download or view a resource file
  *     description: Redirects to the Cloudflare R2 public URL for Documents and Videos. Links cannot be downloaded.
- *     tags: [Resources]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:

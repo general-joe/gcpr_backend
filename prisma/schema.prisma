@@ -231,6 +231,14 @@ model FunctionalClassification {
   createdAt  DateTime                 @default(now())
   updatedAt  DateTime                 @updatedAt
   classifier FunctionalClassifierType
+  // Linked history (Group 4): the assessment session that produced this
+  // record, and the newer record that supersedes it (chain, not overwrite).
+  assessmentId   String?
+  supersededById String?
+  assessment     ClinicalAssessment?          @relation("ClassificationAssessment", fields: [assessmentId], references: [id], onDelete: SetNull)
+  supersededBy   FunctionalClassification?    @relation("ClassificationHistory", fields: [supersededById], references: [id], onDelete: SetNull)
+  supersedes     FunctionalClassification[]   @relation("ClassificationHistory")
+  referencedByAssessments ClinicalAssessment[] @relation("AssessmentClassification")
   assessor   ServiceProvider?         @relation(fields: [assessorId], references: [id])
   patient    CpPatient                @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
@@ -250,6 +258,11 @@ model ClinicalAssessment {
   responses   Json
   referralId  String?                    @unique
   appointmentId String?
+  // Optional reference to the functional classification informing this
+  // assessment (Group 4). Nullable: flagged as recommended, not required.
+  functionalClassificationId String?
+  functionalClassification FunctionalClassification? @relation("AssessmentClassification", fields: [functionalClassificationId], references: [id], onDelete: SetNull)
+  linkedClassifications FunctionalClassification[] @relation("ClassificationAssessment")
   createdAt   DateTime                   @default(now())
   updatedAt   DateTime                   @updatedAt
   patient     CpPatient                  @relation(fields: [patientId], references: [id], onDelete: Cascade)
@@ -288,6 +301,7 @@ model ClinicalReferral {
   toProviderId      String?
   slaDeadline       DateTime?
   escalatedAt       DateTime?
+  crossOrgConfirmed Boolean             @default(false)
   relatedAssessment ClinicalAssessment? @relation("ReferralAssessment")
   fromProvider      ServiceProvider     @relation("ProviderReferrals", fields: [fromProviderId], references: [id], onDelete: Cascade)
   patient           CpPatient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
@@ -352,27 +366,109 @@ model Appointment {
   @@index([providerId])
 }
 
-model AssessmentTool {
-  id          String                     @id @default(uuid())
-  toolCode    String                     @unique
-  toolName    String
-  version     String
-  description String?
-  schema      Json?
-  isActive    Boolean                    @default(true)
-  createdAt   DateTime                   @default(now())
-  updatedAt   DateTime                   @updatedAt
-  professions AssessmentToolProfession[]
+enum ToolFieldType {
+  SINGLE_CHOICE
+  MULTI_CHOICE
+  SCALE_1_5
+  NUMBER
+  TEXT
+  DATE
+  BOOLEAN
+  FILE_UPLOAD
 }
 
-model AssessmentToolProfession {
-  id         String         @id @default(uuid())
-  toolId     String
-  profession Profession
-  createdAt  DateTime       @default(now())
-  tool       AssessmentTool @relation(fields: [toolId], references: [id], onDelete: Cascade)
+enum ToolScoringStrategy {
+  SUM
+  WEIGHTED_SUM
+  RUBRIC
+  CUSTOM_FN_REF
+}
 
-  @@unique([toolId, profession])
+enum ToolDefinitionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// Configurable assessment-tool engine (Group 5). Replaces both the
+// hardcoded src/config/tools/*.js runtime path (kept only as the one-time
+// migration seed source) and the dead AssessmentTool/AssessmentToolProfession
+// tables. Draft structure (sections/fields) is editable; publish() freezes an
+// immutable AssessmentToolVersion snapshot that submissions validate against.
+model AssessmentToolDefinition {
+  id                 String                     @id @default(uuid())
+  code               String                     @unique
+  name               String
+  description        String?
+  status             ToolDefinitionStatus       @default(DRAFT)
+  applicableScales   String[]                   @default([])
+  allowedProfessions String[]                   @default([])
+  scoringStrategy    ToolScoringStrategy        @default(CUSTOM_FN_REF)
+  customFnRef        String?
+  currentVersion     Int                        @default(0)
+  createdBy          String?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  sections           AssessmentToolSection[]
+  versions           AssessmentToolVersion[]
+
+  @@map("assessmentToolDefinition")
+}
+
+model AssessmentToolSection {
+  id          String                @id @default(uuid())
+  toolId      String
+  order       Int
+  code        String?
+  title       String
+  description String?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  tool        AssessmentToolDefinition @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  fields      AssessmentToolField[]
+
+  @@index([toolId, order])
+  @@map("assessmentToolSection")
+}
+
+model AssessmentToolField {
+  id            String              @id @default(uuid())
+  sectionId     String
+  // Stable creation-time key, unique within its tool. Never position-derived:
+  // reordering fields must not corrupt historical answer mappings.
+  fieldKey      String
+  order         Int
+  label         String
+  helpText      String?
+  fieldType     ToolFieldType
+  options       Json?
+  validation    Json?
+  scoringWeight Float?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  section       AssessmentToolSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId, order])
+  @@map("assessmentToolField")
+}
+
+model AssessmentToolVersion {
+  id                 String               @id @default(uuid())
+  toolId             String
+  version            Int
+  status             ToolDefinitionStatus @default(DRAFT)
+  scoringStrategy    ToolScoringStrategy
+  customFnRef        String?
+  allowedProfessions String[]             @default([])
+  applicableScales   String[]             @default([])
+  // Frozen full field tree. Never mutated in place; edits publish a new row.
+  snapshot           Json
+  publishedAt        DateTime?
+  createdAt          DateTime             @default(now())
+  tool               AssessmentToolDefinition @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@unique([toolId, version])
+  @@map("assessmentToolVersion")
 }
 
 model VideoCache {
@@ -1030,6 +1126,28 @@ model TaskAdherenceLog {
   @@index([patientId, logDate])
   @@index([providerId, logDate])
   @@index([status])
+}
+
+// Append-only history for adherence writes (Group 6). Every upsert/update
+// across the three write paths (caregiver app, provider correction, offline
+// sync) records the before/after state here, so a late-arriving sync batch
+// or correction never silently erases a prior entry.
+model TaskAdherenceLogHistory {
+  id           String   @id @default(uuid())
+  logId        String?
+  taskId       String
+  patientId    String
+  logDate      DateTime
+  oldStatus    AdherenceStatus?
+  newStatus    AdherenceStatus
+  changedById  String?
+  changeSource String
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  @@index([taskId, logDate])
+  @@index([patientId])
+  @@map("taskAdherenceLogHistory")
 }
 
 model PatientEnrollmentRecord {

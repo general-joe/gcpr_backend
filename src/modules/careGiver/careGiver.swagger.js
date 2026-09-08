@@ -3,7 +3,7 @@
  * /caregiver/complete-profile:
  *   post:
  *     summary: Complete caregiver profile
- *     tags: [Caregiver]
+ *     tags: [Profile Completion]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -57,7 +57,7 @@
  * /caregiver:
  *   get:
  *     summary: Get caregivers (service provider only)
- *     tags: [Caregiver]
+ *     tags: [Profile Completion]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -86,7 +86,7 @@
  * /caregiver/{id}:
  *   get:
  *     summary: Get caregiver by ID
- *     tags: [Caregiver]
+ *     tags: [Profile Completion]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -103,7 +103,7 @@
  *         description: Caregiver not found
  *   put:
  *     summary: Update caregiver profile
- *     tags: [Caregiver]
+ *     tags: [Profile Completion]
  *     security:
  *       - bearerAuth: []
  *     description: Caller can update only profile matching own caregiver ID (for INDIVIDUAL) or any caregiver (for SERVICE_PROVIDER).
@@ -167,7 +167,7 @@
  *         description: Caregiver not found
  *   delete:
  *     summary: Delete caregiver profile
- *     tags: [Caregiver]
+ *     tags: [Profile Completion]
  *     security:
  *       - bearerAuth: []
  *     description: Caller can delete only profile matching own caregiver ID (for INDIVIDUAL) or any caregiver (for SERVICE_PROVIDER).

@@ -1,3 +1,9 @@
+/**
+ * @deprecated DO NOT MOUNT. Superseded by `POST /cp-patient/` auto-enrollment
+ * (Group 3): registration-time terms acceptance covers enrollment by
+ * construction, so a second enrollment path would create two sources of
+ * truth. Kept unmounted for reference only.
+ */
 import express from "express";
 import rateLimit from "express-rate-limit";
 import { authorize } from "../../middlewares/auth.js";

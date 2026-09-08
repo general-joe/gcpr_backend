@@ -30,6 +30,26 @@ export default class FaqController {
     UtilFunctions.outputSuccess(res, result, "Search results retrieved");
   });
 
+  // Public onboarding intro — cacheable offline. No auth required so
+  // first-time and rural users can read it before/without login.
+  static getIntro = catchAsync(async (req, res) => {
+    const result = await FaqService.getIntro();
+    res.set("Cache-Control", "public, max-age=86400");
+    UtilFunctions.outputSuccess(res, result, "Intro retrieved successfully");
+  });
+
+  static getOfflineBundle = catchAsync(async (req, res) => {
+    const userRole = res.locals.user?.role ?? null;
+    const result = await FaqService.getOfflineBundle(userRole);
+    res.set("Cache-Control", "public, max-age=3600");
+    UtilFunctions.outputSuccess(res, result, "Offline bundle retrieved successfully");
+  });
+
+  static updateIntro = catchAsync(async (req, res) => {
+    const result = await FaqService.updateIntro(req.validatedData ?? req.body);
+    UtilFunctions.outputSuccess(res, result, "Intro updated successfully");
+  });
+
   // Admin
   static adminListFaqs = catchAsync(async (req, res) => {
     const result = await FaqService.adminListFaqs(req.query);

@@ -1,5 +1,7 @@
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
+import gcprError from "../../utils/http-error.js";
+import WRITE from "../../utils/logger.js";
 import NotificationService from "../notification/notification.service.js";
 import { hasRbacRole } from "../../middlewares/auth.js";
 import auditService from "../../services/audit/audit.service.js";
@@ -600,7 +602,10 @@ class CpPatientService {
     try {
       const logDate = new Date(completionDate);
       logDate.setHours(0, 0, 0, 0);
-      await prisma.taskAdherenceLog.upsert({
+      const prior = await prisma.taskAdherenceLog.findUnique({
+        where: { taskId_logDate: { taskId: task.id, logDate } },
+      });
+      const log = await prisma.taskAdherenceLog.upsert({
         where: { taskId_logDate: { taskId: task.id, logDate } },
         update: {
           status: "COMPLETED",
@@ -617,6 +622,23 @@ class CpPatientService {
           markedAt: new Date(),
         },
       });
+      // Append-only history (Group 6) — shared helper, never blocks.
+      try {
+        const { default: AdherenceService } =
+          await import("../assessment/adherence.service.js");
+        await AdherenceService.recordHistory({
+          logId: log.id,
+          taskId: task.id,
+          patientId,
+          logDate,
+          oldStatus: prior?.status ?? null,
+          newStatus: "COMPLETED",
+          changedById: userId,
+          changeSource: "CAREGIVER_APP",
+        });
+      } catch (historyError) {
+        WRITE.warn("[Adherence] History write failed", { taskId: task.id, err: historyError.message });
+      }
     } catch (e) {
       WRITE.warn("[Adherence] TaskAdherenceLog upsert failed", {
         taskId: task.id,

@@ -1,21 +1,9 @@
 /**
  * @swagger
- * tags:
- *   name: Admin
- *   description: |
- *     Admin-only endpoints for user, provider, and system management.
- *
- *     **Access**: Requires a valid JWT **and** the caller must have the `ADMIN`
- *     RBAC role assigned via the UserRole table (not a `userType` field).
- *     Use `POST /admin/bootstrap` to set up the initial ADMIN role assignment.
- */
-
-/**
- * @swagger
  * /admin/bootstrap:
  *   post:
  *     summary: Bootstrap RBAC — seed default roles/permissions and assign the ADMIN role to a user
- *     tags: [Admin]
+ *     tags: [Admin & RBAC]
  *     description: |
  *       Seeds all default RBAC roles and permissions. Optionally assigns the ADMIN
  *       role to a specified user (must be a SERVICE_PROVIDER user).
@@ -69,7 +57,7 @@
  * /admin/rbac/seed:
  *   post:
  *     summary: Re-seed default RBAC roles and permissions (ADMIN only, idempotent)
- *     tags: [Admin]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -82,7 +70,7 @@
  * /admin/users:
  *   get:
  *     summary: List all users (ADMIN RBAC role required)
- *     tags: [Admin]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -117,7 +105,7 @@
  * /admin/providers:
  *   get:
  *     summary: List all service providers pending verification (ADMIN RBAC role required)
- *     tags: [Admin]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -152,7 +140,7 @@
  * /admin/providers/{id}:
  *   get:
  *     summary: Get detailed information about a service provider (ADMIN RBAC role required)
- *     tags: [Admin]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -174,7 +162,7 @@
  * /admin/providers/{id}/verification:
  *   patch:
  *     summary: Approve, reject, or request changes for service provider verification (ADMIN RBAC role required)
- *     tags: [Admin]
+ *     tags: [Admin & RBAC]
  *     description: |
  *       Allows admins to manage service provider verification before the provider completes their profile.
  *

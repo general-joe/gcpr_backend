@@ -128,7 +128,7 @@
  * /direct-message:
  *   post:
  *     summary: Send a direct message
- *     tags: [Direct Message]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -161,7 +161,7 @@
  * /direct-message/{userId}:
  *   get:
  *     summary: Get messages with a specific user
- *     tags: [Direct Message]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -194,7 +194,7 @@
  * /direct-message/conversations:
  *   get:
  *     summary: Get all conversations for the current user
- *     tags: [Direct Message]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -219,7 +219,7 @@
  * /direct-message/{messageId}/read:
  *   put:
  *     summary: Mark a message as read
- *     tags: [Direct Message]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -252,7 +252,7 @@
  * /direct-message/{messageId}:
  *   delete:
  *     summary: Delete a direct message
- *     tags: [Direct Message]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -288,7 +288,7 @@
  * /direct-message/realtime:
  *   get:
  *     summary: Real-time direct messaging via Socket.IO
- *     tags: [Direct Message, Real-time]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     description: |

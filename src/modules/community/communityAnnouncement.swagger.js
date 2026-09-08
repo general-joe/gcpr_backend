@@ -1,9 +1,5 @@
 /**
  * @swagger
- * tags:
- *   name: Community Announcements
- *   description: Endpoints for community announcement management
- *
  * components:
  *   securitySchemes:
  *     bearerAuth:
@@ -53,7 +49,7 @@
  *   post:
  *     summary: Create announcement
  *     description: Create a new announcement in a community (admin/owner only)
- *     tags: [Community Announcements]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -121,7 +117,7 @@
  *   get:
  *     summary: Get community announcements
  *     description: Get all announcements in a community
- *     tags: [Community Announcements]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -163,7 +159,7 @@
  *   get:
  *     summary: Get announcement by ID
  *     description: Get announcement details by ID
- *     tags: [Community Announcements]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -202,7 +198,7 @@
  *   put:
  *     summary: Update announcement
  *     description: Update an announcement (admin/owner only)
- *     tags: [Community Announcements]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -275,7 +271,7 @@
  *   delete:
  *     summary: Delete announcement
  *     description: Delete an announcement (admin/owner only)
- *     tags: [Community Announcements]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -321,7 +317,7 @@
  *   post:
  *     summary: Toggle pin announcement
  *     description: Pin or unpin an announcement (admin/owner only)
- *     tags: [Community Announcements]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:

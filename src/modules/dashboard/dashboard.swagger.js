@@ -1,13 +1,9 @@
 /**
  * @swagger
- * tags:
- *   - name: Dashboard
- *     description: Mobile-optimized dashboard endpoints for caregivers and service providers.
- *
  * /dashboard/caregiver:
  *   get:
  *     summary: Get caregiver mobile dashboard
- *     tags: [Dashboard]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     description: |
@@ -54,7 +50,7 @@
  * /dashboard/provider:
  *   get:
  *     summary: Get service provider dashboard
- *     tags: [Dashboard]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     description: |

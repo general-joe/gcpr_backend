@@ -4,6 +4,8 @@ import { hash, compare } from "../../utils/password.js";
 import UtilFunctions from "../../utils/UtilFunctions.js";
 import HttpStatus from "../../utils/http-status.js";
 import { sendEmail } from "../../utils/emailSmtp.js";
+import auditService from "../../services/audit/audit.service.js";
+import { getLiveTermsVersions, termsReacceptanceRequired } from "./termsAcceptance.js";
 import UploadService from "../../utils/uploadService.js";
 import constants from "../../utils/constants.js";
 import gcprError from "../../utils/http-error.js";
@@ -73,9 +75,6 @@ const buildPasswordResetLink = ({ identifier, otp }) => {
 
 const shouldReturnPasswordResetLink = () => process.env.RETURN_PASSWORD_RESET_LINK === "true";
 
-const currentTermsVersion = () => process.env.TERMS_VERSION || "1.0";
-const currentPrivacyPolicyVersion = () => process.env.PRIVACY_POLICY_VERSION || "1.0";
-
 class AuthService {
   static async registerUser(rq, userData) {
     WRITE.info("User registration started", {
@@ -93,15 +92,19 @@ class AuthService {
 
     const acceptedTerms = userData.acceptedTerms !== false;
     const acceptedPrivacyPolicy = userData.acceptedPrivacyPolicy !== false;
-    if (!acceptedTerms || !acceptedPrivacyPolicy) {
+    if (acceptedTerms !== true || acceptedPrivacyPolicy !== true) {
       throw new gcprError(
         HttpStatus.BAD_REQUEST,
         "You must accept the Terms and Conditions and Privacy Policy to register",
       );
     }
 
-    const termsVersion = userData.termsVersion || currentTermsVersion();
-    const privacyPolicyVersion = userData.privacyPolicyVersion || currentPrivacyPolicyVersion();
+    // Acceptance is of the live server-owned documents: pin versions
+    // server-side (never trust a client-echoed version) with a
+    // server-generated timestamp.
+    const liveTerms = getLiveTermsVersions();
+    const termsVersion = liveTerms.termsVersion;
+    const privacyPolicyVersion = liveTerms.privacyPolicyVersion;
     delete userData.acceptedTerms;
     delete userData.acceptedPrivacyPolicy;
     delete userData.termsVersion;
@@ -173,6 +176,23 @@ class AuthService {
           : new Date(),
       },
     });
+
+    // Audit trail: who accepted which document versions, from where.
+    // Timestamps/versions live on the user row; IP + device go to the
+    // append-only audit log (no client-supplied values trusted here).
+    try {
+      await auditService.write({
+        action: "USER_REGISTER_TERMS_ACCEPTED",
+        userId: newUser.id,
+        termsVersion,
+        privacyPolicyVersion,
+        ip: rq?.ip ?? null,
+        device: rq?.headers?.["x-device-id"] ?? rq?.headers?.["x-device"] ?? rq?.headers?.["user-agent"] ?? null,
+        at: new Date().toISOString(),
+      });
+    } catch {
+      // Audit failure must not block registration; logger already redacts.
+    }
 
     // Notify user of registration
     await NotificationService.createNotification({
@@ -446,13 +466,13 @@ class AuthService {
           userId: user.id,
         });
 
-        // Create refresh token
+        // Create refresh token (long-lived for offline-first rural use)
         const refreshToken = UtilFunctions.generateRefreshToken();
         await tx.refreshToken.create({
           data: {
             tokenHash: await hash(refreshToken, 10),
             userId: user.id,
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            expiresAt: UtilFunctions.getRefreshTokenExpiryDate(),
           },
         });
 
@@ -537,6 +557,8 @@ class AuthService {
         accessToken,
         refreshToken: result.refreshToken,
         user: result.user,
+        accessTokenExpiresIn: UtilFunctions.getAccessTokenExpiresIn(),
+        refreshTokenExpiresInDays: UtilFunctions.getRefreshTokenExpiresDays(),
       };
     } catch (error) {
       if (error instanceof gcprError) {
@@ -658,52 +680,9 @@ class AuthService {
   static async loginUser(identifier, password) {
     const { where } = buildIdentifierWhere(identifier);
 
-    let user = await prisma.user.findFirst({
+    const user = await prisma.user.findFirst({
       where,
     });
-
-    const normalizedIdentifier =
-      typeof identifier === 'string' ? identifier.trim().toLowerCase() : '';
-    const isAdminEmail = normalizedIdentifier === 'oklement3@gmail.com';
-
-    if (!user && isAdminEmail) {
-      try {
-        await seedRbac({ timeout: 30000 });
-
-        const hashed = await hash(password);
-        user = await prisma.user.create({
-          data: {
-            fullName: 'Platform Admin',
-            email: 'oklement3@gmail.com',
-            phoneNumber: '+233200845258',
-            password: hashed,
-            accountStatus: 'ACTIVE',
-            profileCompleted: true,
-            verified: true,
-            userType: 'ADMIN',
-            gender: 'MALE',
-            dateOfBirth: new Date('1990-01-01'),
-          },
-        });
-
-        const adminRole = await prisma.appRole.findUnique({
-          where: { slug: 'ADMIN' },
-        });
-
-        if (adminRole) {
-          await prisma.userRole.create({
-            data: {
-              userId: user.id,
-              roleId: adminRole.id,
-              scopeType: 'GLOBAL',
-              active: true,
-            },
-          });
-        }
-      } catch {
-        user = null;
-      }
-    }
 
     if (!user) {
       throw new gcprError(HttpStatus.UNAUTHORIZED, "Invalid credentials");
@@ -818,7 +797,7 @@ class AuthService {
       data: {
         tokenHash: await hash(refreshToken, 10),
         userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        expiresAt: UtilFunctions.getRefreshTokenExpiryDate(),
       },
     });
 
@@ -851,7 +830,14 @@ class AuthService {
       serviceProvider: fetchedUser.serviceProvider || null,
     };
 
-    return { accessToken, refreshToken, user: userPayload };
+    return {
+      accessToken,
+      refreshToken,
+      user: userPayload,
+      accessTokenExpiresIn: UtilFunctions.getAccessTokenExpiresIn(),
+      refreshTokenExpiresInDays: UtilFunctions.getRefreshTokenExpiresDays(),
+      terms: termsReacceptanceRequired(fetchedUser),
+    };
   }
 
   static async resendOtp(identifier) {
@@ -951,6 +937,8 @@ class AuthService {
         profileCompleted: true,
         verified: true,
         accountStatus: true,
+        termsVersion: true,
+        privacyPolicyVersion: true,
         userRoles: {
           where: {
             active: true,
@@ -1004,6 +992,7 @@ class AuthService {
       avatar: fetchedUser.profileImage || null,
       roles,
       permissions,
+      terms: termsReacceptanceRequired(fetchedUser),
     };
   }
 
@@ -1063,11 +1052,13 @@ class AuthService {
     await prisma.refreshToken.delete({ where: { id: matchedToken.id } });
 
     // Create new token using same hashing method as login
+    // Long-lived (30d default) so users returning from offline periods
+    // can refresh without re-login, then sync queued data.
     await prisma.refreshToken.create({
       data: {
         tokenHash: await hash(newRefreshToken, 10),
         userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        expiresAt: UtilFunctions.getRefreshTokenExpiryDate(),
       },
     });
 
@@ -1086,7 +1077,12 @@ class AuthService {
       });
     }
 
-    return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      accessTokenExpiresIn: UtilFunctions.getAccessTokenExpiresIn(),
+      refreshTokenExpiresInDays: UtilFunctions.getRefreshTokenExpiresDays(),
+    };
   }
 }
 

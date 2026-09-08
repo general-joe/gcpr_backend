@@ -1,16 +1,9 @@
 /**
  * @swagger
- * tags:
- *   name: Outcomes
- *   description: Motor function outcomes tracking and reporting
- */
-
-/**
- * @swagger
  * /outcomes:
  *   post:
  *     summary: Create a motor function outcome record (SERVICE_PROVIDER only)
- *     tags: [Outcomes]
+ *     tags: [Clinical Assessment]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -52,7 +45,7 @@
  * /outcomes/provider/summary:
  *   get:
  *     summary: Get outcome summary for provider (SERVICE_PROVIDER only)
- *     tags: [Outcomes]
+ *     tags: [Clinical Assessment]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -65,7 +58,7 @@
  * /outcomes/patient/{patientId}:
  *   get:
  *     summary: List patient outcome records
- *     tags: [Outcomes]
+ *     tags: [Clinical Assessment]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -93,7 +86,7 @@
  * /outcomes/patient/{patientId}/latest:
  *   get:
  *     summary: Get latest patient outcome record
- *     tags: [Outcomes]
+ *     tags: [Clinical Assessment]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -113,7 +106,7 @@
  * /outcomes/{id}:
  *   get:
  *     summary: Get outcome record by ID
- *     tags: [Outcomes]
+ *     tags: [Clinical Assessment]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -127,7 +120,7 @@
  *         description: Outcome retrieved
  *   patch:
  *     summary: Update outcome record (SERVICE_PROVIDER only)
- *     tags: [Outcomes]
+ *     tags: [Clinical Assessment]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -151,7 +144,7 @@
  *         description: Outcome updated
  *   delete:
  *     summary: Delete outcome record (SERVICE_PROVIDER only)
- *     tags: [Outcomes]
+ *     tags: [Clinical Assessment]
  *     security:
  *       - bearerAuth: []
  *     parameters:

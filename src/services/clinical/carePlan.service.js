@@ -8,9 +8,21 @@ import {
   assertPatientAccess,
   getPatientCaregiverUserId,
 } from "./clinicalAccess.service.js";
+import { branchCarePlanIntensity } from "../assessment/classificationPolicy.js";
 
 class CarePlanService {
   static VALID_STATUSES = new Set(["ACTIVE", "COMPLETED", "SUPERSEDED"]);
+
+  /**
+   * Pure decision helper (Group 6, unit-tested): re-POSTing generate() for
+   * the SAME assessment is idempotent (return the plan); a DIFFERENT
+   * assessment explicitly supersedes the old plan; no plan means create.
+   */
+  static resolveCarePlanAction(existingActive, assessmentId) {
+    if (!existingActive) return { action: "create" };
+    if (existingActive.assessmentId === assessmentId) return { action: "return" };
+    return { action: "supersede" };
+  }
 
   static async generateFromAssessment(user, assessmentId) {
     const assessment = await prisma.clinicalAssessment.findUnique({
@@ -38,9 +50,80 @@ class CarePlanService {
       },
     });
 
+    // Classification branch (Group 4): severe motor involvement shortens
+    // the review cycle. Data-driven default; clinical-content owners may
+    // refine the bands without changing this plumbing.
+    const latestClassification = await prisma.functionalClassification.findFirst({
+      where: { patientId: assessment.patientId },
+      orderBy: { assessedAt: "desc" },
+      select: { id: true, classifier: true, level: true, assessedAt: true },
+    });
+    const classificationBranch = {
+      classification: latestClassification,
+      ...branchCarePlanIntensity(latestClassification),
+    };
+
     if (existingActive) {
-      return prisma.carePlan.findUnique({
+      const action = CarePlanService.resolveCarePlanAction(existingActive, assessment.id).action;
+      if (action === "return") {
+        const existing = await prisma.carePlan.findUnique({
+          where: { id: existingActive.id },
+          include: {
+            patient: true,
+            primaryProvider: {
+              include: { user: true },
+            },
+            assessment: true,
+            signatures: {
+              include: { signer: true },
+              orderBy: { signedAt: "desc" },
+            },
+            rehabTasks: {
+              orderBy: { createdAt: "desc" },
+            },
+          },
+        });
+        return { ...existing, classificationBranch };
+      }
+      // Different assessment: explicitly supersede the stale ACTIVE plan so
+      // exactly one ACTIVE plan exists per patient (backstopped by the
+      // partial unique index carePlan_patient_single_active).
+      await prisma.carePlan.update({
         where: { id: existingActive.id },
+        data: { status: "SUPERSEDED" },
+      });
+      try {
+        await auditService.write({
+          timestamp: new Date().toISOString(),
+          userId: user?.id ?? null,
+          eventType: "CARE_PLAN_SUPERSEDED",
+          params: {
+            supersededCarePlanId: existingActive.id,
+            newAssessmentId: assessment.id,
+            patientId: assessment.patientId,
+          },
+        });
+      } catch {
+        // Audit failure must not break generation.
+      }
+    }
+
+    const primaryProviderId = assessment.providerId;
+
+    const latestReport = assessment.reports[0] ?? null;
+    let carePlan;
+    try {
+      carePlan = await prisma.carePlan.create({
+        data: {
+          patientId: assessment.patientId,
+          assessmentId: assessment.id,
+          primaryProviderId,
+          status: "ACTIVE",
+          goals: latestReport?.recommendations ?? [],
+          interventions: latestReport?.recommendations ?? [],
+          reviewDate: new Date(Date.now() + classificationBranch.reviewWeeks * 7 * 24 * 60 * 60 * 1000),
+          createdBy: user?.id ?? null,
+        },
         include: {
           patient: true,
           primaryProvider: {
@@ -56,37 +139,22 @@ class CarePlanService {
           },
         },
       });
-    }
-
-    const primaryProviderId = assessment.providerId;
-
-    const latestReport = assessment.reports[0] ?? null;
-    const carePlan = await prisma.carePlan.create({
-      data: {
-        patientId: assessment.patientId,
-        assessmentId: assessment.id,
-        primaryProviderId,
-        status: "ACTIVE",
-        goals: latestReport?.recommendations ?? [],
-        interventions: latestReport?.recommendations ?? [],
-        reviewDate: new Date(Date.now() + 12 * 7 * 24 * 60 * 60 * 1000),
-        createdBy: user?.id ?? null,
-      },
-      include: {
-        patient: true,
-        primaryProvider: {
-          include: { user: true },
-        },
-        assessment: true,
-        signatures: {
-          include: { signer: true },
-          orderBy: { signedAt: "desc" },
-        },
-        rehabTasks: {
+    } catch (createError) {
+      // Race backstop: another request won the single-ACTIVE slot
+      // (partial unique index). Return the winner instead of duplicating.
+      if (createError?.code === "P2002") {
+        WRITE.warn("[CarePlan] Concurrent generate raced; returning winner", {
+          patientId: assessment.patientId,
+          assessmentId: assessment.id,
+        });
+        const winner = await prisma.carePlan.findFirst({
+          where: { patientId: assessment.patientId, status: "ACTIVE" },
           orderBy: { createdAt: "desc" },
-        },
-      },
-    });
+        });
+        if (winner) return { ...winner, classificationBranch };
+      }
+      throw createError;
+    }
 
     try {
       const caregiverUserId = await getPatientCaregiverUserId(assessment.patientId);
@@ -122,7 +190,23 @@ class CarePlanService {
       });
     }
 
-    return carePlan;
+    try {
+      await auditService.write({
+        timestamp: new Date().toISOString(),
+        userId: user?.id ?? null,
+        eventType: "CARE_PLAN_GENERATED",
+        params: {
+          carePlanId: carePlan.id,
+          assessmentId: assessment.id,
+          patientId: assessment.patientId,
+          classificationBranch,
+        },
+      });
+    } catch {
+      // Audit failure must not break generation.
+    }
+
+    return { ...carePlan, classificationBranch };
   }
 
   static async getCarePlan(user, patientId) {

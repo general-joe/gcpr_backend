@@ -1,18 +1,9 @@
 /**
  * @swagger
- * tags:
- *   - name: RBAC
- *     description: Role-based access control management endpoints (ADMIN)
- *   - name: RBAC Check
- *     description: Authenticated permission checks
- */
-
-/**
- * @swagger
  * /rbac/check:
  *   get:
  *     summary: Check whether current user has a permission
- *     tags: [RBAC Check]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -31,7 +22,7 @@
  * /admin/rbac/roles:
  *   get:
  *     summary: List roles (ADMIN)
- *     tags: [RBAC]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -39,7 +30,7 @@
  *         description: Roles retrieved
  *   post:
  *     summary: Create role (ADMIN)
- *     tags: [RBAC]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -66,7 +57,7 @@
  * /admin/rbac/roles/{roleId}:
  *   get:
  *     summary: Get role details (ADMIN)
- *     tags: [RBAC]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -80,7 +71,7 @@
  *         description: Role retrieved
  *   patch:
  *     summary: Update role (ADMIN)
- *     tags: [RBAC]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -104,7 +95,7 @@
  *         description: Role updated
  *   delete:
  *     summary: Delete role (ADMIN)
- *     tags: [RBAC]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -123,7 +114,7 @@
  * /admin/rbac/permissions:
  *   get:
  *     summary: List permissions (ADMIN)
- *     tags: [RBAC]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -131,7 +122,7 @@
  *         description: Permissions retrieved
  *   post:
  *     summary: Create permission (ADMIN)
- *     tags: [RBAC]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -158,7 +149,7 @@
  * /admin/rbac/permissions/{permissionId}:
  *   patch:
  *     summary: Update permission (ADMIN)
- *     tags: [RBAC]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -182,7 +173,7 @@
  *         description: Permission updated
  *   delete:
  *     summary: Delete permission (ADMIN)
- *     tags: [RBAC]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -201,7 +192,7 @@
  * /admin/rbac/roles/{roleId}/permissions/{permissionId}:
  *   post:
  *     summary: Assign permission to role (ADMIN)
- *     tags: [RBAC]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -220,7 +211,7 @@
  *         description: Permission assigned
  *   delete:
  *     summary: Remove permission from role (ADMIN)
- *     tags: [RBAC]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -244,7 +235,7 @@
  * /admin/rbac/roles/{roleId}/permissions:
  *   put:
  *     summary: Replace role permissions (ADMIN)
- *     tags: [RBAC]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -275,7 +266,7 @@
  * /admin/rbac/users/{userId}/roles:
  *   get:
  *     summary: Get active roles for user (ADMIN)
- *     tags: [RBAC]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -289,7 +280,7 @@
  *         description: User roles retrieved
  *   post:
  *     summary: Assign role to user (ADMIN)
- *     tags: [RBAC]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -327,7 +318,7 @@
  * /admin/rbac/users/{userId}/roles/{roleId}:
  *   delete:
  *     summary: Revoke role from user (ADMIN)
- *     tags: [RBAC]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -351,7 +342,7 @@
  * /admin/rbac/users/{userId}/permissions:
  *   get:
  *     summary: Get effective permissions for user (ADMIN)
- *     tags: [RBAC]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -365,7 +356,7 @@
  *         description: User permissions retrieved
  *   post:
  *     summary: Grant or deny user permission override (ADMIN)
- *     tags: [RBAC]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -401,7 +392,7 @@
  * /admin/rbac/users/{userId}/permissions/{permissionId}:
  *   delete:
  *     summary: Remove user permission override (ADMIN)
- *     tags: [RBAC]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:

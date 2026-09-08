@@ -5,6 +5,7 @@ import { validate } from "../../middlewares/validation.js";
 import {
   createFunctionalClassificationSchema,
   updateFunctionalClassificationSchema,
+  listFunctionalClassificationsQuerySchema,
 } from "./functionalClassification.validator.js";
 import FunctionalClassificationController from "./functionalClassification.controller.js";
 
@@ -26,6 +27,7 @@ fcRouter.get(
   "/patient/:patientId",
   limiter,
   authorize(["SERVICE_PROVIDER", "CAREGIVER"]),
+  validate(listFunctionalClassificationsQuerySchema, "query"),
   FunctionalClassificationController.getByPatient
 );
 

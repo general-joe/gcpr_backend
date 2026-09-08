@@ -1,18 +1,9 @@
 /**
  * @swagger
- * tags:
- *   - name: Support Tickets
- *     description: User support ticket management
- *   - name: Admin Support
- *     description: Admin management of support tickets
- */
-
-/**
- * @swagger
  * /support/tickets:
  *   post:
  *     summary: Create a support ticket
- *     tags: [Support Tickets]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -42,7 +33,7 @@
  *         description: Ticket created
  *   get:
  *     summary: List own support tickets
- *     tags: [Support Tickets]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -74,7 +65,7 @@
  * /support/tickets/{ticketId}:
  *   get:
  *     summary: Get a support ticket by ID (owner only)
- *     tags: [Support Tickets]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -93,7 +84,7 @@
  * /support/tickets/{ticketId}/messages:
  *   get:
  *     summary: List messages for a support ticket (owner only)
- *     tags: [Support Tickets]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -107,7 +98,7 @@
  *         description: Ticket messages retrieved
  *   post:
  *     summary: Add a reply to a ticket
- *     tags: [Support Tickets]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -136,7 +127,7 @@
  * /support/tickets/{ticketId}/close:
  *   patch:
  *     summary: Close a support ticket (owner only)
- *     tags: [Support Tickets]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -155,7 +146,7 @@
  * /admin/support/tickets:
  *   get:
  *     summary: List support tickets (admin)
- *     tags: [Admin Support]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -192,7 +183,7 @@
  * /admin/support/tickets/{ticketId}:
  *   get:
  *     summary: Get support ticket details (admin)
- *     tags: [Admin Support]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -206,7 +197,7 @@
  *         description: Ticket retrieved
  *   patch:
  *     summary: Update support ticket (admin)
- *     tags: [Admin Support]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -241,7 +232,7 @@
  * /admin/support/tickets/{ticketId}/messages:
  *   post:
  *     summary: Add admin reply to support ticket
- *     tags: [Admin Support]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:

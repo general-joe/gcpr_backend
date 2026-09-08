@@ -101,7 +101,7 @@
  * /user/profile:
  *   get:
  *     summary: Get authenticated user's profile
- *     tags: [User]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     description: Returns the profile for the currently authenticated user. Requires a valid Bearer JWT.
@@ -130,7 +130,7 @@
  * /user/videos:
  *   get:
  *     summary: List all videos from the YouTube channel (with database caching)
- *     tags: [User, Videos]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     description: Retrieve all videos from the YouTube channel with intelligent database caching. Videos are cached for 1 hour to reduce API calls. If no cache exists, fresh videos are fetched from YouTube API and stored in the database. Available to all authenticated users (SERVICE_PROVIDER and CAREGIVER).
@@ -180,7 +180,7 @@
  * /user/deactivate-account:
  *   post:
  *     summary: Deactivate the authenticated user's account
- *     tags: [User]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     description: Deactivates the currently authenticated user's account. This sets the account status to DEACTIVATED. The action is reversible by contacting support.
@@ -202,10 +202,37 @@
  *       403:
  *         description: Forbidden - insufficient role permissions
  * 
+ * /user/accept-terms:
+ *   patch:
+ *     summary: Re-accept the live Terms & Privacy Policy after a version bump (flagged on login/me)
+ *     tags: [Auth & Onboarding]
+ *     security:
+ *       - bearerAuth: []
+ *     description: Versioned re-acceptance for already-registered users. Both booleans must be true; versions are pinned server-side to the live documents and the request is audit-logged. Call when login or auth/me returns terms.reacceptanceRequired=true.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [acceptedTerms, acceptedPrivacyPolicy]
+ *             properties:
+ *               acceptedTerms:
+ *                 type: boolean
+ *                 example: true
+ *               acceptedPrivacyPolicy:
+ *                 type: boolean
+ *                 example: true
+ *     responses:
+ *       200:
+ *         description: Terms accepted successfully
+ *       401:
+ *         description: Unauthorized or invalid token
+ *
  * /user/delete-account:
  *   post:
  *     summary: Delete the authenticated user's account
- *     tags: [User]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     description: Deletes the currently authenticated user's account. This performs a soft delete by setting the account status to DELETED. The action is irreversible.

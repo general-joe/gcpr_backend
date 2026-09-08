@@ -1,13 +1,9 @@
 /**
  * @swagger
- * tags:
- *   name: Metrics
- *   description: Provider, patient, and system-wide KPI metrics and snapshot computation
- *
  * /metrics/provider:
  *   get:
  *     summary: Get the authenticated service provider's own metrics snapshot
- *     tags: [Metrics]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -45,7 +41,7 @@
  * /metrics/patient/{patientId}:
  *   get:
  *     summary: Get metrics snapshot for a specific patient
- *     tags: [Metrics]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -92,7 +88,7 @@
  * /metrics/system:
  *   get:
  *     summary: Get system-wide platform metrics (admin only)
- *     tags: [Metrics]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -130,7 +126,7 @@
  * /metrics/compute/provider:
  *   post:
  *     summary: Trigger an on-demand provider metrics snapshot (admin only)
- *     tags: [Metrics]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -163,7 +159,7 @@
  * /metrics/compute/system:
  *   post:
  *     summary: Trigger an on-demand system metrics snapshot (admin only)
- *     tags: [Metrics]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -192,7 +188,7 @@
  * /metrics/compute/all:
  *   post:
  *     summary: Trigger a full batch metrics computation for all providers and system (admin only)
- *     tags: [Metrics]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     requestBody:

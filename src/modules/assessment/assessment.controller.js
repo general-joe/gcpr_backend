@@ -17,7 +17,12 @@ class AssessmentController {
   static getAssessmentFormByToolCode = catchAsync(async (req, res) => {
     const user = res.locals.user;
     const { toolCode } = req.params;
-    const result = await AssessmentService.getAssessmentFormByToolCode(user, toolCode);
+    // Optional ?patientId= surfaces on-file/stale classification context.
+    const result = await AssessmentService.getAssessmentFormByToolCode(
+      user,
+      toolCode,
+      req.query?.patientId ?? null,
+    );
 
     UtilFunctions.outputSuccess(
       res,

@@ -1,5 +1,6 @@
 import catchAsync from "../../middlewares/catchAsync.js";
 import UtilFunctions from "../../utils/UtilFunctions.js";
+import WRITE from "../../utils/logger.js";
 import fs from "node:fs";
 import path from "node:path";
 import { exec } from "node:child_process";
@@ -9,6 +10,10 @@ import { logEmitter } from "../../utils/logEmitter.js";
 
 const execAsync = promisify(exec);
 const LOGS_DIR = path.resolve(process.env.LOGS_DIR || "logs");
+
+// Hard cap on rows returned by the admin ad-hoc query endpoint so a
+// single SELECT cannot exfiltrate whole tables (e.g. credential columns).
+const MAX_QUERY_ROWS = 200;
 
 const listLogFiles = () => {
   if (!fs.existsSync(LOGS_DIR)) return [];
@@ -170,6 +175,20 @@ export default class LogsController {
    * GET /admin/logs/migrate (SSE)
    */
   static runMigrations = catchAsync(async (req, res) => {
+    // HTTP-triggered migrations are a deployment action, not an admin read.
+    // Disabled by default; run migrations from CI/deploy pipeline instead.
+    // Set ALLOW_HTTP_MIGRATIONS=true only as a deliberate break-glass override.
+    if (process.env.ALLOW_HTTP_MIGRATIONS !== "true") {
+      WRITE.warn("[Admin] Blocked HTTP migration attempt (disabled by default)", {
+        adminId: res.locals.user?.id,
+        path: req.path,
+        timestamp: new Date().toISOString(),
+      });
+      res.writeHead(403, { "Content-Type": "text/event-stream" });
+      res.write(`data: ${JSON.stringify({ type: "error", message: "HTTP-triggered migrations are disabled. Run migrations from the deploy pipeline." })}\n\n`);
+      res.end();
+      return;
+    }
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
@@ -212,6 +231,7 @@ export default class LogsController {
    */
   static runQuery = catchAsync(async (req, res) => {
     const { query } = req.body;
+    const adminId = res.locals.user?.id;
     if (!query || typeof query !== "string") {
       UtilFunctions.outputError(res, "Query is required", {}, "FAILED", 400);
       return;
@@ -221,14 +241,28 @@ export default class LogsController {
       // Only allow SELECT queries for safety
       const trimmed = query.trim().toUpperCase();
       if (!trimmed.startsWith("SELECT") && !trimmed.startsWith("EXPLAIN")) {
+        WRITE.warn("[Admin] Blocked non-SELECT admin query", {
+          adminId,
+          prefix: query.trim().slice(0, 20),
+          timestamp: new Date().toISOString(),
+        });
         UtilFunctions.outputError(res, "Only SELECT queries are allowed", {}, "FAILED", 403);
         return;
       }
 
+      // Audit trail: who ran what, on every call.
+      WRITE.info("[Admin] Ad-hoc SQL query executed", {
+        adminId,
+        query: query.slice(0, 2000),
+        timestamp: new Date().toISOString(),
+      });
+
       // Import prisma at runtime to avoid circular issues
       const prisma = (await import("../../config/database.js")).default;
       const result = await prisma.$queryRawUnsafe(query);
-      UtilFunctions.outputSuccess(res, { result }, "Query executed");
+      const truncated = Array.isArray(result) && result.length > MAX_QUERY_ROWS;
+      const rows = truncated ? result.slice(0, MAX_QUERY_ROWS) : result;
+      UtilFunctions.outputSuccess(res, { result: rows, truncated, maxRows: MAX_QUERY_ROWS }, "Query executed");
     } catch (error) {
       UtilFunctions.outputError(
         res,

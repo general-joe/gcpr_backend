@@ -1,9 +1,5 @@
 /**
  * @swagger
- * tags:
- *   name: Analytics
- *   description: Dashboard Analytics endpoints for Admin, Provider, and Support
- *
  * components:
  *   schemas:
  *     AdminAnalyticsResponse:
@@ -202,7 +198,7 @@
  *
  * /analytics/admin:
  *   get:
- *     tags: [Analytics]
+ *     tags: [Admin & RBAC]
  *     summary: Get Admin Dashboard Analytics
  *     security:
  *       - bearerAuth: []
@@ -228,7 +224,7 @@
  *
  * /analytics/provider:
  *   get:
- *     tags: [Analytics]
+ *     tags: [Admin & RBAC]
  *     summary: Get Provider Dashboard Analytics
  *     security:
  *       - bearerAuth: []
@@ -254,7 +250,7 @@
  *
  * /analytics/support:
  *   get:
- *     tags: [Analytics]
+ *     tags: [Admin & RBAC]
  *     summary: Get Support Dashboard Analytics
  *     security:
  *       - bearerAuth: []

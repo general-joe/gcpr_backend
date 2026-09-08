@@ -1,8 +1,5 @@
 /**
  * @swagger
- * tags:
- *   name: Game
- *   description: Built-in Cboard/CPC activity assignment and progress tracking
  * components:
  *   schemas:
  *     GameResource:
@@ -209,7 +206,7 @@
  * /game:
  *   get:
  *     summary: List built-in game/AAC activities
- *     tags: [Game]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -273,7 +270,7 @@
  * /game/selectable:
  *   get:
  *     summary: List selectable built-in Cboard and CPC activities
- *     tags: [Game]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -303,7 +300,7 @@
  * /game/{id}:
  *   get:
  *     summary: Get a built-in game/AAC activity by ID
- *     tags: [Game]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -333,7 +330,7 @@
  * /game/{id}/assign:
  *   post:
  *     summary: Assign a built-in game/AAC activity to a patient (SP only)
- *     tags: [Game]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -403,7 +400,7 @@
  * /game/{id}/participation:
  *   post:
  *     summary: Log a built-in game/AAC participation session
- *     tags: [Game]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -547,7 +544,7 @@
  * /game/patients/{patientId}/assignments:
  *   get:
  *     summary: List a patient's game assignments
- *     tags: [Game]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -578,7 +575,7 @@
  * /game/patients/{patientId}/improvement:
  *   get:
  *     summary: Summarize patient improvement across built-in game/AAC sessions
- *     tags: [Game]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:

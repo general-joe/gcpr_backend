@@ -25,6 +25,10 @@ const adminFaqLimiter = rateLimit({
 });
 
 // ─── Public / User FAQ Routes ──────────────────────────────────────────────────
+// NOTE: /intro is public (no auth) so the mobile app can fetch + cache it
+// for offline rural use before login.
+faqRouter.get("/intro", faqLimiter, FaqController.getIntro);
+faqRouter.get("/offline-bundle", faqLimiter, Auth, FaqController.getOfflineBundle);
 faqRouter.get("/search", faqLimiter, Auth, FaqController.searchFaqs);
 faqRouter.get("/categories", faqLimiter, Auth, FaqController.listFaqCategories);
 faqRouter.get("/", faqLimiter, Auth, FaqController.listFaqs);
@@ -39,6 +43,7 @@ adminFaqRouter.patch("/categories/:id", adminFaqLimiter, requireRbacRole(["ADMIN
 adminFaqRouter.delete("/categories/:id", adminFaqLimiter, requireRbacRole(["ADMIN"]), FaqController.deleteFaqCategory);
 
 adminFaqRouter.post("/", adminFaqLimiter, requireRbacRole(["ADMIN"]), FaqController.createFaq);
+adminFaqRouter.put("/intro", adminFaqLimiter, requireRbacRole(["ADMIN"]), FaqController.updateIntro);
 adminFaqRouter.patch("/:id", adminFaqLimiter, requireRbacRole(["ADMIN"]), FaqController.updateFaq);
 adminFaqRouter.delete("/:id", adminFaqLimiter, requireRbacRole(["ADMIN"]), FaqController.deleteFaq);
 adminFaqRouter.post("/:id/publish", adminFaqLimiter, requireRbacRole(["ADMIN"]), FaqController.publishFaq);

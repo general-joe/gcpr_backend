@@ -387,6 +387,9 @@ class AdminService {
           caregiver: {
             select: { id: true, user: { select: { fullName: true } } },
           },
+          // Group 6: admin reads go through the same cp-patient-backed
+          // enrollment record as every other path (no standalone route).
+          enrollmentRecord: true,
         },
       }),
       prisma.cpPatient.count({ where }),
@@ -508,80 +511,8 @@ class AdminService {
   }
 
   // ── Assessment Tools ──────────────────────────────────────────────────────────
-
-  static async listAssessmentTools(query = {}) {
-    const { page = 1, limit = 20 } = query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const take = parseInt(limit);
-
-    const [tools, total] = await Promise.all([
-      prisma.assessmentTool.findMany({
-        skip,
-        take,
-        orderBy: { createdAt: "desc" },
-        include: { professions: true },
-      }),
-      prisma.assessmentTool.count(),
-    ]);
-
-    return {
-      data: tools,
-      pagination: {
-        total,
-        page: parseInt(page),
-        limit: take,
-        totalPages: Math.ceil(total / take),
-      },
-    };
-  }
-
-  static async createAssessmentTool(data) {
-    const existing = await prisma.assessmentTool.findUnique({
-      where: { toolCode: data.toolCode },
-    });
-    if (existing)
-      throw new gcprError(HttpStatus.CONFLICT, "Tool code already exists");
-
-    const tool = await prisma.assessmentTool.create({
-      data: {
-        toolCode: data.toolCode,
-        toolName: data.toolName,
-        version: data.version || "1.0",
-        description: data.description || null,
-        schema: data.schema || null,
-        isActive: true,
-        ...(data.professions &&
-          data.professions.length > 0 && {
-            professions: {
-              create: data.professions.map((profession) => ({ profession })),
-            },
-          }),
-      },
-      include: { professions: true },
-    });
-
-    return tool;
-  }
-
-  static async updateAssessmentTool(toolId, data) {
-    const tool = await prisma.assessmentTool.findUnique({
-      where: { id: toolId },
-    });
-    if (!tool)
-      throw new gcprError(HttpStatus.NOT_FOUND, "Assessment tool not found");
-
-    const updateData = {};
-    if (data.isActive !== undefined) updateData.isActive = data.isActive;
-    if (data.description !== undefined)
-      updateData.description = data.description;
-    if (data.schema !== undefined) updateData.schema = data.schema;
-
-    return prisma.assessmentTool.update({
-      where: { id: toolId },
-      data: updateData,
-      include: { professions: true },
-    });
-  }
+  // Legacy AssessmentTool CRUD removed with the dead tables (Group 5).
+  // Tool authoring lives in modules/assessment/definitions.
 }
 
 export default AdminService;

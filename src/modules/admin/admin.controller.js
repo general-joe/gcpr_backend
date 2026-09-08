@@ -125,38 +125,9 @@ class AdminController {
     );
   });
 
-  // Assessment Tools
-  static listAssessmentTools = catchAsync(async (req, res) => {
-    const result = await AdminService.listAssessmentTools(req.query);
-    UtilFunctions.outputSuccess(
-      res,
-      result,
-      "Assessment tools retrieved successfully",
-    );
-  });
-
-  static createAssessmentTool = catchAsync(async (req, res) => {
-    const result = await AdminService.createAssessmentTool(
-      req.validatedData ?? req.body,
-    );
-    UtilFunctions.outputSuccess(
-      res,
-      result,
-      "Assessment tool created successfully",
-    );
-  });
-
-  static updateAssessmentTool = catchAsync(async (req, res) => {
-    const result = await AdminService.updateAssessmentTool(
-      req.params.id,
-      req.validatedData ?? req.body,
-    );
-    UtilFunctions.outputSuccess(
-      res,
-      result,
-      "Assessment tool updated successfully",
-    );
-  });
+  // Assessment tool authoring moved to modules/assessment/definitions
+  // (mounted at /admin/assessment-tools). Legacy handlers removed with the
+  // dead AssessmentTool tables (Group 5).
 
   // Provider Verification Management
   static updateProviderVerification = catchAsync(async (req, res) => {

@@ -1,5 +1,6 @@
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
+import gcprError from "../../utils/http-error.js";
 import UtilFunctions from "../../utils/UtilFunctions.js";
 import UploadService from "../../utils/uploadService.js";
 import constants from "../../utils/constants.js";

@@ -159,22 +159,31 @@ class AuthController {
       timestamp: new Date().toISOString(),
     });
 
-    const authUrl = GoogleService.generateAuthUrl();
+    const state = GoogleService.generateAuthState();
+    const codeVerifier = GoogleService.generateCodeVerifier();
+    const authUrl = GoogleService.generateAuthUrl({
+      state,
+      codeChallenge: GoogleService.buildCodeChallenge(codeVerifier),
+    });
 
     WRITE.info("Google OAuth URL generated", {
       requestId,
       timestamp: new Date().toISOString(),
     });
 
+    // The client stores `state` + `codeVerifier` and returns them on the
+    // callback for CSRF (state) and PKCE (verifier) verification.
     return UtilFunctions.outputSuccess(res, {
       message: "Google OAuth URL generated",
       authUrl,
+      state,
+      codeVerifier,
     });
   });
 
   static googleCallback = catchAsync(async (req, res) => {
     const requestId = `REQ-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const { code } = req.query;
+    const { code, state, codeVerifier } = req.query;
 
     if (!code) {
       throw new Error("Authorization code is required");
@@ -185,7 +194,7 @@ class AuthController {
       timestamp: new Date().toISOString(),
     });
 
-    const result = await GoogleService.handleGoogleCallback(code);
+    const result = await GoogleService.handleGoogleCallback(code, { state, codeVerifier });
 
     WRITE.info("Google OAuth callback completed successfully", {
       requestId,

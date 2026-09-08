@@ -1,5 +1,6 @@
 import prisma from "../../config/database.js";
 import HttpStatus from "../../utils/http-status.js";
+import gcprError from "../../utils/http-error.js";
 
 class EnrollmentService {
   static async enrollPatient(user, data) {

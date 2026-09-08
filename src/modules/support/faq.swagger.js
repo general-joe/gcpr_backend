@@ -1,18 +1,9 @@
 /**
  * @swagger
- * tags:
- *   - name: FAQ
- *     description: Public and authenticated FAQ access
- *   - name: Admin FAQ
- *     description: Admin management of FAQ content and categories
- */
-
-/**
- * @swagger
  * /faq/search:
  *   get:
  *     summary: Search published FAQs
- *     tags: [FAQ]
+ *     tags: [Ongoing Platform]
  *     parameters:
  *       - in: query
  *         name: q
@@ -29,7 +20,7 @@
  * /faq/categories:
  *   get:
  *     summary: List active FAQ categories
- *     tags: [FAQ]
+ *     tags: [Ongoing Platform]
  *     responses:
  *       200:
  *         description: FAQ categories retrieved
@@ -40,7 +31,7 @@
  * /faq:
  *   get:
  *     summary: List published FAQs grouped by category
- *     tags: [FAQ]
+ *     tags: [Ongoing Platform]
  *     parameters:
  *       - in: query
  *         name: tag
@@ -60,7 +51,7 @@
  * /faq/{id}:
  *   get:
  *     summary: Get FAQ details by ID
- *     tags: [FAQ]
+ *     tags: [Ongoing Platform]
  *     parameters:
  *       - in: path
  *         name: id
@@ -77,7 +68,7 @@
  * /faq/{id}/helpful:
  *   post:
  *     summary: Mark FAQ as helpful (authenticated users only)
- *     tags: [FAQ]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -96,7 +87,7 @@
  * /admin/faq:
  *   get:
  *     summary: List FAQs for admin management
- *     tags: [Admin FAQ]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -121,7 +112,7 @@
  *         description: FAQs retrieved
  *   post:
  *     summary: Create FAQ
- *     tags: [Admin FAQ]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -158,7 +149,7 @@
  * /admin/faq/{id}:
  *   patch:
  *     summary: Update FAQ
- *     tags: [Admin FAQ]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -194,7 +185,7 @@
  *         description: FAQ updated
  *   delete:
  *     summary: Delete FAQ
- *     tags: [Admin FAQ]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -213,7 +204,7 @@
  * /admin/faq/{id}/publish:
  *   post:
  *     summary: Publish FAQ
- *     tags: [Admin FAQ]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -232,7 +223,7 @@
  * /admin/faq/{id}/unpublish:
  *   post:
  *     summary: Unpublish FAQ
- *     tags: [Admin FAQ]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -251,7 +242,7 @@
  * /admin/faq/categories:
  *   post:
  *     summary: Create FAQ category
- *     tags: [Admin FAQ]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -278,7 +269,7 @@
  * /admin/faq/categories/{id}:
  *   patch:
  *     summary: Update FAQ category
- *     tags: [Admin FAQ]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -306,7 +297,7 @@
  *         description: Category updated
  *   delete:
  *     summary: Delete FAQ category
- *     tags: [Admin FAQ]
+ *     tags: [Admin & RBAC]
  *     security:
  *       - bearerAuth: []
  *     parameters:

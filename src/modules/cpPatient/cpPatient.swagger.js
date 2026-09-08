@@ -2,8 +2,8 @@
  * @swagger
  * /cp-patient:
  *   post:
- *     summary: Create a CP patient
- *     tags: [CP Patient]
+ *     summary: Create a CP patient (sole enrollment path; auto-creates the ACTIVE enrollment record)
+ *     tags: [Patient Enrollment]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -51,7 +51,7 @@
  *         description: Forbidden (CAREGIVER only)
  *   get:
  *     summary: Get CP patients for authenticated caregiver
- *     tags: [CP Patient]
+ *     tags: [Patient Enrollment]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -67,7 +67,7 @@
  * /cp-patient/{patientId}/timeline:
  *   get:
  *     summary: Get full patient timeline
- *     tags: [CP Patient]
+ *     tags: [Patient Enrollment]
  *     security:
  *       - bearerAuth: []
  *     description: |
@@ -132,7 +132,7 @@
  * /cp-patient/{patientId}/assigned-tasks:
  *   get:
  *     summary: Get assigned rehabilitation tasks for a CP patient
- *     tags: [CP Patient]
+ *     tags: [Patient Enrollment]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -232,7 +232,7 @@
  * /cp-patient/{patientId}/assigned-tasks/{taskId}/days/done:
  *   patch:
  *     summary: Mark a task as done for a specific day
- *     tags: [CP Patient]
+ *     tags: [Patient Enrollment]
  *     security:
  *       - bearerAuth: []
  *     parameters:

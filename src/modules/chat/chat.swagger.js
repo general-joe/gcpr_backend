@@ -1,13 +1,9 @@
 /**
  * @swagger
- * tags:
- *   name: Chat
- *   description: AI-powered caregiver chatbot — session and messaging endpoints
- *
  * /chat/quick:
  *   post:
  *     summary: Create a session and send the first message in one request
- *     tags: [Chat]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -42,7 +38,7 @@
  * /chat/sessions:
  *   post:
  *     summary: Create a new empty chat session
- *     tags: [Chat]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -61,7 +57,7 @@
  *         description: Unauthorized
  *   get:
  *     summary: List the current user's chat sessions
- *     tags: [Chat]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -106,7 +102,7 @@
  * /chat/sessions/{sessionId}:
  *   get:
  *     summary: Get metadata for a single chat session
- *     tags: [Chat]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -135,7 +131,7 @@
  *         description: Session not found
  *   delete:
  *     summary: Delete a chat session and all its messages
- *     tags: [Chat]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -157,7 +153,7 @@
  * /chat/sessions/{sessionId}/messages:
  *   get:
  *     summary: Get paginated message history for a session
- *     tags: [Chat]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -209,7 +205,7 @@
  *         description: Session not found
  *   post:
  *     summary: Send a message in an existing chat session
- *     tags: [Chat]
+ *     tags: [Ongoing Platform]
  *     security:
  *       - bearerAuth: []
  *     parameters:
