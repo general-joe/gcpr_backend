@@ -32,8 +32,25 @@ describe("Group 2 — Security P0s", () => {
   });
 
   it("Google OAuth generateAuthUrl supports state + PKCE", () => {
-    const url = GoogleService.generateAuthUrl({ state: "test-state-123" });
-    assert.match(url, /[?&]state=test-state-123/, "state not in auth URL");
+    // URL generation needs no real Google project: stub the three env vars
+    // so this passes identically in CI (no .env) and locally.
+    const saved = {
+      GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+      GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+      GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI,
+    };
+    process.env.GOOGLE_CLIENT_ID ??= "test-client-id";
+    process.env.GOOGLE_CLIENT_SECRET ??= "test-client-secret";
+    process.env.GOOGLE_REDIRECT_URI ??= "http://localhost:3001/auth/google/callback";
+    try {
+      const url = GoogleService.generateAuthUrl({ state: "test-state-123" });
+      assert.match(url, /[?&]state=test-state-123/, "state not in auth URL");
+    } finally {
+      for (const [key, value] of Object.entries(saved)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
     const src = readSrc("src/modules/auth/google.service.js");
     assert.match(src, /code_challenge|codeVerifier/, "no PKCE support");
     assert.match(src, /state/, "no state handling in service");
