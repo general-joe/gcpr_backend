@@ -53,6 +53,39 @@ describe("Group 5 — Tool engine", () => {
     assert.ok(bad.issues.some((i) => i.fieldKey === "speechClarity"));
   });
 
+  it("accepts single values for multi-choice fields (legacy CHECKBOX behavior)", () => {
+    const snap = {
+      sections: [
+        {
+          code: "S",
+          title: "S",
+          order: 0,
+          fields: [
+            {
+              fieldKey: "visualAcuity",
+              order: 0,
+              label: "Visual Acuity",
+              fieldType: "MULTI_CHOICE",
+              options: [
+                { value: "Normal", label: "Normal" },
+                { value: "Visual Field Deficit", label: "Visual Field Deficit" },
+              ],
+              validation: { required: false, allowedValues: ["Normal", "Visual Field Deficit"] },
+              scoringWeight: null,
+            },
+          ],
+        },
+      ],
+    };
+    const single = validateSnapshotResponses(snap, { visualAcuity: "Normal" });
+    assert.equal(single.valid, true);
+    assert.deepEqual(single.coerced.visualAcuity, ["Normal"]);
+    const multi = validateSnapshotResponses(snap, { visualAcuity: ["Normal", "Visual Field Deficit"] });
+    assert.equal(multi.valid, true);
+    const bad = validateSnapshotResponses(snap, { visualAcuity: "Superb" });
+    assert.equal(bad.valid, false);
+  });
+
   it("scores SUM/WEIGHTED_SUM from option scores x weights as data", () => {
     const snap = {
       sections: [

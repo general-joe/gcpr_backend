@@ -208,12 +208,18 @@ const checkFieldValue = (field, rawValue) => {
       break;
     }
     case "MULTI_CHOICE": {
-      if (!Array.isArray(value)) fail("Must be a list of choices");
-      else if (allowed) {
-        const bad = value.filter((entry) => !allowed.includes(entry));
-        if (bad.length > 0) fail(`Invalid choice(s): ${bad.join(", ")}`);
+      // Legacy CHECKBOX items were historically submitted as single values
+      // (the old backend never validated), and scorers duck-type them, so
+      // accept a scalar and normalize it to a single-entry list.
+      const list = Array.isArray(value) ? value : [value];
+      if (allowed) {
+        const bad = list.filter((entry) => !allowed.includes(entry));
+        if (bad.length > 0) {
+          fail(`Invalid choice(s): ${bad.join(", ")}`);
+          break;
+        }
       }
-      break;
+      return { issues, value: list };
     }
     case "SINGLE_CHOICE": {
       if (typeof value !== "string" && typeof value !== "number") fail("Must be a single choice");
