@@ -9,6 +9,7 @@ import { generateReferralRecommendations } from "../../services/assessment/refer
 import { TOOL_CLASSIFICATION_SCALES } from "../../services/assessment/classificationPolicy.js";
 import FunctionalClassificationService from "../functionalClassification/functionalClassification.service.js";
 import HttpStatus from "../../utils/http-status.js";
+import gcprError from "../../utils/http-error.js";
 import { hasRbacRole } from "../../middlewares/auth.js";
 import auditService from "../../services/audit/audit.service.js";
 import {
@@ -101,13 +102,17 @@ const GMFM_DIMENSIONS = [
 const EXTRA_GMFM_KEYS_ALLOWED = new Set([
   "isRegularPerformance",
   "clinicalNotesComment",
+  // FieldKey rendered by GET /assessment/tools/GMFM_88/form (clinical_notes
+  // section in toolSchema.js). Submissions following the form schema send
+  // this inside `responses`; it must not trip the strict GMFM validator.
+  "clinicalNotes",
   "clinical_notes_is_regular_performance",
   "clinical_notes_comment",
 ]);
 
 const VALID_GMFM_VALUES = new Set([0, 1, 2, 3, "NT"]);
 
-const validateGMFMResponses = (responses) => {
+const validateGMFMResponses = (responses, extraAllowedKeys = null) => {
   const expectedKeys = new Set();
 
   GMFM_DIMENSIONS.forEach(({ code, start, end }) => {
@@ -145,7 +150,10 @@ const validateGMFMResponses = (responses) => {
   });
 
   const unknownKeys = Object.keys(responses).filter(
-    (key) => !expectedKeys.has(key) && !EXTRA_GMFM_KEYS_ALLOWED.has(key),
+    (key) =>
+      !expectedKeys.has(key) &&
+      !EXTRA_GMFM_KEYS_ALLOWED.has(key) &&
+      !(extraAllowedKeys instanceof Set && extraAllowedKeys.has(key)),
   );
 
   if (missingKeys.length || invalidValues.length || unknownKeys.length) {
@@ -157,12 +165,15 @@ const validateGMFMResponses = (responses) => {
       parts.push(`invalid values (${invalidValues.length})`);
     }
     if (unknownKeys.length) {
-      parts.push(`unknown items (${unknownKeys.length})`);
+      parts.push(
+        `unknown items (${unknownKeys.length}): ${unknownKeys.slice(0, 10).join(", ")}`,
+      );
     }
 
     throw new gcprError(
       HttpStatus.UNPROCESSABLE_ENTITY,
       `Invalid GMFM-88 response payload: ${parts.join(", ")}`,
+      { details: { missingKeys, invalidValues, unknownKeys } },
     );
   }
 };
@@ -427,7 +438,16 @@ class AssessmentService {
       );
     }
     if (normalizedToolCode === "GMFM_88") {
-      validateGMFMResponses(responses);
+      // Accept any optional non-item field declared in the published
+      // snapshot (e.g. the clinical_notes section) so the form schema and
+      // the strict GMFM validator can never disagree again.
+      const snapshotKeys = new Set();
+      for (const section of version.snapshot?.sections ?? []) {
+        for (const field of section.fields ?? []) {
+          if (field?.fieldKey) snapshotKeys.add(field.fieldKey);
+        }
+      }
+      validateGMFMResponses(responses, snapshotKeys);
     }
 
     const allowedProfessions = version.allowedProfessions ?? [];
