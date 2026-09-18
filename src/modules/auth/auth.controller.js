@@ -53,6 +53,8 @@ class AuthController {
     });
 
     const result = await AuthService.verifyOtp(identifier, otp);
+    //termporal fix for otp not showing
+    console.log("result", result);
 
     WRITE.info("POST /verify-otp completed successfully", {
       requestId,
